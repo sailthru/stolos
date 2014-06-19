@@ -7,4 +7,4 @@ nosetests \
 from os.path import dirname ;
 import scheduler ;
 print(dirname(scheduler.__file__))'
-`/tests
+`/tests $@
