@@ -162,46 +162,73 @@ this scheduler.
 Concept: Job IDs
 ==============
 
-The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
-(`TaskA_1`, `TaskA_2`, ...).  A `job_id` identifies subtasks, and it is
-made up of "identifiers" that we mash together into a job_id template.
+*For details on how to use and configure `job_id`s, see the section, "Job
+ID Configuration"*  # TODO
 
-Some example job_ids and their corresponding template might look like
+The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
+(`TaskA_1`, `TaskA_2`, ...).  A task represents a group of similar
+`job_id`s.  A `job_id` identifies subtasks, and it is made up of
+"identifiers" that we mash together into a `job_id` template.
+
+
+Some example `job_id`s and their corresponding template might look like
 the example below:
 
     "20140614_client1_dataset1"  <------>  "{date}_{client_id}_{dataset}"
     "20140601_analysis1"  <------>  "{date}_{your_custom_identifier}"
 
 
-A job_id represents the smallest piece of work the scheduler can
-recognize, and good choices in job_id structure identify how work is
-changing from task to task.  For instance, assume the second job_id
-above, 20140601_analysis1, depends on all job_ids from 20140601 that
+A `job_id` represents the smallest piece of work the scheduler can
+recognize, and good choices in `job_id` structure identify how work is
+changing from task to task.  For instance, assume the second `job_id`
+above, `20140601_analysis1`, depends on all `job_id`s from 20140601 that
 matched a specific subset of clients and datasets.  We chose to identify
 this subset of clients and datasets with the name "analysis1."  But our
-job_id also includes a date because we wish to run analysis1 on
-different days.  Note how the choice of job_id clarifies what the first
+`job_id` also includes a date because we wish to run analysis1 on
+different days.  Note how the choice of `job_id` clarifies what the first
 and second tasks have in common.
 
-Here's some general advice for choosing a job_id template:
+Here's some general advice for choosing a `job_id` template:
 
   - What results does this task generate?  The words that differentiate
-    those results are great candidates for identifers in a job_id.
+    those results are great candidates for identifers in a `job_id`.
   - What parameters does this task expect?  The command-line arguments
-    to a piece of code can be great job_id identiers.
+    to a piece of code can be great `job_id` identiers.
   - How many different variations of this task exist?
   - How do I expect to use this task in my system?
   - How complex is my data pipeline?  Do I have any branches in my
     dependency tree?  If you have a very simple pipeline, you may simply
-    wish to have all job_ids be the same across subtasks.
+    wish to have all `job_id`s be the same across subtasks.
 
 
-Configuration
+Configuration: Job IDs
+==============
+
+This section explains what configuration for `job_id`s must exist.
+
+These environment variables must be set and available to scheduler code:
+
+    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
+    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+
+- `JOB_ID_VALIDATIONS` points to a python module containing code to
+  verify the identifiers in a `job_id` are correct.
+  - See `scheduler/examples/job_id_validations.py` for the expected
+    code structure  # TODO link
+- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for a task if the
+  `job_id` template isn't explicitly defined in the tasks.json.
+
+In addition to these defaults, a task in the tasks.json configuration
+may also contain a job_id template.  See "Configuration: Tasks" for
+details.  # TODO
+
+
+Configuration: Tasks
 ==============
 
 A JSON file defines the task dependency graph and all related
 configuration metadata. This section will show available configuration
-options.
+options.  For instructions on how to use this file, see section TODO!!!!
 
 Here is a minimum viable configuration for a task (api subject to
 change):
@@ -296,42 +323,94 @@ This configuration demonstrates how multiple `TaskA_i` reduce to
 There are other variations of configuration options.  For a complete
 list of options, refer to the following table:
 
-- *root* - (optional) Label this (optional)de as a root (optional)de (meaning it has (optional) parents)
-- *valid_if_or* - (optional) Criteria that job_ids are matched against.  If a job_id for a task does (optional)t match the given valid_if_or criteria, then the task is immediately marked as "completed"
-- *depends_on* - (optional) A specification of all parent job_ids and tasks, if any.
-- *job_type* - (required) Select how to execute the following task's code.  The job_type choice also adds other configuration options 
+- *`root`* - (optional) Label this (optional)de as a root (optional)de
+  (meaning it has (optional) parents)
+- *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
+  If a `job_id` for a task does (optional)t match the given
+  `valid_if_or` criteria, then the task is immediately marked as
+  "completed"
+- *`depends_on`* - (optional) A specification of all parent `job_id`s and
+  tasks, if any.
+- *`job_id`* - (optional) A template describing what identifiers compose
+  the `job_id`s.
+- *`job_type`* - (required) Select how to execute the following task's
+  code.  The `job_type` choice also adds other configuration options
 
 
-Usage:
-==============
-
-See scheduler/examples/
-Job Types:
+Configuration: Job Types
 ==============
 
 The `job_type` specifier in the config defines how your application code
 should run.  For example, should your code be treated as a bash job (and
-executed in its own shell), or should it be a python spark job that
-receives elements of a stream or a textFile instance?  The following
-table defines different job_type options available:
+executed in its own shell), or should it be an Apache Spark (python) job
+that receives elements of a stream or a textFile instance?  The
+following table defines different `job_type` options available.  Each
+`job_type` has its own set of configuration options, and these are
+available at the commandline and probably in the tasks.json file.
 
-# TODO: table
-job_type="bash"
-    --bash_options
-    --????
-job_type="spark"
-    --map
-    --mapJson
-    --textFile
-    --read_fp
-    --read_s3_key
-    --read_s3_bucket
-    --write_fp
-    --write_s3_bucket
+ - job_type="bash"
+    - bash_options
+    - ????
+ - job_type="spark"
+    - map
+    - mapJson
+    - textFile
+    - read_fp
+    - read_s3_key
+    - read_s3_bucket
+    - write_fp
+    - write_s3_bucket
+    - ???
 
 You can easily extend this system to support your own custom
-applications and functionality by specifying a job_type.  See THIS LINK
-for details.
+applications and functionality by specifying a `job_type`.  As an example,
+see the files in THIS GITHUB DIRECTORY for details.  # TODO
+
+
+Setup:
+==============
+
+# TODO: pip install scheduler
+
+
+This section explains how to use this scheduler
+
+The first time only, you need to create some basic environment vars and
+files:
+
+    export TASKS_JSON="/path/to/a/file/called/tasks.json"
+    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
+    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+
+- `TASKS_JSON` is the filepath to the json file explained in the
+"Configuration" section.  This file describes tasks, their dependencies
+and some other basic metadata about how to execute them.
+TODO: move this into another section
+
+- **See scheduler/examples/ for details.**
+- **See scheduler/bin/testme for example environment var configuration.**
+
+After this initial setup, you will need to create a task and register
+it.  This takes the form of these steps:
+
+1. Create some application that can be called through bash or initiated
+   as a spark job
+1. Create an entry for it in the tasks.json
+1. Submit a `job_id` for this task
+1. Run the task.
+
+- **See scheduler/examples/tasks/minimal_viable_example.py for details
+  on how to perform these simple steps.**
 
 # TODO: insertlink above
 # TODO: continyue the readme and decide on sections
+
+Roadmap:
+===============
+
+Here are some improvements we are planning for in the near future:
+
+- A web UI for creating, viewing and managing tasks and task dependencies
+  - Ability to create multiple dependency groups
+  - Interactive dependency graph
+- Integration with Apache Marathon
