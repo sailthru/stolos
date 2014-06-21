@@ -305,6 +305,71 @@ Secondly, if the system supports a "Bubble Up" approach, we can simply
 pick and run any task in a dependency graph and expect that it will execute as soon as possible to do so.
 
 
+Setup:
+==============
+
+The first thing you'll want to do is install this:
+
+    pip install scheduler  # TODO
+
+
+The first time only, you need to create some basic environment vars.
+**See scheduler/conf/scheduler-env for example environment var
+configuration.**  # TODO link
+
+    export TASKS_JSON="/path/to/a/file/called/tasks.json"
+    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
+    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+
+
+You also need to create some files at the locations you just mentioned:
+
+- `TASKS_JSON` is the filepath to the json file explained in the
+"Configuration" section.  This file describes tasks, their dependencies
+and some other basic metadata about how to execute them.
+
+    - **See scheduler/examples/tasks.json**  # TODO link
+
+- the job_id_validations python module should look like this:
+    - **See scheduler/examples/job_id_validations.py**  # TODO link
+
+After this initial setup, you will need to create a task and register
+it.  This takes the form of these steps:
+
+1. Create some application that can be called through bash or initiated
+   as a spark job
+1. Create an entry for it in the tasks.json
+1. Submit a `job_id` for this task
+1. Run the task.
+
+- **See scheduler/examples/tasks/minimal_viable_example.py for details
+  on how to perform these simple steps for a spark job.**
+- A bash job doesn't need any application code to run, as long as that
+  code is available from command-line
+
+A fully working example exists in **scheduler/examples/**  # TODO link
+
+
+Usage:
+==============
+
+In order to run a job, you have to queue it and then execute it.
+
+
+You can read from the application's queue and execute code via:
+
+
+    ./bin/scheduler --app_name test_scheduler/test_minimal -h
+
+    ./bin/scheduler --app_name test_scheduler/test_bashworker2 -h
+
+
+This is how you can manually queue a job:
+
+
+    ./bin/scheduler-submit -h
+
+
 Configuration: Job IDs
 ==============
 
@@ -503,70 +568,6 @@ available at the commandline and (probably) in the tasks.json file.
 You can easily extend this system to support your own custom
 applications and functionality by specifying a `job_type`.  As an example,
 see the files in THIS GITHUB DIRECTORY for details.  # TODO
-
-
-Setup:
-==============
-
-The first thing you'll want to do is install this:
-
-    pip install scheduler  # TODO
-
-
-The first time only, you need to create some basic environment vars:
-
-    export TASKS_JSON="/path/to/a/file/called/tasks.json"
-    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
-    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
-
-You also need to create some files at the locations you just mentioned:
-
-- `TASKS_JSON` is the filepath to the json file explained in the
-"Configuration" section.  This file describes tasks, their dependencies
-and some other basic metadata about how to execute them.
-TODO: link
-- the job_id_validations python module should look like this:
-    - See scheduler/examples/job_id_validations.py  # TODO link
-
-- **See scheduler/examples/**  # TODO link
-- **See scheduler/conf/scheduler-env for example environment var
-  configuration.**  # TODO link
-
-After this initial setup, you will need to create a task and register
-it.  This takes the form of these steps:
-
-1. Create some application that can be called through bash or initiated
-   as a spark job
-1. Create an entry for it in the tasks.json
-1. Submit a `job_id` for this task
-1. Run the task.
-
-- **See scheduler/examples/tasks/minimal_viable_example.py for details
-  on how to perform these simple steps for a spark job.**
-- A bash job doesn't need any application code to run, as long as that
-  code is available from command-line
-
-TODO: insertlink above
-
-Usage:
-==============
-
-In order to run a job, you have to queue it and then execute it.
-
-
-You can read from the application's queue and execute code via:
-
-
-    ./bin/scheduler --app_name test_scheduler/test_minimal -h
-
-    ./bin/scheduler --app_name test_scheduler/test_bashworker2 -h
-
-
-This is how you can manually queue a job:
-
-
-    ./bin/scheduler-submit -h
-
 
 
 Roadmap:
