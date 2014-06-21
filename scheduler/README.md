@@ -1,16 +1,18 @@
 Summary:
 ==============
 
-This task scheduler manages the execution of tasks where some tasks may
-depend on prior completion of other tasks.  It has the following
-features:
+You have some application code that needs to be run.  Either you're
+running many variations of the same application, or you're running the
+same code on a repeating schedule.   This task scheduler manages the
+execution time of tasks where some tasks may depend on prior completion
+of other tasks.  It has the following features:
 
   - very simple to use (create an issue if it isn't!)
-  - simultaneous and fault tolerant execution of tasks (via ZooKeeper)
-  - characterize dependencies in a directed acyclic multi-graph
-  - support for subtasks and dependencies on arbitrary subsets of
-    subtasks
-  - language agnostic
+  - excellent fault tolerance (via ZooKeeper)
+  - as scalable as ZooKeeper (<100k simultaneous subtasks)
+  - characterize dependencies as a directed acyclic multi-graph
+  - support for subtasks and dependencies on arbitrary subsets of tasks
+  - language agnostic (but written in Python)
   - "at least once" semantics (a guarantee that a task will successfully
     complete or fail after n retries)
   - designed for tasks of various sizes: from large hadoop tasks to
@@ -39,8 +41,7 @@ Background: Inspiration
 
 The inspiration for this project comes from the notion that the way we
 manage dependencies in our system defines how we characterize the work
-that exists in our
-system.
+that exists in our system.
 
 Sailthru's Data Science team has a complex data pipeline and set of
 requirements.  We have to build models, algorithms and data pipelines
@@ -82,9 +83,9 @@ We start with an assumption that tasks depend on each other:
                                           Task_E
 
 
-In Scenario 1, `Task_B` cannot run until `Task_A` completes In Scenario
-2, `Task_B` and `Task_C` cannot run until `Task_A` completes, but
-`Task_B` and `Task_C` can run in any order.  Also, `Task_D` requires
+In Scenario 1, `Task_B` cannot run until `Task_A` completes.  In
+Scenario 2, `Task_B` and `Task_C` cannot run until `Task_A` completes,
+but `Task_B` and `Task_C` can run in any order.  Also, `Task_D` requires
 `Task_C` to complete, but doesn't care if `Task_B` has run yet.
 `Task_E` requires `Task_D` and `Task_B` to have completed.
 
@@ -155,8 +156,8 @@ on `Task_A2`'s completion.  In this case, we create n dependency graphs.
 
 As we have just seen, dependencies can be modeled as directed acyclic
 multi-graphs.  (acyclic means no cycles - ie no loops.  multi-graph
-means a it contains many separate graphs).  Scenario 2 is the default in
-this scheduler.
+means a it contains many separate graphs).  Situation 2 is the default in
+this scheduler (`Task_Bi` depends only on `Task_Ai`).
 
 
 Concept: Job IDs
@@ -201,6 +202,95 @@ Here's some general advice for choosing a `job_id` template:
     wish to have all `job_id`s be the same across subtasks.
 
 
+Concept: Bubble Up and Bubble Down
+==============
+
+"Bubble Up" and "Bubble Down" refer to the direction in which work and
+task state move through the dependency graph.
+
+Recall Scenario 1, which defines two tasks.  `Task_B` depends on
+`Task_A`.  The following picture is a dependency tree:
+
+           Scenario 1:
+
+              Task_A
+                |
+                v
+              Task_B
+
+"Bubble Down"
+--------------
+
+By analogy, the "Bubble Down" approach is like "pushing" work through a
+pipe.
+
+Assume that `Task_A` and `Task_B` each had their own `job_id` queue.  A
+`job_id`, `job_id_123` is submitted to `Task_A`'s queue, some worker
+fetches that task, completes required work, and then marks the
+`(Task_A, job_id_123)` pair as completed.
+
+The "Bubble Down" process happens when, just before `(Task_A,
+job_id_123)` is marked complete, we queue `(Task_B, f(job_id_123))`
+where `f()` is a magic function that translates `Task_A`'s `job_id` to
+the equivalent `job_id` for `Task_B`.
+
+In other words, the completion of `Task_A` work triggers the completion
+of `Task_B` work.  A more semantically correct version is the following:
+the completion of `(Task_A, job_id_123)` depends on the successful
+execution of `Task_A` code and then successfully queuing some Task_B work.
+
+
+"Bubble Up"
+--------------
+
+The "Bubble Up" approach is the concept of "pulling" work through a
+pipe.
+
+In contrast to "Bubble Down", where we executed `Task_A` first, "Bubble
+Up" executes `Task_B` first.  "Bubble Up" is a process of starting at
+some child (or descendant task), queuing the furthest uncompleted and
+unqueued ancestors, and removing the child from the queue.  When those
+ancestors complete, expect that they will "Bubble Down" and re-queue the
+original child task.
+
+For instance, we can attempt to execute `(Task_B, job_id_B)` first.
+When `(Task_B, job_id_B)` runs, it checks to see if its parent,
+`(Task_A, g(job_id_B))` has completed.  Since `(Task_A, g(job_id_B))`
+has not completed, it queues this job and then removes `job_id_B` from
+the `Task_B` queue.  Finally, `Task_A` executes and via "Bubble Down",
+`Task_B` also completes.
+
+
+Magic functions f() and g()
+--------------
+
+Note that `g()`, mentioned in the "Bubble Up" subsection, is the inverse
+of `f()`, mentioned in the "Bubble Down" subsection.  If `f()` is a magic
+function that translates `Task_A`'s `job_id` to `Task_B`'s `job_id`,
+then `g()` is a similar magic function that transforms a `TaskB` `job_id`
+to an equivalent one for `TaskA`.  In reality, `g()` and `f()` receive one
+`job_id` as input and return at least one `job_id` as output.
+
+
+Why perform a "Bubble Up" operation at all?
+--------------
+
+In a purely "Bubble Down" system, executing `Task_B` first means we
+would have to wait indefinitely until `Task_A` successfully completed
+and submitted a `job_id` to the queue.  This can pose many problems: we
+don't know if `Task_A` will ever run, so we sit and wait; waiting
+processes take up resources and become non-deterministic (we have no
+idea if the process will hang indefinitely); we can create locking
+scenarios where there aren't enough resources to execute `Task_A`;
+`Task_B`'s queue size can become excessively high; we suddenly need a
+queue prioritization scheme and other complex algorithms to manage
+scaling and resource contention.
+
+Secondly, if the system supports a "Bubble Up" approach, we can simply
+pick any task in a dependency graph and expect that it will execute as
+soon as possible to do so.
+
+
 Configuration: Job IDs
 ==============
 
@@ -219,7 +309,7 @@ These environment variables must be set and available to scheduler code:
   `job_id` template isn't explicitly defined in the tasks.json.
 
 In addition to these defaults, a task in the tasks.json configuration
-may also contain a job_id template.  See "Configuration: Tasks" for
+may also contain a `job_id` template.  See "Configuration: Tasks" for
 details.  # TODO
 
 
@@ -404,6 +494,27 @@ it.  This takes the form of these steps:
 
 # TODO: insertlink above
 # TODO: continyue the readme and decide on sections
+
+Usage:
+==============
+
+In order to run a job, you have to queue it and then execute it:
+
+
+You can read from the application's queue and execute code:
+
+
+    ./bin/scheduler --app_name test_scheduler/test_minimal -h
+
+    ./bin/scheduler --app_name test_scheduler/test_bashworker2 -h
+
+
+This is how to manually queue a job:
+
+
+    ./bin/scheduler-submit -h
+
+
 
 Roadmap:
 ===============
