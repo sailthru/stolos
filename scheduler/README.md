@@ -2,10 +2,10 @@ Summary:
 ==============
 
 You have some application code that needs to be run.  Either you're
-running many variations of the same application, or you're running the
-same code on a repeating schedule.   This task scheduler manages the
-execution time of tasks where some tasks may depend on prior completion
-of other tasks.  It has the following features:
+running many variations of the same application, or you're running
+the same code on a repeating schedule.   This task scheduler manages
+the order of execution of tasks where some tasks may depend on prior
+completion of other tasks.  It has the following features:
 
   - very simple to use (create an issue if it isn't!)
   - excellent fault tolerance (via ZooKeeper)
@@ -150,14 +150,15 @@ dependency graph for each `Task_Bi`.  See below:
 
 
 In Situation 2, each subtask, `Task_Bi`, depends only on completion of
-its related subtask in `Task_A`, or `Task_Ai`.  For instance, `Task_B1`
-depends on completion of `Task_A1`, but it doesn't have any dependency
-on `Task_A2`'s completion.  In this case, we create n dependency graphs.
+its related subtask in `Task_A`, or `Task_Ai`.  For instance,
+`Task_B1` depends on completion of `Task_A1`, but it doesn't have any
+dependency on `Task_A2`'s completion.  In this case, we create n
+dependency graphs, as shown in Scenario 1, Situation II.
 
 As we have just seen, dependencies can be modeled as directed acyclic
 multi-graphs.  (acyclic means no cycles - ie no loops.  multi-graph
-means a it contains many separate graphs).  Situation 2 is the default in
-this scheduler (`Task_Bi` depends only on `Task_Ai`).
+means a it contains many separate graphs).  Situation 2 is the
+default in this scheduler (`Task_Bi` depends only on `Task_Ai`).
 
 
 Concept: Job IDs
@@ -169,7 +170,7 @@ ID Configuration"*  # TODO
 The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
 (`TaskA_1`, `TaskA_2`, ...).  A task represents a group of similar
 `job_id`s.  A `job_id` identifies subtasks, and it is made up of
-"identifiers" that we mash together into a `job_id` template.
+"identifiers" that we mash together via a `job_id` template.
 
 
 Some example `job_id`s and their corresponding template might look like
@@ -182,12 +183,12 @@ the example below:
 A `job_id` represents the smallest piece of work the scheduler can
 recognize, and good choices in `job_id` structure identify how work is
 changing from task to task.  For instance, assume the second `job_id`
-above, `20140601_analysis1`, depends on all `job_id`s from 20140601 that
-matched a specific subset of clients and datasets.  We chose to identify
-this subset of clients and datasets with the name "analysis1."  But our
-`job_id` also includes a date because we wish to run analysis1 on
-different days.  Note how the choice of `job_id` clarifies what the first
-and second tasks have in common.
+above, `20140601_analysis1`, depends on all `job_id`s from `20140601`
+that matched a specific subset of clients and datasets.  We chose to
+identify this subset of clients and datasets with the name `analysis1`.
+But our `job_id` template also includes a `date` because we wish to run
+`analysis1` on different days.  Note how the choice of `job_id`
+clarifies what the first and second tasks have in common.
 
 Here's some general advice for choosing a `job_id` template:
 
@@ -199,7 +200,7 @@ Here's some general advice for choosing a `job_id` template:
   - How do I expect to use this task in my system?
   - How complex is my data pipeline?  Do I have any branches in my
     dependency tree?  If you have a very simple pipeline, you may simply
-    wish to have all `job_id`s be the same across subtasks.
+    wish to have all `job_id` templates be the same across tasks.
 
 
 Concept: Bubble Up and Bubble Down
@@ -236,7 +237,7 @@ the equivalent `job_id` for `Task_B`.
 
 In other words, the completion of `Task_A` work triggers the completion
 of `Task_B` work.  A more semantically correct version is the following:
-the completion of `(Task_A, job_id_123)` depends on the successful
+the completion of `(Task_A, job_id_123)` depends on both the successful
 execution of `Task_A` code and then successfully queuing some Task_B work.
 
 
@@ -249,9 +250,9 @@ pipe.
 In contrast to "Bubble Down", where we executed `Task_A` first, "Bubble
 Up" executes `Task_B` first.  "Bubble Up" is a process of starting at
 some child (or descendant task), queuing the furthest uncompleted and
-unqueued ancestors, and removing the child from the queue.  When those
-ancestors complete, expect that they will "Bubble Down" and re-queue the
-original child task.
+unqueued ancestor, and removing the child from the queue.  When
+ancestors complete, they will queue their children via "Bubble Down" and
+re-queue the original child task.
 
 For instance, we can attempt to execute `(Task_B, job_id_B)` first.
 When `(Task_B, job_id_B)` runs, it checks to see if its parent,
@@ -271,6 +272,20 @@ then `g()` is a similar magic function that transforms a `TaskB` `job_id`
 to an equivalent one for `TaskA`.  In reality, `g()` and `f()` receive one
 `job_id` as input and return at least one `job_id` as output.
 
+These two functions can be quite complex:
+
+  - If the parent and child task have the same `job_id` template, then `f()
+    == g()`.  In other words, `f()` and `g()` return the same `job_id`.
+  - If they have different templates, the functions will attempt to use
+    the metadata available from configuration metadata (in tasks.json)
+  - If a parent has many children, `f(parent_job_id)` returns a `job_id`
+    for each child and `g(child_id)` returns at least 1 `job_id` for
+    that parent task.  This may involve calculating the crossproduct of
+    `job_id` identifier metadata listed in dependency configuration for
+    that task.
+    - If a child has many parents, `g` and `f` perform similar
+      operations.
+
 
 Why perform a "Bubble Up" operation at all?
 --------------
@@ -287,8 +302,7 @@ queue prioritization scheme and other complex algorithms to manage
 scaling and resource contention.
 
 Secondly, if the system supports a "Bubble Up" approach, we can simply
-pick any task in a dependency graph and expect that it will execute as
-soon as possible to do so.
+pick and run any task in a dependency graph and expect that it will execute as soon as possible to do so.
 
 
 Configuration: Job IDs
@@ -305,12 +319,19 @@ These environment variables must be set and available to scheduler code:
   verify the identifiers in a `job_id` are correct.
   - See `scheduler/examples/job_id_validations.py` for the expected
     code structure  # TODO link
-- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for a task if the
-  `job_id` template isn't explicitly defined in the tasks.json.
+  - These validations specify exactly which identifiers can be used in
+    job_id templates and what format they take (ie is `date` a datetime
+    instance, an int or string?).
+  - They are optional, but you will see a warning message for each
+    unvalidated `job_id` identifier.
+- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for a task if
+  the `job_id` template isn't explicitly defined in the tasks.json.  You
+  should have `job_id` validation code for each identifier in your default
+  template.
 
-In addition to these defaults, a task in the tasks.json configuration
-may also contain a `job_id` template.  See "Configuration: Tasks" for
-details.  # TODO
+In addition to these defaults, each task in the tasks.json configuration
+may also contain a custom `job_id` template.  See "Configuration: Tasks"
+for details.  # TODO
 
 
 Configuration: Tasks
@@ -318,7 +339,8 @@ Configuration: Tasks
 
 A JSON file defines the task dependency graph and all related
 configuration metadata. This section will show available configuration
-options.  For instructions on how to use this file, see section TODO!!!!
+options.  For instructions on how to use this file, see section Setup
+TODO!!!!
 
 Here is a minimum viable configuration for a task (api subject to
 change):
@@ -361,7 +383,7 @@ And more complex variant of a `TaskA_i` --> `TaskB_i` relationship:
         }
     }
 
-A very complicated dependency graph demonstrating how `TaskA` expands
+A complicated dependency graph demonstrating how `TaskA` expands
 into multiple `TaskB_i`:
 
     {
@@ -409,22 +431,48 @@ This configuration demonstrates how multiple `TaskA_i` reduce to
         }
     }
 
+The furthest level of complexity enables boolean logic.  A task can
+depend on `dependency_group_1` OR another dependency group.  Within a
+dependency group, you can specify that the dependencies come from
+one different set of `job_ids` AND another set.  In this example, note that the value of `dependency_group_1` is a list.  The use of a list specifies AND logic, while the declaration of different dependency groups specifies OR logic.
 
-There are other variations of configuration options.  For a complete
-list of options, refer to the following table:
+            ...
+            "depends_on": {
+                "dependency_group_1": [
+                    {"app_name": ["preprocess"],
+                     "target": ["purchase_revenue", "purchase_quantity"],
+                     "date": [20140601, 20140501, 20140401]
+                    },
+                    {"app_name": ["other_preprocess"],
+                     "target": ["purchase_revenue"],
+                     "date": [20120101, 20130101]
+                    }
+                  ],
+                "group2": {
+                    "app_name": ["preprocess"],
+                    "target": ["number_of_pageviews"],
+                    "date": [20140615]
+                }
+            }
 
-- *`root`* - (optional) Label this (optional)de as a root (optional)de
-  (meaning it has (optional) parents)
-- *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
-  If a `job_id` for a task does (optional)t match the given
-  `valid_if_or` criteria, then the task is immediately marked as
-  "completed"
+
+In other words, the above task depends on completion of one job_id from
+group2 OR the following: completion of six job_ids from the "preprocess"
+task AND completion of a set of 2 job_ids from task, "other_preprocess".
+
+There are other variations and also other configuration options:
+
+- *`job_type`* - (required) Select how to execute the following task's
+  code.  The `job_type` choice also adds other configuration options
 - *`depends_on`* - (optional) A specification of all parent `job_id`s and
   tasks, if any.
 - *`job_id`* - (optional) A template describing what identifiers compose
   the `job_id`s.
-- *`job_type`* - (required) Select how to execute the following task's
-  code.  The `job_type` choice also adds other configuration options
+- *`root`* - (optional) A label the means this task has no parents
+- *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
+  If a `job_id` for a task does (optional)t match the given
+  `valid_if_or` criteria, then the task is immediately marked as
+  "completed"
 
 
 Configuration: Job Types
@@ -436,10 +484,10 @@ executed in its own shell), or should it be an Apache Spark (python) job
 that receives elements of a stream or a textFile instance?  The
 following table defines different `job_type` options available.  Each
 `job_type` has its own set of configuration options, and these are
-available at the commandline and probably in the tasks.json file.
+available at the commandline and (probably) in the tasks.json file.
 
  - job_type="bash"
-    - bash_options
+    - bash_opts
     - ????
  - job_type="spark"
     - map
@@ -460,25 +508,29 @@ see the files in THIS GITHUB DIRECTORY for details.  # TODO
 Setup:
 ==============
 
-# TODO: pip install scheduler
+The first thing you'll want to do is install this:
+
+    pip install scheduler  # TODO
 
 
-This section explains how to use this scheduler
-
-The first time only, you need to create some basic environment vars and
-files:
+The first time only, you need to create some basic environment vars:
 
     export TASKS_JSON="/path/to/a/file/called/tasks.json"
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export JOB_ID_VALIDATIONS="tasks.job_id_validations"
 
+You also need to create some files at the locations you just mentioned:
+
 - `TASKS_JSON` is the filepath to the json file explained in the
 "Configuration" section.  This file describes tasks, their dependencies
 and some other basic metadata about how to execute them.
-TODO: move this into another section
+TODO: link
+- the job_id_validations python module should look like this:
+    - See scheduler/examples/job_id_validations.py  # TODO link
 
-- **See scheduler/examples/ for details.**
-- **See scheduler/bin/testme for example environment var configuration.**
+- **See scheduler/examples/**  # TODO link
+- **See scheduler/conf/scheduler-env for example environment var
+  configuration.**  # TODO link
 
 After this initial setup, you will need to create a task and register
 it.  This takes the form of these steps:
@@ -490,18 +542,19 @@ it.  This takes the form of these steps:
 1. Run the task.
 
 - **See scheduler/examples/tasks/minimal_viable_example.py for details
-  on how to perform these simple steps.**
+  on how to perform these simple steps for a spark job.**
+- A bash job doesn't need any application code to run, as long as that
+  code is available from command-line
 
-# TODO: insertlink above
-# TODO: continyue the readme and decide on sections
+TODO: insertlink above
 
 Usage:
 ==============
 
-In order to run a job, you have to queue it and then execute it:
+In order to run a job, you have to queue it and then execute it.
 
 
-You can read from the application's queue and execute code:
+You can read from the application's queue and execute code via:
 
 
     ./bin/scheduler --app_name test_scheduler/test_minimal -h
@@ -509,7 +562,7 @@ You can read from the application's queue and execute code:
     ./bin/scheduler --app_name test_scheduler/test_bashworker2 -h
 
 
-This is how to manually queue a job:
+This is how you can manually queue a job:
 
 
     ./bin/scheduler-submit -h
@@ -521,7 +574,7 @@ Roadmap:
 
 Here are some improvements we are planning for in the near future:
 
+- Integration with Apache Marathon
 - A web UI for creating, viewing and managing tasks and task dependencies
   - Ability to create multiple dependency groups
   - Interactive dependency graph
-- Integration with Apache Marathon
