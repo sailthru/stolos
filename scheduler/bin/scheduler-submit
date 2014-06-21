@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+from ds_commons import argparse_tools as at
+from scheduler import zookeeper_tools as zkt, dag_tools
+
+
+def main(ns):
+    zk = zkt.get_client(ns.zookeeper_hosts)
+    if ns.readd:
+        zkt.readd_subtask(ns.app_name, ns.job_id, zk=zk)
+    else:
+        zkt.maybe_add_subtask(ns.app_name, ns.job_id, zk=zk)
+
+
+build_arg_parser = at.build_arg_parser([
+    at.add_argument('--job_id', required=True),
+    at.app_name(required=True, choices=dag_tools.get_task_names()),
+    at.zookeeper_hosts,
+    at.add_argument(
+        '--readd', action='store_true', help=(
+            "Try to add this to the queue if it isn't already.  Assume we've"
+            " tried to add the task already")),
+])
+
+
+if __name__ == '__main__':
+    NS = build_arg_parser().parse_args()
+    main(NS)
