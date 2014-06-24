@@ -1,0 +1,64 @@
+{
+  "test_scheduler/test_module": {
+     "pymodule": "scheduler.examples.tasks.test_task",
+     "job_type": "spark"
+ },
+ "test_scheduler/test_module2": {
+     "pymodule": "scheduler.examples.tasks.test_task",
+     "depends_on": {"app_name": ["test_scheduler/test_module"]},
+     "valid_if_or": {"collection_name": ["profile", "purchase"]},
+     "job_type": "spark"
+ },
+ "test_scheduler/test_bashworker": {
+     "job_type": "bash"
+ },
+ "test_scheduler/test_bashworker2": {
+     "depends_on": {"app_name": ["test_scheduler/test_bashworker"]},
+     "job_type": "bash",
+     "bash_opts": "echo 123"
+ },
+
+ "test_scheduler/test_minimal": {
+     "job_type": "spark",
+     "pymodule": "scheduler.examples.tasks.minimal_viable_example"
+ },
+
+  "test_scheduler/test_depends_on": {
+     "job_id": "{date}_{testID}",
+     "depends_on": {
+       "depgrp1": [{
+         "app_name": ["test_scheduler/test_module2", "test_scheduler/test_module"],
+         "collection_name": ["profile", "purchase"],
+         "date": [20140601],
+         "client_id": [450, 1072, 4023],
+         "testID": [1]
+         }, {
+         "app_name": ["test_scheduler/test_module"],
+         "job_id": ["20140601_999_purchase"],
+         "testID": [1]
+       }],
+       "depgrp2": {
+         "app_name": ["test_scheduler/test_minimal"],
+         "collection_name": ["profile"],
+         "date": [20140601],
+         "client_id": [450, 1072, 4023],
+         "testID": [2]
+       },
+       "depgrp3": {
+         "app_name": ["test_scheduler/test_module"],
+         "collection_name": ["profile"],
+         "date": [20140601],
+         "client_id": [450],
+         "testID": [3]
+       },
+       "depgrp4": {
+         "app_name": ["test_scheduler/test_module"],
+         "collection_name": ["profile"],
+         "date": [20140601],
+         "client_id": [444],
+         "testID": [3]
+       }
+     },
+     "job_type": "bash",
+  }
+}

@@ -19,8 +19,10 @@ setup(
 
     packages=find_packages(),
     scripts=findall('bin'),
-    data_files=[('conf', findall('conf')),
-                ('examples', findall('examples'))],
+    data_files=[
+        ('conf', findall('conf')),
+        ('scheduler.examples', findall('scheduler/examples'))
+    ],
 
     install_requires = [
         'kazoo>=1.3.1',
