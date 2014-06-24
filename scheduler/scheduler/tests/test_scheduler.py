@@ -28,6 +28,10 @@ def test_no_tasks():
 
 
 def test_create_child_task_after_parents_completed():
+
+    # TODO: should raise a warning (or error?) when child runs and finds its
+    # score state doesn't reflect reality
+    # should verify that ChildOutOfSync errors get raised in this case
     pass  # TODO
 
 

@@ -88,7 +88,8 @@ def ensure_parents_completed(app_name, job_id, zk, q):
     If they haven't completed and aren't pending, maybe create the
     parent task in its appropriate queue.
     """
-    for parent, pjob_id in dag_tools.get_parents(app_name, job_id):
+    for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
+                                                          job_id, True):
         if not zookeeper_tools.check_state(
                 app_name=parent, job_id=pjob_id, zk=zk, completed=True):
             log.info(
@@ -100,6 +101,20 @@ def ensure_parents_completed(app_name, job_id, zk, q):
             zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk)
             q.consume()
             return False
+        else:
+            added_point = zookeeper_tools.set_child_score(
+                parent_app_name=parent, parent_job_id=pjob_id,
+                child_app_name=app_name, cjob_id=job_id,
+                dep_grp=dep_grp, zk=zk,
+                _log_exception=False)
+            if added_point:
+                raise exceptions.ChildOutOfSync(
+                    "Child didn't know that the parent task was completed?!"
+                    " You must have created this (child) task after the task's"
+                    " parents completed.  This means there's a bug somewhere"
+                    " because child tasks should always know if parent tasks"
+                    " are complete")
+
     return True
 
 

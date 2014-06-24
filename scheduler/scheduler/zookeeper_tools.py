@@ -220,45 +220,30 @@ def _validate_state(pending, completed, failed):
     return state
 
 
-def _set_child_task_state(parent_app_name, job_id, zk):
+def _set_child_task_state(parent_app_name, parent_job_id, zk):
     """
     This is basically a "set_state(completed=True)" pre-commit hook
 
-    Assume the task identified by (parent_app_name, job_id) is completed, and
-    for each of that parent's children in the dag graph of tasks,
-    set 1/num_parents worth of points towards that child's completion.
+    Assume the task identified by (parent_app_name, parent_job_id) is
+    completed, and for each of that parent's children in the dag graph of
+    tasks, set 1/num_parents worth of points towards that child's completion.
 
     If any one child has earned 1 point, then add it to its task queue
 
     We track the "score" of a child by counting files in the zookeeper path:
         .../parents/dependency_name/parent_app_name/parent_job_id
     """
-    gen = dag_tools.get_children(parent_app_name, job_id, True)
+    gen = dag_tools.get_children(parent_app_name, parent_job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
-        score_path, score_base_dir = _get_score_path(
-            child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
-            parent_app_name=parent_app_name, parent_job_id=job_id)
-        set_state(child_app_name, cjob_id, zk, pending=True)
-
-        # on the child, mark parent as completed.
-        try:
-            zk.create(score_path, makepath=True)
-        except:
-            log.exception(
-                "The parent successfully ran in the past"
-                " and either: \n"
-                " 1) was rescheduled without resetting its childrens'"
-                " score_paths \n"
-                " 2) this process mysteriously died just after creating the"
-                " node but just before it set the parent state=complete.\n"
-                " 3) You introduced a bug into the code.  It's hard to tell!",
-                extra=dict(
-                    parent_app_name=parent_app_name, parent_job_id=job_id,
-                    child_app_name=child_app_name, child_job_id=cjob_id,
-                    score_path=score_path)
-            )
+        set_child_score(
+            parent_app_name=parent_app_name, parent_job_id=parent_job_id,
+            child_app_name=child_app_name, cjob_id=cjob_id,
+            dep_grp=dep_grp, zk=zk)
 
         # queue child task if all parents are completed
+        _, score_base_dir = _get_score_path(
+            child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
+            parent_app_name=parent_app_name, parent_job_id=parent_job_id)
         pcomplete = len(find_leaves(score_base_dir, zk=zk))
         ptotal = len(list(dag_tools.get_parents(child_app_name, cjob_id)))
 
@@ -280,6 +265,47 @@ def _set_child_task_state(parent_app_name, job_id, zk):
                 extra=dict(
                     num_complete_dependencies=pcomplete,
                     num_total_dependencies=ptotal, **ld))
+
+
+def set_child_score(parent_app_name, parent_job_id,
+                    child_app_name, cjob_id,
+                    dep_grp, zk, _log_exception=True):
+    """
+    Assume the task identified by (parent_app_name, parent_job_id) is
+    completed, and for the given child set 1/num_parents worth of points
+    towards that child's completion.
+
+    We track the "score" of a child by counting files in the zookeeper path:
+        .../parents/dependency_name/parent_app_name/parent_job_id
+
+    If we successfully incremented the score, return True.  If for some reason,
+    that score existed already, return false and log an exception
+    """
+    score_path, score_base_dir = _get_score_path(
+        child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
+        parent_app_name=parent_app_name, parent_job_id=parent_job_id)
+    set_state(child_app_name, cjob_id, zk, pending=True)
+
+    # on the child, mark parent as completed.
+    try:
+        zk.create(score_path, makepath=True)
+    except:
+        log.exception(
+            "The parent successfully ran in the past"
+            " and either: \n"
+            " 1) was rescheduled without resetting its childrens'"
+            " score_paths \n"
+            " 2) this process mysteriously died just after creating the"
+            " node but just before it set the parent state=complete.\n"
+            " 3) You introduced a bug into the code.  It's hard to tell!",
+            extra=dict(
+                parent_app_name=parent_app_name,
+                parent_job_id=parent_job_id,
+                child_app_name=child_app_name, child_job_id=cjob_id,
+                score_path=score_path)
+        )
+        return False
+    return True
 
 
 def find_leaves(dir, zk):
@@ -330,7 +356,8 @@ def set_state(app_name, job_id, zk,
     zookeeper_path = _get_zookeeper_path(app_name, job_id)
     state = _validate_state(pending, completed, failed)
     if completed:  # basecase
-        _set_child_task_state(parent_app_name=app_name, job_id=job_id, zk=zk)
+        _set_child_task_state(
+            parent_app_name=app_name, parent_job_id=job_id, zk=zk)
 
     if zk.exists(zookeeper_path):
         zk.set(zookeeper_path, state)
