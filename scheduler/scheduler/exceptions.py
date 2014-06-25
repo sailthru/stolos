@@ -34,6 +34,7 @@ class DAGMisconfigured(Exception):
 class InvalidJobId(Exception):
     pass
 
+
 class ChildOutOfSync(Exception):
     """Raise when child task didn't know that the parent task was completed"""
     pass

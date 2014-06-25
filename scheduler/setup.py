@@ -42,11 +42,11 @@ setup(
     ],
     test_suite="nose.main",
 
-    #extras_require=[
+    # extras_require=[
     #    'pyspark',
-    #],
+    # ],
 
-    #include_package_data = True,
+    # include_package_data = True,
     zip_safe = False,
 
     # Include code that isn't pure python (like c stuff)
