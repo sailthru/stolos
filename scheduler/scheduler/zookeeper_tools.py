@@ -201,14 +201,6 @@ def _get_zookeeper_path(app_name, job_id, *args):
     return join(app_name, 'all_subtasks', job_id, *args)
 
 
-def _get_score_path(child_app_name, cjob_id, dep_grp,
-                    parent_app_name, parent_job_id):
-    score_base_dir = _get_zookeeper_path(
-        child_app_name, cjob_id, 'parents', dep_grp)
-    score_path = join(score_base_dir, parent_app_name, parent_job_id)
-    return score_path, score_base_dir
-
-
 def _validate_state(pending, completed, failed):
     assert pending + completed + failed == 1
     if pending:
@@ -220,7 +212,7 @@ def _validate_state(pending, completed, failed):
     return state
 
 
-def _set_child_task_state(parent_app_name, parent_job_id, zk):
+def _maybe_queue_children(parent_app_name, parent_job_id, zk):
     """
     This is basically a "set_state(completed=True)" pre-commit hook
 
@@ -234,18 +226,21 @@ def _set_child_task_state(parent_app_name, parent_job_id, zk):
         .../parents/dependency_name/parent_app_name/parent_job_id
     """
     gen = dag_tools.get_children(parent_app_name, parent_job_id, True)
-    for child_app_name, cjob_id, dep_grp in gen:
-        set_child_score(
-            parent_app_name=parent_app_name, parent_job_id=parent_job_id,
-            child_app_name=child_app_name, cjob_id=cjob_id,
-            dep_grp=dep_grp, zk=zk)
 
-        # queue child task if all parents are completed
-        _, score_base_dir = _get_score_path(
-            child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
-            parent_app_name=parent_app_name, parent_job_id=parent_job_id)
-        pcomplete = len(find_leaves(score_base_dir, zk=zk))
-        ptotal = len(list(dag_tools.get_parents(child_app_name, cjob_id)))
+    # cache data in form: {parent: is_complete}
+    state_dct = {(parent_app_name, parent_job_id): True}
+
+    for child_app_name, cjob_id, dep_grp in gen:
+        parents = list(dag_tools.get_parents(child_app_name, cjob_id))
+        parents.remove((parent_app_name, parent_job_id))
+        # get total number of parents
+        ptotal = len(parents)
+        # get number of parents completed so far.
+        # TODO: This check_state operation should be optimized.
+        pcomplete = sum(
+            1 for p, pj in parents
+            if util.lazy_set_default(
+                state_dct, (p, pj), check_state, p, pj, zk=zk, completed=True))
 
         ld = dict(
             child_app_name=child_app_name,
@@ -254,71 +249,32 @@ def _set_child_task_state(parent_app_name, parent_job_id, zk):
         if (pcomplete == ptotal):
             log.info(
                 "Parent is queuing a child task", extra=ld)
+            if check_state(child_app_name, cjob_id, zk=zk, completed=True):
+                log.warn(
+                    "Queuing a previously completed child task"
+                    " presumably because of the following:"
+                    " 1) you manually queued both a"
+                    " parent/ancestor and the child,"
+                    " and 2) the child completed first."
+                    " You probably shouldn't manually re-queue both parents"
+                    " and children. Just queue one of them.",
+                    extra=ld)
+
             readd_subtask(
                 child_app_name, cjob_id, zk=zk,
                 _reset_descendants=False,  # descendants previously handled
                 _ignore_if_queued=True
             )
-        else:
+        elif (pcomplete < ptotal):
             log.info(
                 "Child task is one step closer to being queued!",
                 extra=dict(
                     num_complete_dependencies=pcomplete,
                     num_total_dependencies=ptotal, **ld))
-
-
-def set_child_score(parent_app_name, parent_job_id,
-                    child_app_name, cjob_id,
-                    dep_grp, zk, _log_exception=True):
-    """
-    Assume the task identified by (parent_app_name, parent_job_id) is
-    completed, and for the given child set 1/num_parents worth of points
-    towards that child's completion.
-
-    We track the "score" of a child by counting files in the zookeeper path:
-        .../parents/dependency_name/parent_app_name/parent_job_id
-
-    If we successfully incremented the score, return True.  If for some reason,
-    that score existed already, return false and log an exception
-    """
-    score_path, score_base_dir = _get_score_path(
-        child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
-        parent_app_name=parent_app_name, parent_job_id=parent_job_id)
-    set_state(child_app_name, cjob_id, zk, pending=True)
-
-    # on the child, mark parent as completed.
-    try:
-        zk.create(score_path, makepath=True)
-    except:
-        log.exception(
-            "The parent successfully ran in the past"
-            " and either: \n"
-            " 1) was rescheduled without resetting its childrens'"
-            " score_paths \n"
-            " 2) this process mysteriously died just after creating the"
-            " node but just before it set the parent state=complete.\n"
-            " 3) You introduced a bug into the code.  It's hard to tell!",
-            extra=dict(
-                parent_app_name=parent_app_name,
-                parent_job_id=parent_job_id,
-                child_app_name=child_app_name, child_job_id=cjob_id,
-                score_path=score_path)
-        )
-        return False
-    return True
-
-
-def find_leaves(dir, zk):
-    stack = [dir]
-    leaves = []
-    while stack:
-        node = stack.pop()
-        ch = [join(node, x) for x in zk.get_children(node)]
-        if ch:
-            stack.extend(ch)
         else:
-            leaves.append(node)
-    return leaves
+            raise exceptions.CodeError(
+                "For some weird reason, I calculated that more parents"
+                " completed than there are parents.")
 
 
 def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
@@ -329,11 +285,6 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
 
     gen = dag_tools.get_children(parent_app_name, job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
-        score_path, _ = _get_score_path(
-            child_app_name=child_app_name, cjob_id=cjob_id, dep_grp=dep_grp,
-            parent_app_name=parent_app_name, parent_job_id=job_id)
-        if zk.exists(score_path):
-            zk.delete(score_path)
         child_path = _get_zookeeper_path(child_app_name, cjob_id)
         if zk.exists(child_path):
             set_state(child_app_name, cjob_id, zk, pending=True)
@@ -356,7 +307,7 @@ def set_state(app_name, job_id, zk,
     zookeeper_path = _get_zookeeper_path(app_name, job_id)
     state = _validate_state(pending, completed, failed)
     if completed:  # basecase
-        _set_child_task_state(
+        _maybe_queue_children(
             parent_app_name=app_name, parent_job_id=job_id, zk=zk)
 
     if zk.exists(zookeeper_path):
