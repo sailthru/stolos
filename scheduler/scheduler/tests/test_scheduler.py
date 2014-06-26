@@ -1,4 +1,4 @@
-from os.path import join, basename
+from os.path import join
 import nose
 import subprocess
 
@@ -22,16 +22,54 @@ def test_no_tasks():
     """
     The script shouldn't fail if it doesn't find any queued tasks
     """
-    zk.delete(basename(app_name1), recursive=True)
+    zk.delete('test_scheduler', recursive=True)
     run_spark_code(app_name1)
     validate_zero_queued_task(app_name1)
+    validate_zero_queued_task(app_name2)
 
 
-def test_create_child_task_after_parents_completed():
+def test_create_child_task_after_one_parent_completed():
+    raise nose.SkipTest()
+    # the child task should run if another parent completes
+    # but otherwise should not run until it's manually queued
 
-    # TODO: should raise a warning (or error?) when child runs and finds its
-    # score state doesn't reflect reality
-    # should verify that ChildOutOfSync errors get raised in this case
+    zk.delete('test_scheduler', recursive=True)
+    zkt.set_state(app_name1, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app_name1, job_id1)
+
+    # TODO
+    # in order to inject a new task into tasks.json, I need to support the
+    # ability for tasks to change within the process.
+    #
+    # "test_scheduler/test_module_ch": {
+    #     "job_type": "bash",
+    #     "depends_on": {"app_name": [
+    #       "test_scheduler/test_module",
+    #       "test_scheduler/test_module2"]},
+    # },
+    # THIS is for test_create_parent_task_after_child_completed
+    # "test_scheduler/test_module_pa": {
+    #     "job_type": "bash",
+    # },
+    # ...code currently assumes task_dct never change while a process is running
+    injected_app = 'test_scheduler/test_module_ch'
+    # --> depends on app_name1 and app_name2
+
+    validate_zero_queued_task(injected_app)
+
+    # unnecessary side effect: app_name1 queues app_name2...
+    consume_queue(app_name2)
+
+    zkt.set_state(app_name2, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app_name2, job_id1)
+    validate_one_queued_task(injected_app, job_id1)
+    run_code(injected_app, '--bash echo 123')
+    validate_one_completed_task(injected_app, job_id1)
+
+
+def test_create_parent_task_after_child_completed():
+    # we do not re-schedule the child unless parent is completed
+    raise nose.SkipTest()
     pass  # TODO
 
 
