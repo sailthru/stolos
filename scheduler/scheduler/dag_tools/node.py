@@ -18,9 +18,14 @@ def get_tasks_dct(fp=TASKS_JSON):
     return ujson.load(open(fp))
 
 
-def parse_job_id(app_name, job_id, validations=JOB_ID_VALIDATIONS,
-                 job_id_template=JOB_ID_DEFAULT_TEMPLATE,
-                 delimiter=JOB_ID_DELIMITER):
+def create_job_id(app_name, **job_id_identifiers):
+    templ, ptempl = get_job_id_template(app_name)
+    rv = _validate_job_id_identifiers(
+        app_name, [job_id_identifiers[k] for k in ptempl])
+    return templ.format(**rv)
+
+
+def parse_job_id(app_name, job_id, delimiter=JOB_ID_DELIMITER):
     """Convert given `job_id` into a dict
 
     `app_name` (str) identifies a task
@@ -38,23 +43,27 @@ def parse_job_id(app_name, job_id, validations=JOB_ID_VALIDATIONS,
     Returned values are cast into the appropriate type by the validations funcs
 
     """
-    dg = get_tasks_dct()
-    template = re.findall(r'{(.*?)}', dg[app_name].get(
-        "job_id", job_id_template))
-
+    template, ptemplate = get_job_id_template(app_name)
+    vals = job_id.split(delimiter, len(ptemplate) - 1)
     ld = dict(job_id=job_id, app_name=app_name, job_id_template=template)
-
-    vals = job_id.split(delimiter, len(template) - 1)  # TODO: is this right?
-    if len(vals) != len(template):
+    if len(vals) != len(ptemplate):
         _log_raise(
             ("Job_id isn't properly delimited.  You might have too few"
              " or too many underscores."),
             extra=ld, exception_kls=InvalidJobId)
+    return _validate_job_id_identifiers(app_name, vals)
+
+
+def _validate_job_id_identifiers(app_name, vals, validations=JOB_ID_VALIDATIONS,
+                                 **_log_details):
+    _, template = get_job_id_template(app_name)
+    ld = dict(app_name=app_name, job_id_template=template)
+    ld.update(_log_details)
     rv = {}
-    for key, val in zip(template, vals):
+    for key, _val in zip(template, vals):
         # validate the job_id
         try:
-            val = validations[key](val)
+            val = validations[key](_val)
             assert val, "Failed validation!"
         except KeyError:
             log.warn(
@@ -63,7 +72,7 @@ def parse_job_id(app_name, job_id, validations=JOB_ID_VALIDATIONS,
         except Exception as err:
             msg = "Given job_id is improperly formatted."
             log.exception(msg, extra=dict(
-                expected=key, received=val, error_details=err, **ld))
+                expected=key, received=_val, error_details=err, **ld))
             raise InvalidJobId("%s err: %s" % (msg, err))
         rv[key] = val
     return rv

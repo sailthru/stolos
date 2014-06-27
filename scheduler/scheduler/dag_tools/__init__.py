@@ -3,6 +3,7 @@ from .build import (
     visualize_dag
 )
 from .node import (
+    create_job_id,
     get_tasks_dct,
     parse_job_id,
     passes_filter,
