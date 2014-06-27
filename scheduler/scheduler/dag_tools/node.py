@@ -54,8 +54,8 @@ def parse_job_id(app_name, job_id, delimiter=JOB_ID_DELIMITER):
     return _validate_job_id_identifiers(app_name, vals)
 
 
-def _validate_job_id_identifiers(app_name, vals, validations=JOB_ID_VALIDATIONS,
-                                 **_log_details):
+def _validate_job_id_identifiers(
+        app_name, vals, validations=JOB_ID_VALIDATIONS, **_log_details):
     _, template = get_job_id_template(app_name)
     ld = dict(app_name=app_name, job_id_template=template)
     ld.update(_log_details)

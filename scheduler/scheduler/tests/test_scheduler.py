@@ -51,7 +51,7 @@ def test_create_child_task_after_one_parent_completed():
     # "test_scheduler/test_module_pa": {
     #     "job_type": "bash",
     # },
-    # ...code currently assumes task_dct never change while a process is running
+    # code currently assumes task_dct never change while a process is running
     injected_app = 'test_scheduler/test_module_ch'
     # --> depends on app_name1 and app_name2
 
