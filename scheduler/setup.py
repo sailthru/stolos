@@ -33,8 +33,6 @@ setup(
 
         # ds_commons crap  # TODO: make a setup.py for ds_commons that works
         'colorlog',
-        'python-dateutil',
-        'gevent',
     ],
 
     tests_require=[
