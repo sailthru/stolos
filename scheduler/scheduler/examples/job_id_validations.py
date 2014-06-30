@@ -7,10 +7,7 @@ JOB_ID_VALIDATIONS = {
     'client_id': lambda client_id: int(client_id),
     # TODO: I've hardcoded this for now
     'collection_name': lambda collection_name: (bool(
-        collection_name in set([
-            'client.horizon', 'client', 'content',
-            'list', 'profile', 'purchase', 'stats.blast', 'stats.pv.hour',
-            'stats.recommend.day', 'stats.scout', 'stats.send']))
+        collection_name in set(['client', 'profile']))
         and collection_name),
     'testID': lambda test_id: int(test_id)
 }

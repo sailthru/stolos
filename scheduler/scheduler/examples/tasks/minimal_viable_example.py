@@ -1,7 +1,7 @@
 import ujson
 
 
-def main(textFile, ns, **junk):
+def main(textFile, ns, **job_id_identifiers):
     return ujson.dumps(textFile)
 
 

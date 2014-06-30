@@ -5,7 +5,7 @@ from ds_commons.log import log
 from ds_commons import argparse_tools as at
 
 
-def main(textFile, ns, **junk):
+def main(textFile, ns, **job_id_identifiers):
     if ns.disable_log:
         import logging
         logging.disable = True
