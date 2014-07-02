@@ -1,6 +1,10 @@
+from contextlib import contextmanager
 from os.path import join
 import nose
+import os
 import subprocess
+import tempfile
+import ujson
 
 from ds_commons.log import log
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
@@ -28,8 +32,44 @@ def test_no_tasks():
     validate_zero_queued_task(app_name2)
 
 
+@contextmanager
+def _inject_into_dag(new_task_dct):
+    """Update (add or replace) tasks in dag with new task config.
+    This should reset any cacheing within the scheduler app,
+    but it's not guaranteed"""
+    dg = dt.get_tasks_dct()
+    dg.update(new_task_dct)
+
+    f = tempfile.mkstemp(prefix='tasks_json')[1]
+    with open(f, 'w') as fout:
+        fout.write(ujson.dumps(dg))
+
+    old_f = os.environ['TASKS_JSON']
+    os.environ['TASKS_JSON'] = f
+    try:
+        dt.build_dag.cache.clear()
+    except AttributeError:
+        pass
+
+    # verify injection worked
+    dg = dt.get_tasks_dct()
+    dag = dt.build_dag()
+    for k, v in new_task_dct.items():
+        assert dg[k] == v, (
+            "test code: _inject_into_dag didn't insert the new tasks?")
+        assert dag.node[k] == v, (
+            "test code: _inject_into_dag didn't reset the dag graph")
+
+    yield
+    os.remove(f)
+    dt.constants.TASKS_JSON = old_f
+    dt.build_dag.cache.clear()
+
+
 def test_create_child_task_after_one_parent_completed():
-    raise nose.SkipTest()
+    # if you modify the tasks.json file in the middle of processing the dag
+    # modifications to the json file should be recognized
+
     # the child task should run if another parent completes
     # but otherwise should not run until it's manually queued
 
@@ -37,40 +77,52 @@ def test_create_child_task_after_one_parent_completed():
     zkt.set_state(app_name1, job_id1, zk=zk, completed=True)
     validate_one_completed_task(app_name1, job_id1)
 
-    # TODO
-    # in order to inject a new task into tasks.json, I need to support the
-    # ability for tasks to change within the process.
-    #
-    # "test_scheduler/test_module_ch": {
-    #     "job_type": "bash",
-    #     "depends_on": {"app_name": [
-    #       "test_scheduler/test_module",
-    #       "test_scheduler/test_module2"]},
-    # },
-    # THIS is for test_create_parent_task_after_child_completed
-    # "test_scheduler/test_module_pa": {
-    #     "job_type": "bash",
-    # },
-    # code currently assumes task_dct never change while a process is running
     injected_app = 'test_scheduler/test_module_ch'
-    # --> depends on app_name1 and app_name2
+    dct = {
+        injected_app: {
+            "job_type": "bash",
+            "depends_on": {"app_name": [
+                "test_scheduler/test_module",
+                "test_scheduler/test_module2"]},
+        },
+    }
+    with _inject_into_dag(dct):
+        validate_zero_queued_task(injected_app)
+        # unnecessary side effect: app_name1 queues app_name2...
+        consume_queue(app_name2)
+        zkt.set_state(app_name2, job_id1, zk=zk, completed=True)
 
-    validate_zero_queued_task(injected_app)
-
-    # unnecessary side effect: app_name1 queues app_name2...
-    consume_queue(app_name2)
-
-    zkt.set_state(app_name2, job_id1, zk=zk, completed=True)
-    validate_one_completed_task(app_name2, job_id1)
-    validate_one_queued_task(injected_app, job_id1)
-    run_code(injected_app, '--bash echo 123')
-    validate_one_completed_task(injected_app, job_id1)
+        validate_one_completed_task(app_name2, job_id1)
+        validate_one_queued_task(injected_app, job_id1)
+        run_code(injected_app, '--bash echo 123')
+        validate_one_completed_task(injected_app, job_id1)
 
 
 def test_create_parent_task_after_child_completed():
+    # if you modify the tasks.json file in the middle of processing the dag
+    # modifications to the json file should be recognized appropriately
+
     # we do not re-schedule the child unless parent is completed
-    raise nose.SkipTest()
-    pass  # TODO
+
+    zk.delete('test_scheduler', recursive=True)
+    zkt.set_state(app_name1, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app_name1, job_id1)
+
+    injected_app = 'test_scheduler/test_module_ch'
+    dct = {
+        injected_app: {
+            "job_type": "bash",
+        },
+        app_name1: {
+            "job_type": "bash",
+            "depends_on": {"app_name": [injected_app]}
+        }
+    }
+    with _inject_into_dag(dct):
+        validate_zero_queued_task(injected_app)
+        zkt.set_state(injected_app, job_id1, zk=zk, completed=True)
+        validate_one_completed_task(injected_app, job_id1)
+        validate_one_queued_task(app_name1, job_id1)
 
 
 def test_should_not_add_queue_while_consuming_queue():

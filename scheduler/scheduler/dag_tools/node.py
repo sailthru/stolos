@@ -5,16 +5,18 @@ Assume a node == info about a task
 import importlib
 import re
 import ujson
+import os
 
 from scheduler.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
 from ds_commons.log import log
 
 from .constants import (
-    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,
-    TASKS_JSON,)
+    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,)
 
 
-def get_tasks_dct(fp=TASKS_JSON):
+def get_tasks_dct(fp=None):
+    if fp is None:
+        fp = os.environ['TASKS_JSON']
     return ujson.load(open(fp))
 
 
