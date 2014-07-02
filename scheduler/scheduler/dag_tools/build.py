@@ -6,12 +6,12 @@ from ds_commons import util
 from scheduler.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
 
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_DEFAULT_TEMPLATE
-from .node import get_tasks_dct, get_job_id_template
+from . import node
 
 
 def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
     ld1 = ld
-    _template, child_template = get_job_id_template(ld['app_name'])
+    _template, child_template = node.get_job_id_template(ld['app_name'])
     for parent_app_name in dep_info['app_name']:
         ld = dict(
             parent_app_name=parent_app_name,
@@ -23,7 +23,7 @@ def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
             extra=ld,
             exception_kls=DAGMisconfigured)
         if len(dep_info) == 1:
-            _, parent_template = get_job_id_template(parent_app_name)
+            _, parent_template = node.get_job_id_template(parent_app_name)
             _log_raise_if(
                 not set(child_template).issuperset(parent_template),
                 ("If you choose specify a dependency with no metadata, then"
@@ -200,7 +200,7 @@ def visualize_dag(dg=None, plot=True):
             os.remove(tmpf + '.png')
 
 
-def _build_dag(tasks_dct, dg):
+def _add_nodes(tasks_dct, dg):
     """Add nodes to a networkx graph"""
     for app_name, attr_dict in tasks_dct.items():
         if attr_dict.get('root'):
@@ -267,11 +267,15 @@ def _build_dict_deps(dg, app_name, deps):
 
 @util.cached
 def build_dag(tasks_dct=None):
+    return _build_dag(tasks_dct)
+
+
+def _build_dag(tasks_dct):
     if tasks_dct is None:
-        tasks_dct = get_tasks_dct()
+        tasks_dct = node.get_tasks_dct()
     dg = nx.MultiDiGraph()
     dg.roots = []
-    for app_name, deps in _build_dag(tasks_dct, dg):
+    for app_name, deps in _add_nodes(tasks_dct, dg):
         _build_dict_deps(
             dg=dg, app_name=app_name, deps=deps)
 
