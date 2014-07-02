@@ -19,7 +19,7 @@ def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
 
         _log_raise_if(
             parent_app_name not in tasks_dct,
-            "Unrecognized app_name in depends_on dependency group",
+            "Unrecognized parent_app_name in a `depends_on` dependency group",
             extra=ld,
             exception_kls=DAGMisconfigured)
         if len(dep_info) == 1:
