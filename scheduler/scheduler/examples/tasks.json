@@ -60,5 +60,26 @@
        }
      },
      "job_type": "bash",
+  },
+  "test_scheduler/test_topological_sort": {
+    "job_id": "{date}_{testID}",
+    "job_type": "bash",
+    "depends_on": {
+      "dep1": [
+        {"app_name": ["test_scheduler/test_depends_on"],
+         "date": [20140601],
+         "testID": [1]
+        }, {
+         "app_name": [
+           "test_scheduler/test_module",
+           "test_scheduler/test_module2",
+           "test_scheduler/test_bashworker2"],
+         "client_id": [101, 102],
+         "collection_name": ["profile"],
+         "date": [20140601],
+         "testID": [1]
+        }
+      ]
+    }
   }
 }
