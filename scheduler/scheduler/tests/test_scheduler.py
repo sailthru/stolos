@@ -353,14 +353,11 @@ def test_complex_dependencies_pull_push():
     enqueue(app_name3, job_id)
     run_code(app_name3, '--bash echo 123')
 
-    parents = list(sorted(dt.get_parents(app_name3, job_id)))
+    parents = dt.get_parents(app_name3, job_id)
+    parents = list(dt.topological_sort(parents))
     for parent, pjob_id in parents[:-1]:
-        print(parent, pjob_id)
-        consume_queue(parent)
         zkt.set_state(parent, pjob_id, zk=zk, completed=True)
         validate_zero_queued_task(app_name3)
-    print(parents[-1])
-    consume_queue(parents[-1][0])
     zkt.set_state(*parents[-1], zk=zk, completed=True)
     validate_one_queued_task(app_name3, job_id)
     run_code(app_name3, '--bash echo 123')
@@ -372,7 +369,7 @@ def test_complex_dependencies_readd():
     job_id = '20140601_1'
 
     # mark everything completed
-    parents = list(sorted(dt.get_parents(app_name3, job_id)))
+    parents = list(dt.topological_sort(dt.get_parents(app_name3, job_id)))
     for parent, pjob_id in parents:
         zkt.set_state(parent, pjob_id, zk=zk, completed=True)
     # --> parents should queue our app
@@ -488,7 +485,7 @@ def test_bashworker():
     validate_one_queued_task(app_name4, job_id1)
     # run successful task
     run_code(app_name4, '--bash echo 123')
-    validate_zero_queued_task(app_name)
+    validate_zero_queued_task(app_name4)
 
 
 @with_setup
