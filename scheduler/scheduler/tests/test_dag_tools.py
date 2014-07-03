@@ -183,3 +183,18 @@ def test_get_parents():
         list(dag_tools.get_parents(
             'test_scheduler/test_depends_on', '20140601_3', True,
             filter_deps=['depgrp99999']))
+
+
+def test_topological_sort():
+
+    nt.assert_equal(
+        list(dag_tools.topological_sort(dag_tools.get_parents(
+            'test_scheduler/test_topological_sort', '20140601_1', True,))),
+        [(u'test_scheduler/test_module', '20140601_101_profile', u'dep1'),
+        (u'test_scheduler/test_module', '20140601_102_profile', u'dep1'),
+        (u'test_scheduler/test_module2', '20140601_101_profile', u'dep1'),
+        (u'test_scheduler/test_module2', '20140601_102_profile', u'dep1'),
+        (u'test_scheduler/test_bashworker2', '20140601_101_profile', u'dep1'),
+        (u'test_scheduler/test_bashworker2', '20140601_102_profile', u'dep1'),
+        (u'test_scheduler/test_depends_on', u'20140601_1', u'dep1')]
+    )

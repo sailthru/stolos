@@ -17,7 +17,8 @@ from .node import (
 from .traversal import (
     get_roots,
     get_parents,
-    get_children
+    get_children,
+    topological_sort,
 )
 
 

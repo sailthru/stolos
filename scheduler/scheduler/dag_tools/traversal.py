@@ -1,3 +1,6 @@
+from collections import defaultdict
+import networkx as nx
+
 from ds_commons.log import log
 from ds_commons.util import crossproduct, flatmap_with_kwargs
 
@@ -16,6 +19,21 @@ def get_roots():
     # TODO: make sailthrudata-import a root task and fix how they are handled
     """
     return build_dag().roots
+
+
+def topological_sort(lst):
+    """Given a list of (app_name, job_id) pairs,
+    topological sort by the app_names
+
+    This is useful for sorting the parents and children of a node if the node
+    has complex dependencies
+    """
+    dct = defaultdict(list)
+    for app_job in lst:
+        dct[app_job[0]].append(app_job)
+    for node in nx.topological_sort(build_dag()):
+        for app_job2 in dct[node]:
+            yield app_job2
 
 
 def get_parents(app_name, job_id, include_dependency_group=False,
