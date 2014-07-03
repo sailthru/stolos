@@ -29,7 +29,7 @@ def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
                 ("If you choose specify a dependency with no metadata, then"
                  " the"
                  " child task's job_id must be a superset of the metadata in"
-                 " the parent's job_id. Otherwise, (I think) there"
+                 " the parent's job_id. Otherwise, there"
                  " are cases where you cannot identify"
                  " a parent job_id given a child job_id."),
                 extra=dict(
@@ -92,6 +92,22 @@ def _validate_dependency_groups(tasks_dct, metadata, ld):
             for _dep_info in dep_info:
                 _validate_dependency_groups_part2(
                     dep_name, _dep_info, ld, tasks_dct)
+            # check job_id template metadata is consistent
+            # across the dependency group
+            for identifier in node.get_job_id_template(ld['app_name'])[1]:
+                values = [_dep_info.get(identifier) for _dep_info in dep_info
+                          if 'job_id' not in _dep_info]
+                _log_raise_if(
+                    not reduce(lambda x, y: x == y, values),
+                    ("You specified inconsistent values for job_id"
+                     " metadata.  Each sub-dependency in your dependency"
+                     " group must specify the exact same metadata value"
+                     " for each identifier in your app's job_id template"),
+                    extra=dict(
+                        key="depends_on", invalid_dependency_group=dep_name,
+                        invalid_identifier=identifier,
+                        values=values, **ld),
+                    exception_kls=DAGMisconfigured)
         else:
             _validate_dependency_groups_part2(
                 dep_name, dep_info, ld, tasks_dct)
