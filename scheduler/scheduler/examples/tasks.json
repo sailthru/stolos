@@ -1,11 +1,11 @@
 {
-  "test_scheduler/test_module": {
+  "test_scheduler/test_app": {
      "pymodule": "scheduler.examples.tasks.test_task",
      "job_type": "spark"
  },
- "test_scheduler/test_module2": {
+ "test_scheduler/test_app2": {
      "pymodule": "scheduler.examples.tasks.test_task",
-     "depends_on": {"app_name": ["test_scheduler/test_module"]},
+     "depends_on": {"app_name": ["test_scheduler/test_app"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
      "job_type": "spark"
  },
@@ -27,13 +27,13 @@
      "job_id": "{date}_{testID}",
      "depends_on": {
        "depgrp1": [{
-         "app_name": ["test_scheduler/test_module2", "test_scheduler/test_module"],
+         "app_name": ["test_scheduler/test_app2", "test_scheduler/test_app"],
          "collection_name": ["profile", "purchase"],
          "date": [20140601],
          "client_id": [450, 1072, 4023],
          "testID": [1]
          }, {
-         "app_name": ["test_scheduler/test_module"],
+         "app_name": ["test_scheduler/test_app"],
          "job_id": ["20140601_999_purchase"],
          "testID": [1]
        }],
@@ -45,14 +45,14 @@
          "testID": [2]
        },
        "depgrp3": {
-         "app_name": ["test_scheduler/test_module"],
+         "app_name": ["test_scheduler/test_app"],
          "collection_name": ["profile"],
          "date": [20140601],
          "client_id": [450],
          "testID": [3]
        },
        "depgrp4": {
-         "app_name": ["test_scheduler/test_module"],
+         "app_name": ["test_scheduler/test_app"],
          "collection_name": ["profile"],
          "date": [20140601],
          "client_id": [444],
@@ -71,8 +71,8 @@
          "testID": [1]
         }, {
          "app_name": [
-           "test_scheduler/test_module",
-           "test_scheduler/test_module2",
+           "test_scheduler/test_app",
+           "test_scheduler/test_app2",
            "test_scheduler/test_bashworker2"],
          "client_id": [101, 102],
          "collection_name": ["profile"],
