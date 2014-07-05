@@ -118,7 +118,7 @@ def _handle_failure(ns, job_id, zk, q, lock):
             q=q, app_name=ns.app_name, job_id=job_id, zk=zk)
     lock.release()
     log.warn(
-        "Job failed", extra=dict(job_id=job_id, **ns.__dict__))
+        "Job failed", extra=dict(job_id=job_id, app_name=ns.app_name))
 
 
 def _handle_success(ns, job_id, zk, q, lock):
