@@ -152,3 +152,10 @@ def get_bash_opts(app_name):
             "App is not a bash job", extra=dict(
                 app_name=app_name, job_type=job_type))
     return meta.get('bash_opts', '')
+
+
+def get_spark_conf(app_name):
+    dg = get_tasks_dct()
+    conf = dict(**dg[app_name]['spark_conf'])
+    conf['spark.app.name'] = app_name
+    return conf

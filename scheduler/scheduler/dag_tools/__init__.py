@@ -12,6 +12,7 @@ from .node import (
     get_job_type,
     get_task_names,
     get_bash_opts,
+    get_spark_conf,
 )
 
 from .traversal import (

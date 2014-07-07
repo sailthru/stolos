@@ -186,6 +186,27 @@ def validate_root_node(app_name1, metadata, dg, tasks_dct, ld):
         " the value at the 'root' key to either True or False") % app_name1
 
 
+def validate_spark_conf(app_name, metadata, dg, tasks_dct, ld):
+    # spark_conf - Is it a dict of str: str pairs?
+    _log_raise_if(
+        not isinstance(metadata.get("spark_conf", {}), dict),
+        "spark_conf, if supplied, must be a dict.",
+        extra=dict(**ld),
+        exception_kls=DAGMisconfigured
+    )
+    for k, v in metadata.get("spark_conf", {}):
+        _log_raise_if(
+            not isinstance(k, (unicode, str)),
+            "Key in spark_conf must be a string",
+            extra=dict(key=k, key_type=type(k), **ld),
+            exception_kls=DAGMisconfigured)
+        _log_raise_if(
+            not isinstance(v, (unicode, str)),
+            "Value for given key in spark_conf must be a string",
+            extra=dict(key=k, value_type=type(v), **ld),
+            exception_kls=DAGMisconfigured)
+
+
 def validate_dag(dg, tasks_dct):
     assert nx.algorithms.dag.is_directed_acyclic_graph(dg)
 

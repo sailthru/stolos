@@ -152,7 +152,7 @@ def build_worker_arg_parser(*args, **kwargs):
 
 _build_arg_parser = at.build_arg_parser([
     at.app_name(required=True, choices=dag_tools.get_task_names()),
-    at.spark_context(),
+    at.zookeeper_hosts,
 
     at.add_argument(
         '--timeout', default=2, type=int,
