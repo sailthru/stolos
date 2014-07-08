@@ -12,6 +12,8 @@ setup(
     description=('A DAG-based job scheduler for performing work with complex'
                  ' dependency requirements.'),
     long_description=open('README.md').read(),
+    keywords=['scheduler', 'dag', 'directed acyclic graph', 'graph', 'data',
+              'dependency'],
 
     author='Sailthru Data Science Team',
     author_email='ds@sailthru.com',
