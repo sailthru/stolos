@@ -21,7 +21,7 @@ setup(
     scripts=findall('bin'),
     data_files=[
         ('conf', findall('conf')),
-        ('scheduler.examples', findall('scheduler/examples'))
+        ('scheduler/examples', findall('scheduler/examples'))
     ],
 
     install_requires = [
