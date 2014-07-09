@@ -20,7 +20,7 @@ setup(
     url='https://github.com/sailthru/sailthru-datascience',
 
     packages=find_packages(),
-    scripts=findall('bin'),
+    scripts=[x for x in findall('bin') if x != 'test_scheduler'],
     data_files=[
         ('conf', findall('conf')),
         ('scheduler/examples', findall('scheduler/examples'))
@@ -51,4 +51,10 @@ setup(
 
     # Include code that isn't pure python (like c stuff)
     # ext_modules=[Extension('foo', ['foo.c'])]
+
+    entry_points = {
+        'console_scripts': [
+            'scheduler = scheduler.__main__',
+        ],
+    },
 )
