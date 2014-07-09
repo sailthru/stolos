@@ -159,3 +159,8 @@ def get_spark_conf(app_name):
     conf = dict(**dg[app_name]['spark_conf'])
     conf['spark.app.name'] = app_name
     return conf
+
+
+def get_spark_osenv(app_name):
+    dg = get_tasks_dct()
+    return dg[app_name].get('spark_osenv', True)

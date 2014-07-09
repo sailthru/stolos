@@ -194,17 +194,26 @@ def validate_spark_conf(app_name, metadata, dg, tasks_dct, ld):
         extra=dict(**ld),
         exception_kls=DAGMisconfigured
     )
-    for k, v in metadata.get("spark_conf", {}):
+    for k, v in metadata.get("spark_conf", {}).items():
         _log_raise_if(
             not isinstance(k, (unicode, str)),
             "Key in spark_conf must be a string",
             extra=dict(key=k, key_type=type(k), **ld),
             exception_kls=DAGMisconfigured)
         _log_raise_if(
-            not isinstance(v, (unicode, str)),
-            "Value for given key in spark_conf must be a string",
+            isinstance(v, (list, tuple, dict)),
+            "Value for given key in spark_conf must be an int, string or bool",
             extra=dict(key=k, value_type=type(v), **ld),
             exception_kls=DAGMisconfigured)
+
+
+def validate_spark_osenv(app_name, metadata, dg, tasks_dct, ld):
+    _log_raise_if(
+        not isinstance(metadata.get("spark_osenv", True), bool),
+        "spark_osenv, if supplied, must be boolean value",
+        extra=dict(**ld),
+        exception_kls=DAGMisconfigured
+    )
 
 
 def validate_dag(dg, tasks_dct):
@@ -217,6 +226,8 @@ def validate_dag(dg, tasks_dct):
         validate_job_type(app_name1, metadata, dg, tasks_dct, ld)
         validate_bash_opts(app_name1, metadata, dg, tasks_dct, ld)
         validate_root_node(app_name1, metadata, dg, tasks_dct, ld)
+        validate_spark_conf(app_name1, metadata, dg, tasks_dct, ld)
+        validate_spark_osenv(app_name1, metadata, dg, tasks_dct, ld)
 
 
 def visualize_dag(dg=None, plot=True):
