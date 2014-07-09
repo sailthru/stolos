@@ -56,5 +56,8 @@ setup(
         'console_scripts': [
             'scheduler = scheduler.__main__',
         ],
+        'setuptools.installation': [
+            'eggsecutable = scheduler.__main__:go',
+        ],
     },
 )
