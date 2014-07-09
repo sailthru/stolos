@@ -156,7 +156,7 @@ def validate_if_or(app_name1, metadata, dg, tasks_dct, ld):
                 **ld),
             exception_kls=DAGMisconfigured)
         for vv in v:
-            assert isinstance(vv, unicode), (
+            assert isinstance(vv, (str, unicode)), (
                 "Task is misconfigured.  Expected list of strings, but"
                 " found a list with a %s element. Location: %s"
                 % (type(vv), "%s.valid_if_or.%s" % (app_name1, k)))
@@ -216,6 +216,18 @@ def validate_spark_osenv(app_name, metadata, dg, tasks_dct, ld):
     )
 
 
+def validate_spark_files_and_pyFiles(app_name, metadata, dg, tasks_dct, ld):
+    for key in ["spark_files", "spark_pyFiles"]:
+        msg = "%s, if supplied, must be a list of filepaths" % key
+        _log_raise_if(
+            not isinstance(metadata.get(key, []), list),
+            msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
+        _log_raise_if(
+            not all(isinstance(x, (unicode, str))
+                    for x in metadata.get(key, ['a'])),
+            msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
+
+
 def validate_dag(dg, tasks_dct):
     assert nx.algorithms.dag.is_directed_acyclic_graph(dg)
 
@@ -228,6 +240,7 @@ def validate_dag(dg, tasks_dct):
         validate_root_node(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_conf(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_osenv(app_name1, metadata, dg, tasks_dct, ld)
+        validate_spark_files_and_pyFiles(app_name1, metadata, dg, tasks_dct, ld)
 
 
 def visualize_dag(dg=None, plot=True):
