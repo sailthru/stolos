@@ -157,8 +157,6 @@ def get_bash_opts(app_name):
 def get_spark_conf(app_name):
     dg = get_tasks_dct()
     conf = dict(**dg[app_name]['spark_conf'])
-    conf['spark.app.name'] = app_name
-
     osenv = dg[app_name].get('spark_osenv', False)
     files = dg[app_name].get('spark_files', [])
     pyFiles = dg[app_name].get('spark_pyFiles', [])
