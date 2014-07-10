@@ -240,7 +240,8 @@ def validate_dag(dg, tasks_dct):
         validate_root_node(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_conf(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_osenv(app_name1, metadata, dg, tasks_dct, ld)
-        validate_spark_files_and_pyFiles(app_name1, metadata, dg, tasks_dct, ld)
+        validate_spark_files_and_pyFiles(
+            app_name1, metadata, dg, tasks_dct, ld)
 
 
 def visualize_dag(dg=None, plot=True):
