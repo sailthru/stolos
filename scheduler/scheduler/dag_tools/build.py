@@ -207,26 +207,27 @@ def validate_spark_conf(app_name, metadata, dg, tasks_dct, ld):
             exception_kls=DAGMisconfigured)
 
 
-def validate_spark_osenv(app_name, metadata, dg, tasks_dct, ld):
+def validate_env(app_name, metadata, dg, tasks_dct, ld):
     _log_raise_if(
-        not isinstance(metadata.get("spark_osenv", {}), dict),
-        "spark_osenv, if supplied, must be dict",
+        not isinstance(metadata.get("env", {}), dict),
+        "env, if supplied, must be dict",
         extra=dict(**ld),
         exception_kls=DAGMisconfigured
     )
     # TODO: check for str: str pairs?
 
 
-def validate_spark_files_and_pyFiles(app_name, metadata, dg, tasks_dct, ld):
-    for key in ["spark_files", "spark_pyFiles"]:
-        msg = "%s, if supplied, must be a list of filepaths" % key
-        _log_raise_if(
-            not isinstance(metadata.get(key, []), list),
-            msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
-        _log_raise_if(
-            not all(isinstance(x, (unicode, str))
-                    for x in metadata.get(key, ['a'])),
-            msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
+def validate_uris(app_name, metadata, dg, tasks_dct, ld):
+    key = "uris"
+    msg = ("%s, if supplied, must be a list of (hdfs, local or s3) filepaths"
+           % key)
+    _log_raise_if(
+        not isinstance(metadata.get(key, []), list),
+        msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
+    _log_raise_if(
+        not all(isinstance(x, (unicode, str))
+                for x in metadata.get(key, ['a'])),
+        msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
 
 
 def validate_dag(dg, tasks_dct):
@@ -240,9 +241,8 @@ def validate_dag(dg, tasks_dct):
         validate_bash_opts(app_name1, metadata, dg, tasks_dct, ld)
         validate_root_node(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_conf(app_name1, metadata, dg, tasks_dct, ld)
-        validate_spark_osenv(app_name1, metadata, dg, tasks_dct, ld)
-        validate_spark_files_and_pyFiles(
-            app_name1, metadata, dg, tasks_dct, ld)
+        validate_env(app_name1, metadata, dg, tasks_dct, ld)
+        validate_uris(app_name1, metadata, dg, tasks_dct, ld)
 
 
 def visualize_dag(dg=None, plot=True):
