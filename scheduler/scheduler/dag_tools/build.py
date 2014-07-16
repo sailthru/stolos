@@ -209,11 +209,12 @@ def validate_spark_conf(app_name, metadata, dg, tasks_dct, ld):
 
 def validate_spark_osenv(app_name, metadata, dg, tasks_dct, ld):
     _log_raise_if(
-        not isinstance(metadata.get("spark_osenv", True), bool),
-        "spark_osenv, if supplied, must be boolean value",
+        not isinstance(metadata.get("spark_osenv", {}), dict),
+        "spark_osenv, if supplied, must be dict",
         extra=dict(**ld),
         exception_kls=DAGMisconfigured
     )
+    # TODO: check for str: str pairs?
 
 
 def validate_spark_files_and_pyFiles(app_name, metadata, dg, tasks_dct, ld):
