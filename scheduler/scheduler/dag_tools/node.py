@@ -74,7 +74,7 @@ def _validate_job_id_identifiers(
         except Exception as err:
             msg = "Given job_id is improperly formatted."
             log.exception(msg, extra=dict(
-                expected=key, received=_val, error_details=err, **ld))
+                expected_key=key, invalid_val=_val, error_details=err, **ld))
             raise InvalidJobId("%s err: %s" % (msg, err))
         rv[key] = val
     return rv
