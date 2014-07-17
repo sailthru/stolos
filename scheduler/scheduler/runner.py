@@ -6,8 +6,11 @@ from scheduler import dag_tools, exceptions, zookeeper_tools
 
 
 def main(ns):
-    """Initialize a worker to fetch a job from a given application's queue
-    Execute the given code, and then gracefully die
+    """
+    Fetch a job from a given application's queue and obtain ZooKeeper lock(s),
+    Execute the given code using appropriate plugin module,
+    Handle dependencies
+    And then gracefully die
     """
     zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
@@ -141,7 +144,7 @@ def log_and_raise(err, log_details):
         'Task failed.  This message should never appear in logs.')
 
 
-def build_worker_arg_parser(*args, **kwargs):
+def build_plugin_arg_parser(*args, **kwargs):
     return at.build_arg_parser(
         *args,
         parents=kwargs.pop('parents', [_build_arg_parser()]),
@@ -172,14 +175,14 @@ _build_arg_parser = at.build_arg_parser([
 def build_arg_parser():
     """
     Get an argparse.Namespace from sys.argv,
-    Lazily import the appropriate worker module based on the given app name
-    And recreate the namespace with arguments specific to that worker module
+    Lazily import the appropriate plugin module based on the given app name
+    And recreate the namespace with arguments specific to that plugin module
     """
     ns, _ = _build_arg_parser().parse_known_args()
-    worker = importlib.import_module(
-        'scheduler.worker.%s_worker' % dag_tools.get_job_type(ns.app_name))
-    ns = worker.build_arg_parser().parse_args()
-    ns.job_type_func = worker.main
+    plugin = importlib.import_module(
+        'scheduler.plugins.%s_plugin' % dag_tools.get_job_type(ns.app_name))
+    ns = plugin.build_arg_parser().parse_args()
+    ns.job_type_func = plugin.main
     return ns
 
 
