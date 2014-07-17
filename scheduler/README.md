@@ -533,7 +533,6 @@ There are other variations and also other configuration options:
   tasks, if any.
 - *`job_id`* - (optional) A template describing what identifiers compose
   the `job_id`s.
-- *`root`* - (optional) A label the means this task has no parents
 - *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
   If a `job_id` for a task does (optional)t match the given
   `valid_if_or` criteria, then the task is immediately marked as

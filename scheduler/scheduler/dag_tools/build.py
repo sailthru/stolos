@@ -179,13 +179,6 @@ def validate_bash_opts(app_name1, metadata, dg, tasks_dct, ld):
     assert isinstance(metadata.get('bash_opts', ''), (str, unicode))
 
 
-def validate_root_node(app_name1, metadata, dg, tasks_dct, ld):
-    # root  -  Is the job a root node?
-    assert metadata.get('root', False) in [True, False], (
-        "You specified an invalid value for this 'root' task: %s. Change"
-        " the value at the 'root' key to either True or False") % app_name1
-
-
 def validate_spark_conf(app_name, metadata, dg, tasks_dct, ld):
     # spark_conf - Is it a dict of str: str pairs?
     _log_raise_if(
@@ -239,7 +232,6 @@ def validate_dag(dg, tasks_dct):
         validate_if_or(app_name1, metadata, dg, tasks_dct, ld)
         validate_job_type(app_name1, metadata, dg, tasks_dct, ld)
         validate_bash_opts(app_name1, metadata, dg, tasks_dct, ld)
-        validate_root_node(app_name1, metadata, dg, tasks_dct, ld)
         validate_spark_conf(app_name1, metadata, dg, tasks_dct, ld)
         validate_env(app_name1, metadata, dg, tasks_dct, ld)
         validate_uris(app_name1, metadata, dg, tasks_dct, ld)
@@ -266,8 +258,6 @@ def visualize_dag(dg=None, plot=True):
 def _add_nodes(tasks_dct, dg):
     """Add nodes to a networkx graph"""
     for app_name, attr_dict in tasks_dct.items():
-        if attr_dict.get('root'):
-            dg.roots.append(app_name)
         dg.add_node(app_name, attr_dict)
         deps = attr_dict.get('depends_on')
         if deps:
@@ -337,7 +327,6 @@ def _build_dag(tasks_dct):
     if tasks_dct is None:
         tasks_dct = node.get_tasks_dct()
     dg = nx.MultiDiGraph()
-    dg.roots = []
     for app_name, deps in _add_nodes(tasks_dct, dg):
         _build_dict_deps(
             dg=dg, app_name=app_name, deps=deps)

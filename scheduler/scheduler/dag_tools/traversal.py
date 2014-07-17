@@ -12,15 +12,6 @@ from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
 from .node import (get_tasks_dct, parse_job_id, get_job_id_template)
 
 
-def get_roots():
-    """return a list of the nodes with no ancestors.  These nodes are tasks
-    that start all other data science tasks.
-
-    # TODO: make sailthrudata-import a root task and fix how they are handled
-    """
-    return build_dag().roots
-
-
 def topological_sort(lst):
     """Given a list of (app_name, job_id) pairs,
     topological sort by the app_names
