@@ -17,7 +17,11 @@ from .constants import (
 def get_tasks_dct(fp=None):
     if fp is None:
         fp = os.environ['TASKS_JSON']
-    return ujson.load(open(fp))
+    try:
+        return ujson.load(open(fp))
+    except:
+        log.error("Failed to read json file.", extra={'fp': fp})
+        raise
 
 
 def create_job_id(app_name, **job_id_identifiers):
