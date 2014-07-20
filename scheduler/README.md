@@ -578,7 +578,7 @@ available at the commandline and (possibly) in the tasks.json file.
 
  - `job_type`="bash"
     - `bash_opts`
- - `job_type`="spark"
+ - `job_type`="pyspark"
     - `pymodule` - a python import path to python application code.  ie.
       `scheduler.examples.tasks.test_task`,
     - `spark_conf` - a dict of spark config keys and values

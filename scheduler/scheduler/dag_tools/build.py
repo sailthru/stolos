@@ -163,8 +163,10 @@ def validate_if_or(app_name1, metadata, dg, tasks_dct, ld):
 
 
 def validate_job_type(app_name1, metadata, dg, tasks_dct, ld):
+    # TODO: get these from plugins directory.
+
     # job_type  -  Is this a recognized job_type and does it exist?
-    assert metadata.get('job_type') in ['spark', 'bash'], (
+    assert metadata.get('job_type') in ['pyspark', 'bash'], (
         "Invalid job_type for app_name: %s.  Job_type is: %s"
         % (app_name1, metadata.get('job_type', 'no job_type specified!')))
 

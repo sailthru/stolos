@@ -11,7 +11,7 @@ def main(textFile, ns, **job_id_identifiers):
 
 #   "test_scheduler/test_minimal": {
 #     "depends_on": [],
-#     "job_type": "spark",
+#     "job_type": "pyspark",
 #     "pymodule": "scheduler.examples.minimal_viable_example"
 #   }
 

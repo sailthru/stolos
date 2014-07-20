@@ -1,13 +1,13 @@
 {
   "test_scheduler/test_app": {
      "pymodule": "scheduler.examples.tasks.test_task",
-     "job_type": "spark"
+     "job_type": "pyspark"
  },
  "test_scheduler/test_app2": {
      "pymodule": "scheduler.examples.tasks.test_task",
      "depends_on": {"app_name": ["test_scheduler/test_app"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
-     "job_type": "spark"
+     "job_type": "pyspark"
  },
  "test_scheduler/test_bashworker": {
      "job_type": "bash"
@@ -19,7 +19,7 @@
  },
 
  "test_scheduler/test_minimal": {
-     "job_type": "spark",
+     "job_type": "pyspark",
      "pymodule": "scheduler.examples.tasks.minimal_viable_example"
  },
 
