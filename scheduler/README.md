@@ -1,11 +1,9 @@
 Summary:
 ==============
 
-You have some application code that needs to be run.  Either you're
-running many variations of the same application, or you're running
-the same code on a repeating schedule.   This task scheduler manages
-the order of execution of tasks where some tasks may depend on prior
-completion of other tasks.  It has the following features:
+This tasks scheduler manages the order of execution of dependent tasks
+where a task represents some piece of work that may have many
+variations.  It has the following features:
 
   - very simple to use (create an issue if it isn't!)
   - excellent fault tolerance (via ZooKeeper)
@@ -24,6 +22,7 @@ What this is project not:
   - does not (and should not) auto-scale workers
   - by itself, it does no actual "work" other than managing job state
     and queueing future work
+  - This is not a grid scheduler (ie this does not solve a bin packing problem)
 
 
 Requirements:
@@ -43,7 +42,8 @@ The inspiration for this project comes from the notion that the way we
 manage dependencies in our system defines how we characterize the work
 that exists in our system.
 
-Sailthru's Data Science team has a complex data pipeline and set of
+This project arose from the not uncommon needs of Sailthru's Data
+Science team.  The team has a complex data pipeline and set of
 requirements.  We have to build models, algorithms and data pipelines
 for many clients, and this leads to a wide variety of work we have to
 perform within our system.  Some work is very specific.  For instance,
@@ -157,7 +157,7 @@ dependency graphs, as shown in Scenario 1, Situation II.
 
 As we have just seen, dependencies can be modeled as directed acyclic
 multi-graphs.  (acyclic means no cycles - ie no loops.  multi-graph
-means a it contains many separate graphs).  Situation 2 is the
+contains many separate graphs).  Situation 2 is the
 default in this scheduler (`Task_Bi` depends only on `Task_Ai`).
 
 
@@ -165,19 +165,26 @@ Concept: Job IDs
 ==============
 
 *For details on how to use and configure `job_id`s, see the section, "Job
-ID Configuration"*  # TODO
+ID Configuration"*  This section explains what `job_id`s are.
 
 The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
-(`TaskA_1`, `TaskA_2`, ...).  A task represents a group of similar
-`job_id`s.  A `job_id` identifies subtasks, and it is made up of
-"identifiers" that we mash together via a `job_id` template.
+(`TaskA_1`, `TaskA_2`, ...).  A task represents a group of subtasks.  A
+`job_id` identifies subtasks, and it is made up of "identifiers" that we
+mash together via a `job_id` template.  To give some context for how
+`job_id` templates characterize tasks, see below:
 
 
-Some example `job_id`s and their corresponding template might look like
-the example below:
+               Task_A    "{date}_{client_id}_{dataset}"
+                 |
+                 v
+               Task_B    "{date}_{your_custom_identifier}"
 
-    "20140614_client1_dataset1"  <------>  "{date}_{client_id}_{dataset}"
-    "20140601_analysis1"  <------>  "{date}_{your_custom_identifier}"
+
+Some example `job_id`s for subtasks of `Task_A` and `Task_B`,
+respectively, might be:
+
+    Task_A:  "20140614_client1_dataset1"  <--->  "{date}_{client_id}_{dataset}"
+    Task_B:  "20140601_analysis1"  <--->  "{date}_{your_custom_identifier}"
 
 
 A `job_id` represents the smallest piece of work the scheduler can
@@ -201,6 +208,12 @@ Here's some general advice for choosing a `job_id` template:
   - How complex is my data pipeline?  Do I have any branches in my
     dependency tree?  If you have a very simple pipeline, you may simply
     wish to have all `job_id` templates be the same across tasks.
+
+It is important to note that the way(s) in which `Task_B` depends on
+`Task_A` have not been explained in this section.  A `job_id` does not
+explain how tasks depend on each other, but rather, it characterizes how
+we choose to identify a task's subtasks in context of the parent and child
+tasks.
 
 
 Concept: Bubble Up and Bubble Down
@@ -238,7 +251,7 @@ the equivalent `job_id` for `Task_B`.
 In other words, the completion of `Task_A` work triggers the completion
 of `Task_B` work.  A more semantically correct version is the following:
 the completion of `(Task_A, job_id_123)` depends on both the successful
-execution of `Task_A` code and then successfully queuing some Task_B work.
+execution of `Task_A` code and then successfully queuing some `Task_B` work.
 
 
 "Bubble Up"
@@ -302,16 +315,24 @@ queue prioritization scheme and other complex algorithms to manage
 scaling and resource contention.
 
 Secondly, if the system supports a "Bubble Up" approach, we can simply
-pick and run any task in a dependency graph and expect that it will execute as soon as possible to do so.
+pick and run any task in a dependency graph and expect that it will
+execute as soon as possible to do so.
+
+"Bubble up" should be always safe to perform as long as the system
+implementing the scheduler can ignore unwanted task queues, and as long
+as there is no risk of queueing particular subtasks that wouldn't
+otherwise be ignored.
 
 
 Setup:
 ==============
 
-The first thing you'll want to do is install this:
+The first thing you'll want to do is install the scheduler:
 
     pip install scheduler  # TODO
 
+    # If you prefer a Python egg, clone the repo and then type:
+    # python setup.py bdist_egg
 
 The first time only, you need to create some basic environment vars.
 **See scheduler/conf/scheduler-env for example environment var
@@ -330,7 +351,8 @@ and some other basic metadata about how to execute them.
 
     - **See scheduler/examples/tasks.json**  # TODO link
 
-- the job_id_validations python module should look like this:
+- the `job_id_validations` python module should look like this:
+
     - **See scheduler/examples/job_id_validations.py**  # TODO link
 
 After this initial setup, you will need to create a task and register
@@ -344,7 +366,7 @@ it.  This takes the form of these steps:
 
 - **See scheduler/examples/tasks/minimal_viable_example.py for details
   on how to perform these simple steps for a spark job.**
-- A bash job doesn't need any application code to run, as long as that
+- A bash job doesn't need any application code to run as long as that
   code is available from command-line
 
 A fully working example exists in **scheduler/examples/**  # TODO link
@@ -359,15 +381,15 @@ In order to run a job, you have to queue it and then execute it.
 You can read from the application's queue and execute code via:
 
 
-    ./bin/scheduler --app_name test_scheduler/test_minimal -h
+    scheduler --app_name test_scheduler/test_minimal -h
 
-    ./bin/scheduler --app_name test_scheduler/test_bashworker2 -h
+    scheduler --app_name test_scheduler/test_bashworker2 -h
 
 
 This is how you can manually queue a job:
 
 
-    ./bin/scheduler-submit -h
+    scheduler-submit -h
 
 
 Configuration: Job IDs
@@ -399,13 +421,13 @@ may also contain a custom `job_id` template.  See "Configuration: Tasks"
 for details.  # TODO
 
 
-Configuration: Tasks
+Configuration: Tasks, Dependencies and the tasks.json file
 ==============
 
 A JSON file defines the task dependency graph and all related
 configuration metadata. This section will show available configuration
 options.  For instructions on how to use this file, see section Setup
-TODO!!!!
+(TODO add setup!)
 
 Here is a minimum viable configuration for a task (api subject to
 change):
@@ -443,7 +465,7 @@ And more complex variant of a `TaskA_i` --> `TaskB_i` relationship:
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
                 "app_name": ["preprocess"],
-                "target": "purchase_revenue"
+                "target": ["purchase_revenue"]
             }
         }
     }
@@ -496,10 +518,13 @@ This configuration demonstrates how multiple `TaskA_i` reduce to
         }
     }
 
-The furthest level of complexity enables boolean logic.  A task can
+We also enable boolean logic in dependency structures.  A task can
 depend on `dependency_group_1` OR another dependency group.  Within a
-dependency group, you can specify that the dependencies come from
-one different set of `job_ids` AND another set.  In this example, note that the value of `dependency_group_1` is a list.  The use of a list specifies AND logic, while the declaration of different dependency groups specifies OR logic.
+dependency group, you can specify that the dependencies come from one
+different set of `job_ids` AND another set.  In this example, note that
+the value of `dependency_group_1` is a list.  The use of a list
+specifies AND logic, while the declaration of different dependency
+groups specifies OR logic.
 
             ...
             "depends_on": {
@@ -525,16 +550,17 @@ In other words, the above task depends on completion of one job_id from
 group2 OR the following: completion of six job_ids from the "preprocess"
 task AND completion of a set of 2 job_ids from task, "other_preprocess".
 
-There are other variations and also other configuration options:
+There are other variations not listed.  Here is a list of configuration
+options:
 
 - *`job_type`* - (required) Select how to execute the following task's
   code.  The `job_type` choice also adds other configuration options
 - *`depends_on`* - (optional) A specification of all parent `job_id`s and
   tasks, if any.
 - *`job_id`* - (optional) A template describing what identifiers compose
-  the `job_id`s.
+  the `job_id`s.  If not given, assumes the default `job_id` template.
 - *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
-  If a `job_id` for a task does (optional)t match the given
+  If a `job_id` for a task does not match the given
   `valid_if_or` criteria, then the task is immediately marked as
   "completed"
 
@@ -548,25 +574,25 @@ executed in its own shell), or should it be an Apache Spark (python) job
 that receives elements of a stream or a textFile instance?  The
 following table defines different `job_type` options available.  Each
 `job_type` has its own set of configuration options, and these are
-available at the commandline and (probably) in the tasks.json file.
+available at the commandline and (possibly) in the tasks.json file.
 
- - job_type="bash"
-    - bash_opts
-    - ????
- - job_type="spark"
-    - map
-    - mapJson
-    - textFile
-    - read_fp
-    - read_s3_key
-    - read_s3_bucket
-    - write_fp
-    - write_s3_bucket
-    - ???
+ - `job_type`="bash"
+    - `bash_opts`
+ - `job_type`="spark"
+    - `pymodule` - a python import path to python application code.  ie.
+      `scheduler.examples.tasks.test_task`,
+    - `spark_conf` - a dict of spark config keys and values
+    - `envs` - a dict of environment variables and values
+    - `uris` - a list of spark files and pyFiles
 
-You can easily extend this system to support your own custom
-applications and functionality by specifying a `job_type`.  As an example,
-see the files in THIS GITHUB DIRECTORY for details.  # TODO
+(Developer note) Different `job_type`s correspond to specific "plugins"
+recognized by the scheduler.  One can extend the scheduler to support
+custom `job_type`s.  You may wish to do this if tasks contain logic that
+requires knowledge of the runtime environment with which the scheduler
+was executed (this includes details like the tasks's `app_name`).  You
+may also with to do this if you do not wish to create a subprocess to
+run existing python code.  Refer to the developer documentation for
+writing custom plugins.
 
 
 Roadmap:
