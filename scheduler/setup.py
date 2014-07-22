@@ -54,7 +54,7 @@ setup(
 
     entry_points = {
         'console_scripts': [
-            'scheduler = scheduler.__main__',
+            'scheduler = scheduler.__main__:go',
         ],
         'setuptools.installation': [
             'eggsecutable = scheduler.__main__:go',
