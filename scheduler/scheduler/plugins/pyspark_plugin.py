@@ -2,7 +2,8 @@ import functools
 import ujson
 
 from ds_commons import argparse_tools as at
-from scheduler import dag_tools, spark_context, runner
+from scheduler import dag_tools, runner
+from . import pyspark_context
 from ds_commons.log import log
 
 
@@ -18,7 +19,7 @@ def main(ns, job_id):
     module = dag_tools.get_pymodule(ns.app_name)
 
     pjob_id = dag_tools.parse_job_id(ns.app_name, job_id)
-    read_fp, _ = spark_context.get_s3_fp(
+    read_fp, _ = pyspark_context.get_s3_fp(
         ns, read=True, write=False, **pjob_id)
     log_details = dict(
         module_name=module.__name__, read_fp=read_fp,
@@ -27,7 +28,7 @@ def main(ns, job_id):
     conf, osenv, files, pyFiles = dag_tools.get_spark_conf(ns.app_name)
     conf['spark.app.name'] = "%s__%s" % (conf['spark.app.name'], job_id)
     conf.update(ns.spark_conf)
-    sc = spark_context.get_spark_context(
+    sc = pyspark_context.get_spark_context(
         conf=conf, osenv=osenv, files=files, pyFiles=pyFiles)
 
     tf = sc.textFile(read_fp, ns.minPartitions)
@@ -70,7 +71,7 @@ def apply_data_transform(ns, tf, log_details, pjob_id, module):
                 "Job failed with error: %s" % err, log_details)
 
     else:
-        _, write_fp = spark_context.get_s3_fp(
+        _, write_fp = pyspark_context.get_s3_fp(
             ns, read=False, write=True, **pjob_id)
         log.info(
             'mapping a module.main function to all elements in a textFile and'
