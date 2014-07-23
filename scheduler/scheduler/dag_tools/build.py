@@ -210,6 +210,18 @@ def validate_env(app_name, metadata, dg, tasks_dct, ld):
         exception_kls=DAGMisconfigured
     )
     # TODO: check for str: str pairs?
+    _log_raise_if(
+        not isinstance(metadata.get("env_from_os", []), list),
+        "env_from_os, if supplied, must be list of environment variables",
+        extra=dict(**ld),
+        exception_kls=DAGMisconfigured
+    )
+    for key in metadata.get("env_from_os", []):
+        _log_raise_if(
+            not os.environ.get(key),
+            "os environment key not found",
+            extra=dict(key=key, **ld),
+            exception_kls=DAGMisconfigured)
 
 
 def validate_uris(app_name, metadata, dg, tasks_dct, ld):

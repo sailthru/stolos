@@ -162,7 +162,8 @@ def get_spark_conf(app_name):
     dg = get_tasks_dct()
     conf = dict(**dg[app_name].get('spark_conf', {}))
     conf['spark.app.name'] = app_name
-    osenv = dg[app_name].get('env', {})
+    osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
+    osenv.update(dg[app_name].get('env', {}))
     pyFiles = dg[app_name].get('uris', [])
     files = []  # for now, we're ignoring files.
     return conf, osenv, files, pyFiles

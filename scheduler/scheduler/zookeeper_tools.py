@@ -18,7 +18,7 @@ ZOOKEEPER_FAILED = 'failed'
 def get_client(zookeeper_hosts=None):
     if zookeeper_hosts is None:
         zookeeper_hosts = os.environ["ZOOKEEPER_HOSTS"]
-    log.info("Connecting to ZooKeeper: %s" % zookeeper_hosts)
+    log.debug("Connecting to ZooKeeper: %s" % zookeeper_hosts)
     zk = KazooClient(zookeeper_hosts)
     zk.start()
     zk.logger.handlers = log.handlers
