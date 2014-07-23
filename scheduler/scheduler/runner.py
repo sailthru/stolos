@@ -15,20 +15,9 @@ def main(ns):
     zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
     if ns.job_id:
-        log.warn(
-            ('using specific job_id and'
-            ' blindly assuming this job is not already queued.'),
-            extra=dict(app_name=ns.app_name, job_id=ns.job_id))
-        created = zookeeper_tools.maybe_add_subtask(
-            ns.app_name, ns.job_id, queue=False, timeout=ns.timeout)
-        if not created:
-            log.critical(
-                ('Will not execute this task because it might be already'
-                 ' queued or completed!'),
-                extra=dict(app_name=ns.app_name, job_id=ns.job_id))
-            return
-
+        lock = _handle_manually_given_job_id(ns, zk)
     else:
+        lock = None
         ns.job_id = q.get(timeout=ns.timeout)
         if ns.job_id is None:
             log.info('No jobs found in %d seconds...' % ns.timeout)
@@ -39,7 +28,8 @@ def main(ns):
         return
 
     lock = get_lock_if_job_is_runnable(
-        app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout)
+        app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout,
+        lock=lock)
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
         _send_to_back_of_queue(q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
@@ -60,9 +50,34 @@ def main(ns):
     _handle_success(ns, ns.job_id, zk, q, lock)
 
 
-def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout):
+def _handle_manually_given_job_id(ns, zk):
+    """This process was given a specific --job_id arg.
+    Decide whether it's okay to execute this job_id,
+    and if its okay to go forward, set job_id state appropriately
+    """
+    log.warn(
+        ('using specific job_id and'
+        ' blindly assuming this job is not already queued.'),
+        extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+    created = zk.exists(zookeeper_tools._get_zookeeper_path(
+        ns.app_name, ns.job_id))
+    if created:
+        msg = ('Will not execute this task because it might be already'
+               ' queued or completed!')
+        log.critical(
+            msg, extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+        raise UserWarning(msg)
+    lock = zookeeper_tools.obtain_lock(
+        ns.app_name, ns.job_id, zk=zk, safe=False, raise_on_error=True,
+        timeout=ns.timeout)
+    zookeeper_tools.set_state(ns.app_name, ns.job_id, zk=zk, pending=True)
+    return lock
+
+
+def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
     """Return a lock instance or False.  If returning False,
-    the job is not ready to execute"""
+    the job is not ready to execute.  If we already have the lock, use that one
+    """
 
     available = zookeeper_tools.check_state(
         app_name, job_id, zk, pending=True, raise_if_not_exists=True)
@@ -81,7 +96,10 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout):
                     state=zookeeper_tools.check_state(
                         app_name, job_id, zk=zk, _get=True)))
             return False
-    l = zookeeper_tools.obtain_lock(app_name, job_id, zk, timeout=timeout)
+    if lock:
+        l = lock
+    else:
+        l = zookeeper_tools.obtain_lock(app_name, job_id, zk, timeout=timeout)
     if l is False:
         log.warn('Could not obtain lock for task most likely because'
                  ' the job_id appears more than once in the queue',

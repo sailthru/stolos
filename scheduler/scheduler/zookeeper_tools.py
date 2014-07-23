@@ -129,7 +129,7 @@ def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
     if not lock:
         return False
     try:
-        _queue(app_name, job_id, zk)
+        _queue(app_name, job_id, zk, queue=queue)
     finally:
         lock.release()
     return True
@@ -168,6 +168,9 @@ def obtain_lock(app_name, job_id, zk, timeout=None, blocking=True,
             raise exceptions.LockAlreadyAcquired(
                 'Lock already acquired. %s %s' % (app_name, job_id))
         else:
+            log.warn(
+                "Lock already acquired.",
+                extra=dict(app_name=app_name, job_id=job_id))
             return False
     return l
 

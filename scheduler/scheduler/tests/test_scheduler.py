@@ -55,7 +55,8 @@ def create_tasks_json(fname_suffix='', inject={}, rename=False):
 
 
 def setup_func(func_name):
-    """Code that runs just before each test"""
+    """Code that runs just before each test and configures a tasks.json file
+    for each test.  The tasks.json tmp files are stored in a global var."""
     zk.delete('test_scheduler', recursive=True)
 
     # TODO: figure out how to make this ugly convenience hack
@@ -513,9 +514,58 @@ def test_app_has_command_line_params():
 
 
 @with_setup
+def test_run_spark_given_specific_job_id():
+    enqueue(app1, job_id1)
+    out, err = run_spark_code(
+        app1, '--job_id %s' % job_id1, raise_on_err=False, capture=True)
+    nose.tools.assert_regexp_matches(err, (
+        'UserWarning: Will not execute this task because it might be'
+        ' already queued or completed!'))
+    validate_one_queued_task(app1, job_id1)
+
+
+@with_setup
+def test_run_multiple_given_specific_job_id():
+    p = run_code(
+        bashworker1,
+        extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
+        async=True)
+    p2 = run_code(
+        bashworker1,
+        extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
+        async=True)
+    # one of them should fail.  both should run asynchronously
+    err = p.communicate()[1] + p2.communicate()[1]
+    statuses = [p.poll(), p2.poll()]
+    # one job succeeds.  one job fails
+    nose.tools.assert_regexp_matches(err, 'successfully completed job')
+    nose.tools.assert_regexp_matches(err, (
+        '(UserWarning: Will not execute this task because it might'
+        ' be already queued or completed!'
+        '|Lock already acquired)'))
+    # failing job should NOT gracefully quit
+    nose.tools.assert_equal(
+        list(sorted(statuses)), [0, 1], msg="expected exactly one job to fail")
+
+
+@with_setup
+def test_run_failing_spark_given_specific_job_id():
+    """
+    task should still get queued if --job_id is specified and the task fails
+    """
+    with nose.tools.assert_raises(Exception):
+        run_code(bashworker1, '--job_id %s --ajajaj' % job_id1)
+    validate_zero_queued_task(bashworker1)
+    run_code(bashworker1, '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
+    validate_one_queued_task(bashworker1, job_id1)
+
+
+@with_setup
 def test_failing_task():
     with nose.tools.assert_raises(Exception):
         run_spark_code(app1, '--jaikahhaha')
+    with nose.tools.assert_raises(Exception):
+        run_spark_code(app1, '--fail')
 
 
 def enqueue(app_name, job_id, validate_queued=True):
@@ -532,14 +582,22 @@ def run_spark_code(app_name, extra_opts='', **kwargs):
     return run_code(app_name, extra_opts, **kwargs)
 
 
-def run_code(app_name, extra_opts, capture=False, raise_on_err=True):
-    log.debug('run code', extra=dict(app_name=app_name, extra_opts=extra_opts))
+def run_code(app_name, extra_opts, capture=False, raise_on_err=True,
+             async=False):
+    """Execute a shell command that runs the scheduler for a given app_name
+
+    `async` - (bool) return Popen process instance.  other kwargs do not apply
+    """
     cmd = CMD.format(app_name=app_name, extra_opts=extra_opts)
+    log.debug('run code', extra=dict(cmd=cmd))
     p = subprocess.Popen(
         cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    if async:
+        return p
+
     stdout, stderr = p.communicate()
     rc = p.poll()
-    if rc:
+    if raise_on_err and rc:
         raise Exception(
             "command failed. returncode: %s\ncmd: %s\nstderr: %s\nstdout: %s\n"
             % (rc, cmd, stderr, stdout))
