@@ -14,26 +14,41 @@ def main(ns):
     """
     zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
-    job_id = q.get(timeout=ns.timeout)
-    if job_id is None:
-        log.info('No jobs found in %d seconds...' % ns.timeout)
-        return
+    if ns.job_id:
+        log.warn(
+            ('using specific job_id and'
+            ' blindly assuming this job is not already queued.'),
+            extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+        created = zookeeper_tools.maybe_add_subtask(
+            ns.app_name, ns.job_id, queue=False, timeout=ns.timeout)
+        if not created:
+            log.critical(
+                ('Will not execute this task because it might be already'
+                 ' queued or completed!'),
+                extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+            return
+
+    else:
+        ns.job_id = q.get(timeout=ns.timeout)
+        if ns.job_id is None:
+            log.info('No jobs found in %d seconds...' % ns.timeout)
+            return
 
     if not ensure_parents_completed(
-            app_name=ns.app_name, job_id=job_id, zk=zk, q=q):
+            app_name=ns.app_name, job_id=ns.job_id, zk=zk, q=q):
         return
 
     lock = get_lock_if_job_is_runnable(
-        app_name=ns.app_name, job_id=job_id, zk=zk)
+        app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout)
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
-        _send_to_back_of_queue(q=q, app_name=ns.app_name, job_id=job_id, zk=zk)
+        _send_to_back_of_queue(q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         return
 
     try:
-        ns.job_type_func(ns=ns, job_id=job_id)
+        ns.job_type_func(ns=ns, job_id=ns.job_id)
     except exceptions.CodeError:  # assume error is previously logged
-        _handle_failure(ns, job_id, zk, q, lock)
+        _handle_failure(ns, ns.job_id, zk, q, lock)
         return
     except Exception as err:
         log.exception(
@@ -42,10 +57,10 @@ def main(ns):
                 err.__class__.__name__, err),
             extra=ns.__dict__)
         return
-    _handle_success(ns, job_id, zk, q, lock)
+    _handle_success(ns, ns.job_id, zk, q, lock)
 
 
-def get_lock_if_job_is_runnable(app_name, job_id, zk):
+def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout):
     """Return a lock instance or False.  If returning False,
     the job is not ready to execute"""
 
@@ -66,7 +81,7 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk):
                     state=zookeeper_tools.check_state(
                         app_name, job_id, zk=zk, _get=True)))
             return False
-    l = zookeeper_tools.obtain_lock(app_name, job_id, zk)
+    l = zookeeper_tools.obtain_lock(app_name, job_id, zk, timeout=timeout)
     if l is False:
         log.warn('Could not obtain lock for task most likely because'
                  ' the job_id appears more than once in the queue',
@@ -163,6 +178,10 @@ _build_arg_parser = at.build_arg_parser([
     at.add_argument(
         '--max_retry', type=int, default=5,
         help='Maximum number of times to retry a failed task.'),
+    at.add_argument(
+        '--job_id', help=(
+            'run a specific job_id. If a job is already queued,'
+            ' it will run twice')),
 ],
     description=(
         "A wrapper script that fetches tasks from a particular application's"

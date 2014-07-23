@@ -26,8 +26,9 @@ def get_client(zookeeper_hosts=None):
     return zk
 
 
-def _queue(app_name, job_id, zk):
-    """ Calling code should obtain a lock first! """
+def _queue(app_name, job_id, zk, queue=True):
+    """ Calling code should obtain a lock first!
+    If queue=False, do everything except queue (ie set state)"""
     log.info('Creating and queueing new subtask',
              extra=dict(app_name=app_name, job_id=job_id))
 
@@ -35,8 +36,11 @@ def _queue(app_name, job_id, zk):
         # hack: zookeeper doesn't like unicode
         if isinstance(job_id, unicode):
             job_id = str(job_id)
-
-        zk.LockingQueue(app_name).put(job_id)
+        if queue:
+            zk.LockingQueue(app_name).put(job_id)
+        else:
+            log.warn('create a subtask but not actually queueing it',
+                      extra=dict(app_name=app_name, job_id=job_id))
         set_state(app_name, job_id, zk, pending=True)
     else:
         log.info(
@@ -114,7 +118,7 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
 
 @util.pre_condition(dag_tools.parse_job_id)
 def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
-                      timeout=5):
+                      timeout=5, queue=True):
     """Add a subtask to the queue if it hasn't been added yet"""
     if zk is None:
         zk = get_client(zookeeper_hosts)

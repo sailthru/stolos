@@ -60,7 +60,9 @@ def main(ns, job_id):
 
     Assume code is written in Python.  For Scala or R code, use another option.
     """
-    log.info('Running bash job', extra=dict(job_id=job_id, **ns.__dict__))
+    ld = dict(**ns.__dict__)
+    ld.update(job_id=job_id)
+    log.info('Running bash job', extra=dict(**ld))
     cmd = dag_tools.get_bash_opts(ns.app_name)
     if ns.bash:
         cmd += ' '.join(ns.bash)
@@ -78,9 +80,7 @@ def main(ns, job_id):
 
     returncode, stdout, stderr = run(
         cmd, shell=True, timeout=ns.watch)
-    ld = dict(
-        job_id=job_id, bash_returncode=returncode,
-        stdout=stdout, stderr=stderr, **ns.__dict__)
+    ld = dict(bash_returncode=returncode, stdout=stdout, stderr=stderr, **ld)
     if returncode == -9:
         runner.log_and_raise("Bash job timed out", ld)
     elif returncode != 0:
