@@ -1,10 +1,11 @@
 from ds_commons import util
-from ds_commons.log import log
 
 import atexit
 import functools
 from pyspark import SparkConf, SparkContext
 import sys
+
+from . import log
 
 
 def receive_kwargs_as_dict(func):

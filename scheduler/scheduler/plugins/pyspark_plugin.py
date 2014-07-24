@@ -4,7 +4,7 @@ import ujson
 from ds_commons import argparse_tools as at
 from scheduler import dag_tools, runner
 from . import pyspark_context
-from ds_commons.log import log
+from . import log
 
 
 def main(ns, job_id):

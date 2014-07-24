@@ -4,7 +4,7 @@ from os.path import join
 import os
 
 from ds_commons import util
-from ds_commons.log import log
+from scheduler import log
 from scheduler import dag_tools
 from scheduler import exceptions
 

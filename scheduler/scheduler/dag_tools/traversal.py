@@ -1,7 +1,6 @@
 from collections import defaultdict
 import networkx as nx
 
-from ds_commons.log import log
 from ds_commons.util import crossproduct, flatmap_with_kwargs
 
 from scheduler.exceptions import (
@@ -10,6 +9,7 @@ from scheduler.exceptions import (
 from .build import build_dag
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
 from .node import (get_tasks_dct, parse_job_id, get_job_id_template)
+from . import log
 
 
 def topological_sort(lst):

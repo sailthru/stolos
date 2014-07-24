@@ -1,3 +1,6 @@
+import logging
+log = logging.getLogger('scheduler.dag_tools')
+
 from .build import (
     build_dag,
     visualize_dag

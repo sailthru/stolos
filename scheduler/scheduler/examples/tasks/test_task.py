@@ -1,13 +1,13 @@
 """
 Test that tasks get executed properly using zookeeper
 """
-from ds_commons.log import log
 from ds_commons import argparse_tools as at
+import logging
+log = logging.getLogger('scheduler.examples.test_task')
 
 
 def main(textFile, ns, **job_id_identifiers):
     if ns.disable_log:
-        import logging
         logging.disable = True
     log.info('test_module!!!')
     log.info('default ns: %s' % ns)

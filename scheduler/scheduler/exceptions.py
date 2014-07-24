@@ -1,4 +1,4 @@
-from ds_commons.log import log
+from scheduler import log
 
 
 def _log_raise_if(cond, msg, extra, exception_kls):

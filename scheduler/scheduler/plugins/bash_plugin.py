@@ -1,12 +1,12 @@
 from ds_commons import argparse_tools as at
-from ds_commons.log import log
 from scheduler import runner
 from scheduler import dag_tools
-
 
 from os import kill
 from signal import alarm, signal, SIGALRM, SIGKILL
 from subprocess import PIPE, Popen
+
+from . import log
 
 
 def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None):

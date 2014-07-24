@@ -6,8 +6,9 @@ import subprocess
 import tempfile
 import ujson
 
-from ds_commons.log import log
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
+from logging import getLogger
+log = getLogger('scheduler.tests.test_scheduler')
 
 CMD = (
     'python -m scheduler.runner --zookeeper_hosts localhost:2181'
