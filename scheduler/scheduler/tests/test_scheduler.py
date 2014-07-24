@@ -562,10 +562,13 @@ def test_run_failing_spark_given_specific_job_id():
 
 @with_setup
 def test_failing_task():
+    _, err = run_spark_code(
+        app1, ' --job_id 20101010_-1_profile --fail', capture=True)
+    nose.tools.assert_regexp_matches(
+        err, "Exception: You asked me to fail, so here I am!")
+
     with nose.tools.assert_raises(Exception):
         run_spark_code(app1, '--jaikahhaha')
-    with nose.tools.assert_raises(Exception):
-        run_spark_code(app1, '--fail')
 
 
 def enqueue(app_name, job_id, validate_queued=True):
