@@ -39,8 +39,9 @@ def _queue(app_name, job_id, zk, queue=True):
         if queue:
             zk.LockingQueue(app_name).put(job_id)
         else:
-            log.warn('create a subtask but not actually queueing it',
-                      extra=dict(app_name=app_name, job_id=job_id))
+            log.warn(
+                'create a subtask but not actually queueing it',
+                extra=dict(app_name=app_name, job_id=job_id))
         set_state(app_name, job_id, zk, pending=True)
     else:
         log.info(

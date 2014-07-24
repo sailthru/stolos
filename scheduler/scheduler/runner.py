@@ -32,7 +32,8 @@ def main(ns):
         lock=lock)
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
-        _send_to_back_of_queue(q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+        _send_to_back_of_queue(
+            q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         return
 
     try:
@@ -57,7 +58,7 @@ def _handle_manually_given_job_id(ns, zk):
     """
     log.warn(
         ('using specific job_id and'
-        ' blindly assuming this job is not already queued.'),
+         ' blindly assuming this job is not already queued.'),
         extra=dict(app_name=ns.app_name, job_id=ns.job_id))
     created = zk.exists(zookeeper_tools._get_zookeeper_path(
         ns.app_name, ns.job_id))
