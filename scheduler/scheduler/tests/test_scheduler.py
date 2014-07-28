@@ -526,6 +526,17 @@ def test_run_spark_given_specific_job_id():
 
 
 @with_setup
+def test_readd_change_child_state_while_child_running():
+    #
+    # This test guarantees that we can readd a parent task and have child task
+    # fails.  If the child directly modifies the parent's output, then you
+    # still have an issue.
+
+    # TODO
+    raise nose.plugins.skip.SkipTest()
+
+
+@with_setup
 def test_run_multiple_given_specific_job_id():
     p = run_code(
         bashworker1,
