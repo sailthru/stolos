@@ -19,10 +19,8 @@ def main(ns, job_id):
     module = dag_tools.get_pymodule(ns.app_name)
 
     pjob_id = dag_tools.parse_job_id(ns.app_name, job_id)
-    read_fp, _ = pyspark_context.get_s3_fp(
-        ns, read=True, write=False, **pjob_id)
     log_details = dict(
-        module_name=module.__name__, read_fp=read_fp,
+        module_name=module.__name__,
         app_name=ns.app_name, job_id=job_id)
 
     conf, osenv, files, pyFiles = dag_tools.get_spark_conf(ns.app_name)
@@ -30,12 +28,8 @@ def main(ns, job_id):
     conf.update(ns.spark_conf)
     sc = pyspark_context.get_spark_context(
         conf=conf, osenv=osenv, files=files, pyFiles=pyFiles)
-
-    tf = sc.textFile(read_fp, ns.minPartitions)
-    log.debug('calling module.main(...)')
-    tf = pre_process_data(ns=ns, tf=tf, log_details=log_details)
     apply_data_transform(
-        ns=ns, tf=tf, log_details=log_details, pjob_id=pjob_id, module=module)
+        ns=ns, sc=sc, log_details=log_details, pjob_id=pjob_id, module=module)
     sc.stop()
 
 
@@ -54,36 +48,53 @@ def pre_process_data(ns, tf, log_details):
     return tf
 
 
-def apply_data_transform(ns, tf, log_details, pjob_id, module):
+def apply_data_transform(ns, sc, log_details, pjob_id, module):
     """Pass control to the module.main method.  If module.main specifies a
     `textFile` parameter, pass the textFile instance.  Otherwise, just map
-    module.main on the RDD"""
+    module.main on the RDD
+    """
     func_args = (module.main.func_code
                  .co_varnames[:module.main.func_code.co_argcount])
-    if 'textFile' in func_args:
+    if 'sc' in func_args:
         log.info(
-            'passing textFile instance to a module.main function',
+            'passing spark context to a module.main function',
             extra=log_details)
         try:
-            module.main(textFile=tf, ns=ns, **pjob_id)
+            module.main(sc=sc, ns=ns, **pjob_id)
         except Exception as err:
             runner.log_and_raise(
                 "Job failed with error: %s" % err, log_details)
-
     else:
-        _, write_fp = pyspark_context.get_s3_fp(
-            ns, read=False, write=True, **pjob_id)
-        log.info(
-            'mapping a module.main function to all elements in a textFile and'
-            ' writing output', extra=dict(write_fp=write_fp, **log_details))
-        try:
-            (
-                tf
-                .map(functools.partial(module.main, ns=ns, **pjob_id))
-                .saveAsTextFile(write_fp)
-            )
-        except Exception as err:
-            runner.log_and_raise(err, log_details)
+        read_fp, _ = pyspark_context.get_s3_fp(
+            ns, read=True, write=False, **pjob_id)
+        log_details = dict(read_fp=read_fp, **log_details)
+        tf = sc.textFile(read_fp, ns.minPartitions)
+        tf = pre_process_data(ns=ns, tf=tf, log_details=log_details)
+        if 'textFile' in func_args:
+            log.info(
+                'passing textFile instance to a module.main function',
+                extra=log_details)
+            try:
+                module.main(textFile=tf, ns=ns, **pjob_id)
+            except Exception as err:
+                runner.log_and_raise(
+                    "Job failed with error: %s" % err, log_details)
+
+        else:
+            _, write_fp = pyspark_context.get_s3_fp(
+                ns, read=False, write=True, **pjob_id)
+            log.info(
+                'mapping a module.main function to all elements in a textFile'
+                ' and writing output',
+                extra=dict(write_fp=write_fp, **log_details))
+            try:
+                (
+                    tf
+                    .map(functools.partial(module.main, ns=ns, **pjob_id))
+                    .saveAsTextFile(write_fp)
+                )
+            except Exception as err:
+                runner.log_and_raise(err, log_details)
 
 
 def _validate_sample_size(str_i):
