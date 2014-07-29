@@ -113,6 +113,7 @@ def get_module_from_fp(fp):
     and therefore serializable by spark"""
     _parts = fp.split('/')
     paths = ('/'.join(_parts[:i]) for i in range(len(_parts) - 1, 0, -1))
+    path = '.'  # basecase
     for path in paths:
         if path in sys.path:
             break
