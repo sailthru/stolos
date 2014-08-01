@@ -12,6 +12,7 @@ def main(ns):
     Handle dependencies
     And then gracefully die
     """
+    log.info("Beginning Scheduler", extra=dict(**ns.__dict__))
     zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
     if ns.job_id:
@@ -32,6 +33,8 @@ def main(ns):
         lock=lock)
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
+        log.info("Could not obtain a lock.  Will requeue and try again later",
+                 extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         _send_to_back_of_queue(
             q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         return
@@ -44,9 +47,8 @@ def main(ns):
     except Exception as err:
         log.exception(
             ("Shit!  Unhandled exception in an application! Fix ASAP because"
-             " it is unclear how to handle this failure.  %s: %s") % (
-                err.__class__.__name__, err),
-            extra=ns.__dict__)
+             " it is unclear how to handle this failure. Job failure.  %s: %s")
+            % (err.__class__.__name__, err), extra=ns.__dict__)
         return
     _handle_success(ns, ns.job_id, zk, q, lock)
 
