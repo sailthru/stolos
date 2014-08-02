@@ -17,10 +17,10 @@ setup(
 
     author='Sailthru Data Science Team',
     author_email='ds@sailthru.com',
-    url='https://github.com/sailthru/sailthru-datascience',
+    url='https://github.com/sailthru/scheduler',
 
     packages=find_packages(),
-    scripts=[x for x in findall('bin') if x != 'test_scheduler'],
+    scripts=['./bin/scheduler-submit'],
     data_files=[
         ('conf', findall('conf')),
         ('scheduler/examples', findall('scheduler/examples'))
@@ -32,9 +32,6 @@ setup(
         'ujson>=1.33',
         'argparse>=1.1',
         'pygraphviz==1.2',
-
-        # ds_commons crap  # TODO: make a setup.py for ds_commons that works
-        'colorlog',
     ],
 
     tests_require=[
@@ -42,9 +39,9 @@ setup(
     ],
     test_suite="nose.main",
 
-    # extras_require=[
-    #    'pyspark',
-    # ],
+    extras_require={
+        'pyspark': ['pyspark'],
+    },
 
     # include_package_data = True,
     zip_safe = False,
