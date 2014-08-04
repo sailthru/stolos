@@ -3,7 +3,7 @@ import kazoo.exceptions
 from os.path import join
 import os
 
-from ds_commons import util
+from scheduler import util
 from scheduler import log
 from scheduler import dag_tools
 from scheduler import exceptions

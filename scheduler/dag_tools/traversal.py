@@ -1,7 +1,7 @@
 from collections import defaultdict
 import networkx as nx
 
-from ds_commons.util import crossproduct, flatmap_with_kwargs
+from scheduler.util import crossproduct, flatmap_with_kwargs
 
 from scheduler.exceptions import (
     _log_raise, _log_raise_if, DAGMisconfigured, InvalidJobId)

@@ -2,7 +2,7 @@ import networkx as nx
 import os
 import tempfile
 
-from ds_commons import util
+from scheduler import util
 from scheduler.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
 
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_DEFAULT_TEMPLATE
