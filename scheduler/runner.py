@@ -1,6 +1,6 @@
 import importlib
 
-from ds_commons import argparse_tools as at
+from scheduler import argparse_shared as at
 from scheduler import log
 from scheduler import dag_tools, exceptions, zookeeper_tools
 

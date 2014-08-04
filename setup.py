@@ -31,7 +31,8 @@ setup(
         'networkx>=1.8.1',
         'ujson>=1.33',
         'argparse>=1.1',
-        'pygraphviz==1.2',
+        'pygraphviz>=1.2',
+        'argparse_tools>=1.0.0',
     ],
 
     tests_require=[

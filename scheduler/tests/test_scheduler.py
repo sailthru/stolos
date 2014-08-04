@@ -491,18 +491,6 @@ def test_bashworker():
 
 
 @with_setup
-def test_app_has_default_params():
-    enqueue(app1, job_id1)
-    msg = 'output: %s'
-    # Test default params exist
-    _, logoutput = run_spark_code(
-        app1, capture=True, raise_on_err=False)
-    nose.tools.assert_in(
-        "s3_read_key='fake_read_fp'", logoutput, msg % logoutput)
-    nose.tools.assert_in("read_fp=''", logoutput, msg % logoutput)
-
-
-@with_setup
 def test_app_has_command_line_params():
     enqueue(app1, job_id1)
     msg = 'output: %s'

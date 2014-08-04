@@ -226,7 +226,7 @@ def validate_env(app_name, metadata, dg, tasks_dct, ld):
 
 def validate_uris(app_name, metadata, dg, tasks_dct, ld):
     key = "uris"
-    msg = ("%s, if supplied, must be a list of (hdfs, local or s3) filepaths"
+    msg = ("%s, if supplied, must be a list of hadoop-compatible filepaths"
            % key)
     _log_raise_if(
         not isinstance(metadata.get(key, []), list),

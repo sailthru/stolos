@@ -1,12 +1,12 @@
 """
 Test that tasks get executed properly using zookeeper
 """
-from ds_commons import argparse_tools as at
+from scheduler import argparse_shared as at
 import logging
 log = logging.getLogger('scheduler.examples.test_task')
 
 
-def main(textFile, ns, **job_id_identifiers):
+def main(sc, ns, **job_id_identifiers):
     if ns.disable_log:
         logging.disable = True
     log.info('test_module!!!')
@@ -19,7 +19,6 @@ build_arg_parser = at.build_arg_parser([at.group(
     "Test spark task",
     at.add_argument('--fail', action='store_true'),
     at.add_argument('--disable_log', action='store_true'),
-    at.add_argument('--textFile', default=True),
-    at.s3_key_bucket(type='read', default_key='fake_read_fp'),
+
 )], conflict_handler='resolve'
 )

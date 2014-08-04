@@ -1,7 +1,7 @@
 import functools
 import ujson
 
-from ds_commons import argparse_tools as at
+from scheduler import argparse_shared as at
 from scheduler import dag_tools, runner
 from . import pyspark_context
 from . import log
@@ -65,8 +65,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
             runner.log_and_raise(
                 "Job failed with error: %s" % err, log_details)
     else:
-        read_fp, _ = pyspark_context.get_s3_fp(
-            ns, read=True, write=False, **pjob_id)
+        read_fp = format_fp(ns.read_fp, ns, pjob_id)
         log_details = dict(read_fp=read_fp, **log_details)
         tf = sc.textFile(read_fp, ns.minPartitions)
         tf = pre_process_data(ns=ns, tf=tf, log_details=log_details)
@@ -81,8 +80,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
                     "Job failed with error: %s" % err, log_details)
 
         else:
-            _, write_fp = pyspark_context.get_s3_fp(
-                ns, read=False, write=True, **pjob_id)
+            write_fp = format_fp(ns.write_fp, ns, pjob_id)
             log.info(
                 'mapping a module.main function to all elements in a textFile'
                 ' and writing output',
@@ -95,6 +93,12 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
                 )
             except Exception as err:
                 runner.log_and_raise(err, log_details)
+
+
+def format_fp(fp, ns, pjob_id):
+    kwargs = dict(**ns.__dict__)
+    kwargs.update(pjob_id)
+    return fp.format(**kwargs)
 
 
 def _validate_sample_size(str_i):
@@ -116,8 +120,8 @@ _build_arg_parser = runner.build_plugin_arg_parser([at.group(
             '--sample', type=_validate_sample_size,
             help="Sample n percent of the data without replacement"),
     ),
-    at.s3_key_bucket(type='write'),
-    at.s3_key_bucket(type='read'),
+    at.add_argument('--read_fp'),
+    at.add_argument('--write_fp'),
     at.add_argument(
         '--spark_conf', nargs='*',
         type=lambda x: x.split('='), default=[],
