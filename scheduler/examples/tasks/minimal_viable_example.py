@@ -1,8 +1,8 @@
 import ujson
 
 
-def main(textFile, ns, **job_id_identifiers):
-    return ujson.dumps(textFile)
+def main(doc, ns, **job_id_identifiers):
+    return ujson.dumps(doc)
 
 
 # And don't forget you would need to:
@@ -23,10 +23,3 @@ def main(textFile, ns, **job_id_identifiers):
 
 #   python -m scheduler.runner --zookeeper_hosts localhost:2181
 #     -a test_scheduler/test_minimal --write_fp /tmp/alex --read_fp ./README.md
-#     --map
-#
-#   -- or --
-#
-#   python -m scheduler.runner --zookeeper_hosts localhost:2181
-#     -a test_scheduler/test_minimal --write_fp /tmp/alex --read_fp ./README.md
-#     --textFile

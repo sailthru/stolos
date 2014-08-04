@@ -37,6 +37,7 @@ setup(
 
     tests_require=[
         'nose>=1.3.3',
+        'colorlog>=2.2.0',
     ],
     test_suite="nose.main",
 

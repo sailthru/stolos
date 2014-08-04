@@ -1,3 +1,4 @@
+import logging
 import datetime as dt
 
 
@@ -11,3 +12,7 @@ JOB_ID_VALIDATIONS = {
         and collection_name),
     'testID': lambda test_id: int(test_id)
 }
+
+# configure logging for tests
+logging.basicConfig()
+logging.getLogger().setLevel(logging.INFO)

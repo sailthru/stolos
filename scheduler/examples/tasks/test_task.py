@@ -3,12 +3,14 @@ Test that tasks get executed properly using zookeeper
 """
 from scheduler import argparse_shared as at
 import logging
+logging.basicConfig()
 log = logging.getLogger('scheduler.examples.test_task')
 
 
 def main(sc, ns, **job_id_identifiers):
     if ns.disable_log:
         logging.disable = True
+    log.info(ns.read_fp)
     log.info('test_module!!!')
     log.info('default ns: %s' % ns)
     if ns.fail:

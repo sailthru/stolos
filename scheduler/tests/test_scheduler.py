@@ -7,8 +7,9 @@ import tempfile
 import ujson
 
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
-from logging import getLogger
-log = getLogger('scheduler.tests.test_scheduler')
+import logging
+from colorlog import ColoredFormatter
+
 
 CMD = (
     'python -m scheduler.runner --zookeeper_hosts localhost:2181'
@@ -21,6 +22,33 @@ zk = zkt.get_client('localhost:2181')
 job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
 app1, app2, depends_on1, bashworker1 = [None] * 4
+log = None  # log is configured
+
+
+def configure_logging():
+    _ignore_log_keys = set(logging.makeLogRecord({}).__dict__)
+
+    def _json_format(record):
+        extras = ' '.join(
+            "%s=%s" % (k, record.__dict__[k])
+            for k in set(record.__dict__).difference(_ignore_log_keys))
+        if extras:
+            record.msg = "%s    %s" % (record.msg, extras)
+        return record
+
+    class ColoredJsonFormatter(ColoredFormatter):
+        def format(self, record):
+            record = _json_format(record)
+            return super(ColoredJsonFormatter, self).format(record)
+
+    log = logging.getLogger()
+    _formatter = ColoredJsonFormatter(
+        "%(log_color)s%(levelname)-8s %(message)s %(reset)s %(cyan)s",
+        reset=True)
+    _h = logging.StreamHandler()
+    _h.setFormatter(_formatter)
+    log.handlers = [_h]  # log.addHandler(_h)
+    log.setLevel(logging.DEBUG)
 
 
 def create_tasks_json(fname_suffix='', inject={}, rename=False):
@@ -62,13 +90,17 @@ def setup_func(func_name):
 
     # TODO: figure out how to make this ugly convenience hack
     # better.  maybe functions should initialize app1 = get_app_name(name)
+    global app1, app2, depends_on1, bashworker1
     oapp1 = 'test_scheduler/test_app'
     oapp2 = 'test_scheduler/test_app2'
     app1 = '%s__%s' % (oapp1, func_name)
     app2 = '%s__%s' % (oapp2, func_name)
     depends_on1 = 'test_scheduler/test_depends_on__%s' % func_name
     bashworker1 = 'test_scheduler/test_bashworker__%s' % func_name
-    global app1, app2, depends_on1, bashworker1
+
+    global log
+    log = logging.getLogger('scheduler.tests.test_scheduler')
+    configure_logging()
 
     f = create_tasks_json(fname_suffix=func_name, rename=True)
     TASKS_JSON_TMPFILES[func_name] = f
@@ -497,7 +529,7 @@ def test_app_has_command_line_params():
     # Test passed in params exist
     _, logoutput = run_spark_code(
         app1, extra_opts='--read_fp newfakereadfp',
-        capture=True, raise_on_err=False)
+        capture=True, raise_on_err=True)
     nose.tools.assert_in(
         'newfakereadfp', logoutput, msg % logoutput)
 
