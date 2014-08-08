@@ -11,7 +11,7 @@ setup(
     version='1.0.0',
     description=('A DAG-based job scheduler for performing work with complex'
                  ' dependency requirements.'),
-    long_description=open('README.md').read(),
+    long_description="Check the project homepage for details",
     keywords=['scheduler', 'dag', 'directed acyclic graph', 'graph', 'data',
               'dependency'],
 
