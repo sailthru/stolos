@@ -16,7 +16,7 @@ setup(
               'dependency'],
 
     author='Sailthru Data Science Team',
-    author_email='ds@sailthru.com',
+    author_email='agaudio@sailthru.com',
     url='https://github.com/sailthru/scheduler',
 
     packages=find_packages(),
