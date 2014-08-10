@@ -7,7 +7,7 @@ from . import pyspark_context
 from . import log
 
 
-def main(ns, job_id):
+def main(ns):
     """
     A generic plugin that uses Spark to:
         read data,
@@ -16,6 +16,7 @@ def main(ns, job_id):
 
     Assume code is written in Python.  For Scala or R code, use another option.
     """
+    job_id = ns.job_id
     module = dag_tools.get_pymodule(ns.app_name)
 
     pjob_id = dag_tools.parse_job_id(ns.app_name, job_id)

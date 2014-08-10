@@ -54,12 +54,13 @@ def get_process_children(pid):
     return [int(sp) for sp in stdout.split()]
 
 
-def main(ns, job_id):
+def main(ns):
     """
     A generic plugin that schedules arbitrary bash jobs using the scheduler
 
     Assume code is written in Python.  For Scala or R code, use another option.
     """
+    job_id = ns.job_id
     ld = dict(**ns.__dict__)
     ld.update(job_id=job_id)
     log.info('Running bash job', extra=dict(**ld))

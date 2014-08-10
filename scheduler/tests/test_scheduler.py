@@ -143,6 +143,16 @@ def _inject_into_dag(new_task_dct):
 
 
 @with_setup
+def test_bypass_scheduler():
+    validate_zero_queued_task(bashworker1)
+    run_code(
+        bashworker1,
+        '--bypass_scheduler --job_id %s --bash echo 123' % job_id1)
+    validate_zero_queued_task(bashworker1)
+    validate_zero_completed_task(bashworker1)
+
+
+@with_setup
 def test_no_tasks():
     """
     The script shouldn't fail if it doesn't find any queued tasks
@@ -644,6 +654,12 @@ def validate_zero_queued_task(app_name):
     if zk.exists(join(app_name, 'entries')):
         nose.tools.assert_equal(
             0, len(zk.get_children(join(app_name, 'entries'))))
+
+
+def validate_zero_completed_task(app_name):
+    if zk.exists(join(app_name, 'all_subtasks')):
+        nose.tools.assert_equal(
+            0, len(zk.get_children(join(app_name, 'all_subtasks'))))
 
 
 def validate_one_failed_task(app_name, job_id):

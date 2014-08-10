@@ -12,6 +12,15 @@ def main(ns):
     Handle dependencies
     And then gracefully die
     """
+    if ns.bypass_scheduler:
+        log.info(
+            "Running a task without scheduling anything"
+            " or fetching from a queue", extra=dict(
+                app_name=ns.app_name, job_id=ns.job_id))
+        assert ns.job_id
+        ns.job_type_func(ns=ns)
+        return
+
     log.info("Beginning Scheduler", extra=dict(**ns.__dict__))
     zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
@@ -40,7 +49,7 @@ def main(ns):
         return
 
     try:
-        ns.job_type_func(ns=ns, job_id=ns.job_id)
+        ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
         _handle_failure(ns, ns.job_id, zk, q, lock)
         return
@@ -193,6 +202,11 @@ _build_arg_parser = at.build_arg_parser([
     at.app_name(required=True, choices=dag_tools.get_task_names()),
     at.zookeeper_hosts,
 
+    at.add_argument(
+        '--bypass_scheduler', action='store_true',
+        help=(
+            "Run a task directly. Do not schedule it."
+            "  Do not obtain a lock on this job.  Requires passing --job_id")),
     at.add_argument(
         '--timeout', default=2, type=int,
         help='time to wait for task to appear in queue before dying'),
