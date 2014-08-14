@@ -156,14 +156,3 @@ def get_bash_opts(app_name):
             "App is not a bash job", extra=dict(
                 app_name=app_name, job_type=job_type))
     return meta.get('bash_opts', '')
-
-
-def get_spark_conf(app_name):
-    dg = get_tasks_dct()
-    conf = dict(**dg[app_name].get('spark_conf', {}))
-    conf['spark.app.name'] = app_name
-    osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
-    osenv.update(dg[app_name].get('env', {}))
-    pyFiles = dg[app_name].get('uris', [])
-    files = []  # for now, we're ignoring files.
-    return conf, osenv, files, pyFiles

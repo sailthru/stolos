@@ -24,7 +24,7 @@ def main(ns):
         module_name=module.__name__,
         app_name=ns.app_name, job_id=job_id)
 
-    conf, osenv, files, pyFiles = dag_tools.get_spark_conf(ns.app_name)
+    conf, osenv, files, pyFiles = pyspark_context.get_spark_conf(ns.app_name)
     conf['spark.app.name'] = "%s__%s" % (conf['spark.app.name'], job_id)
     conf.update(ns.spark_conf)
     sc = pyspark_context.get_spark_context(

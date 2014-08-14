@@ -2,7 +2,9 @@ import atexit
 import functools
 from pyspark import SparkConf, SparkContext
 import sys
+import os
 
+from scheduler import dag_tools as dt
 from . import log
 
 
@@ -24,15 +26,21 @@ def receive_kwargs_as_dict(func):
     return _partial
 
 
-def get_spark_context(conf, osenv={}, files=[], pyFiles=[]):
+def get_spark_context(conf={}, osenv={}, files=[], pyFiles=[], app_name=None):
     """Wrap pyspark.SparkContext.  If SparkContext has already been initialized,
     return the initialized Context
 
-        conf - (dict) a dictionary of key-value configuration
+    There are two ways to call this function.  The simplest:
+
+        sc = get_spark_context(app_name='myapp')
+
+    The more complex:
+
+        conf - (dict, required) a dictionary of key-value configuration
              - or, a pre-configured SparkConf instance
-        osenv - (dict) the environment variables to set on executors
-        files - (list of str) list of files to make available to executors
-        pyFiles - (list of str) list python code to make available to executors
+        osenv - (dict, optional) the environment variables to set on executors
+        files - (list of str, optional) files to send to executors
+        pyFiles - (list of str, optional) python files to send to executors
 
     An example configuration:
         conf = {
@@ -41,6 +49,9 @@ def get_spark_context(conf, osenv={}, files=[], pyFiles=[]):
             "spark.local.dir": "/tmp" }
 
     """
+    if app_name:
+        conf, osenv, files, pyFiles = get_spark_conf(app_name)
+
     if not isinstance(conf, dict):
         assert isinstance(conf, SparkConf)
         conf = dict(conf.getAll())
@@ -82,3 +93,16 @@ def get_module_from_fp(fp):
         .rsplit('.', 1)
     )
     return __import__(from_package, fromlist=[import_name])
+
+
+def get_spark_conf(app_name):
+    """Query the scheduler's dag graph for all information necessary to
+    create a pyspark.SparkContext"""
+    dg = dt.get_tasks_dct()
+    conf = dict(**dg[app_name].get('spark_conf', {}))
+    conf['spark.app.name'] = app_name
+    osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
+    osenv.update(dg[app_name].get('env', {}))
+    pyFiles = dg[app_name].get('uris', [])
+    files = []  # for now, we're ignoring files.
+    return conf, osenv, files, pyFiles
