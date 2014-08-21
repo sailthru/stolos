@@ -5,11 +5,13 @@ from scheduler import dag_tools
 from os import kill
 from signal import alarm, signal, SIGALRM, SIGKILL
 from subprocess import PIPE, Popen
+import sys
 
 from . import log
 
 
-def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None):
+def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None,
+        stdout=PIPE, stderr=PIPE):
     '''
     Run a command with a timeout after which it will be forcibly
     killed.
@@ -24,7 +26,7 @@ def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None):
     def alarm_handler(signum, frame):
         raise Alarm
 
-    p = Popen(args, shell=shell, cwd=cwd, stdout=PIPE, stderr=PIPE, env=env)
+    p = Popen(args, shell=shell, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
     if timeout != -1:
         signal(SIGALRM, alarm_handler)
         alarm(timeout)
@@ -79,8 +81,13 @@ def main(ns):
     _cmdargs.update(dag_tools.parse_job_id(ns.app_name, job_id))
     cmd = cmd.format(**_cmdargs)
 
+    if ns.redirect_to_stderr:
+        _std = sys.stderr
+    else:
+        _std = PIPE
+
     returncode, stdout, stderr = run(
-        cmd, shell=True, timeout=ns.watch)
+        cmd, shell=True, timeout=ns.watch, stdout=_std, stderr=_std)
     ld = dict(bash_returncode=returncode, stdout=stdout, stderr=stderr, **ld)
     if returncode == -9:
         runner.log_and_raise("Bash job timed out", ld)
@@ -103,4 +110,8 @@ build_arg_parser = runner.build_plugin_arg_parser([at.group(
             "Initiate a watchdog that will kill the process"
             " after a given seconds"
         )),
+    at.add_argument(
+        '--redirect_to_stderr', action='store_true', help=(
+            "Rather than capturing output and logging it,"
+            " send output directly to sys.stderr")),
 )])
