@@ -324,6 +324,18 @@ as there is no risk of queueing particular subtasks that wouldn't
 otherwise be ignored.
 
 
+Concept: Job State
+==============
+
+There are 4 recognized job states.  A job_id should be in any one of these
+states at any given time.
+
+- `completed`  --  When the scheduler has successfully completed the work defined by a job_id, the job_id is marked as completed.
+- `pending`  --  A job_id is pending when it is queued for work or otherwise recognized as a task but not executed
+- `failed`  --  Failed job_ids have failed more than the maximum allowed number of times.  Children of failed jobs will never be executed.
+- `skipped`  --  A job_id is skipped if it does not pass valid_if_or criteria defined for that task.  A skipped task is treated like a "failed" task.
+
+
 Setup:
 ==============
 
@@ -562,7 +574,7 @@ options:
 - *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
   If a `job_id` for a task does not match the given
   `valid_if_or` criteria, then the task is immediately marked as
-  "completed"
+  "skipped"
 
 
 Configuration: Job Types
