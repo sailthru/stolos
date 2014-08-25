@@ -12,6 +12,7 @@ from scheduler import exceptions
 ZOOKEEPER_PENDING = 'pending'
 ZOOKEEPER_COMPLETED = 'completed'
 ZOOKEEPER_FAILED = 'failed'
+ZOOKEEPER_SKIPPED = 'skipped'
 
 
 @util.cached
@@ -45,9 +46,9 @@ def _queue(app_name, job_id, zk, queue=True):
         set_state(app_name, job_id, zk, pending=True)
     else:
         log.info(
-            'job invalid.  marking as completed so it does not run',
+            'job invalid.  marking as skipped so it does not run',
             extra=dict(app_name=app_name, job_id=job_id))
-        set_state(app_name, job_id, zk, completed=True)
+        set_state(app_name, job_id, zk, skipped=True)
 
 
 @util.pre_condition(dag_tools.parse_job_id)
@@ -209,14 +210,16 @@ def _get_zookeeper_path(app_name, job_id, *args):
     return join(app_name, 'all_subtasks', job_id, *args)
 
 
-def _validate_state(pending, completed, failed):
-    assert pending + completed + failed == 1
+def _validate_state(pending, completed, failed, skipped):
+    assert pending + completed + failed + skipped == 1
     if pending:
         state = ZOOKEEPER_PENDING
     elif completed:
         state = ZOOKEEPER_COMPLETED
     elif failed:
         state = ZOOKEEPER_FAILED
+    elif skipped:
+        state = ZOOKEEPER_SKIPPED
     return state
 
 
@@ -303,7 +306,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
 
 @util.pre_condition(dag_tools.parse_job_id)
 def set_state(app_name, job_id, zk,
-              pending=False, completed=False, failed=False):
+              pending=False, completed=False, failed=False, skipped=False):
     """
     Set the state of a task
 
@@ -313,7 +316,7 @@ def set_state(app_name, job_id, zk,
     `pending`, `completed` and `failed` (bool) are mutually exclusive
     """
     zookeeper_path = _get_zookeeper_path(app_name, job_id)
-    state = _validate_state(pending, completed, failed)
+    state = _validate_state(pending, completed, failed, skipped)
     if completed:  # basecase
         _maybe_queue_children(
             parent_app_name=app_name, parent_job_id=job_id, zk=zk)
@@ -328,7 +331,8 @@ def set_state(app_name, job_id, zk,
 
 
 def check_state(app_name, job_id, zk, raise_if_not_exists=False,
-                pending=False, completed=False, failed=False, _get=False):
+                pending=False, completed=False, failed=False, skipped=False,
+                _get=False):
     """Determine whether a specific task has been completed yet.
 
     `app_name` is a task identifier
@@ -348,5 +352,5 @@ def check_state(app_name, job_id, zk, raise_if_not_exists=False,
     if _get:
         return gotstate
     else:
-        expected_state = _validate_state(pending, completed, failed)
+        expected_state = _validate_state(pending, completed, failed, skipped)
         return gotstate == expected_state

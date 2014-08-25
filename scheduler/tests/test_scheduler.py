@@ -505,10 +505,11 @@ def test_retry_failed_task():
 
 @with_setup
 def test_invalid_task():
-    """Invalid tasks should be automatically completed"""
+    """Invalid tasks should be automatically completed.
+    This is a valid_if_or test  (aka passes_filter )... bad naming sorry!"""
     job_id = '20140606_3333_content'
     enqueue(app2, job_id, validate_queued=False)
-    validate_one_completed_task(app2, job_id)
+    validate_one_skipped_task(app2, job_id)
 
 
 @with_setup
@@ -684,6 +685,14 @@ def validate_one_completed_task(app_name, job_id):
     nose.tools.assert_equal(status['in_queue'], False)
     nose.tools.assert_equal(status['app_qsize'], 0)
     nose.tools.assert_equal(status['state'], 'completed')
+
+
+def validate_one_skipped_task(app_name, job_id):
+    status = get_zk_status(app_name, job_id)
+    nose.tools.assert_equal(status['num_locks'], 0)
+    nose.tools.assert_equal(status['in_queue'], False)
+    nose.tools.assert_equal(status['app_qsize'], 0)
+    nose.tools.assert_equal(status['state'], 'skipped')
 
 
 def cycle_queue(app_name):

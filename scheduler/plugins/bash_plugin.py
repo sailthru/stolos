@@ -26,7 +26,8 @@ def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None,
     def alarm_handler(signum, frame):
         raise Alarm
 
-    p = Popen(args, shell=shell, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
+    p = Popen(
+        args, shell=shell, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
     if timeout != -1:
         signal(SIGALRM, alarm_handler)
         alarm(timeout)
