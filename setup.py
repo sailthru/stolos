@@ -38,6 +38,8 @@ setup(
     tests_require=[
         'nose>=1.3.3',
         'colorlog>=2.2.0',
+        'pyflakes>=0.8.1',
+        'pep8>=1.5.6',
     ],
     test_suite="nose.main",
 
