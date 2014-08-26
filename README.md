@@ -7,7 +7,7 @@ variations.  It has the following features:
 
   - very simple to use (create an issue if it isn't!)
   - excellent fault tolerance (via ZooKeeper)
-  - as scalable as ZooKeeper (<100k simultaneous subtasks)
+  - as scalable as ZooKeeper (<100k simultaneous subtasks?)
   - characterize dependencies as a directed acyclic multi-graph
   - support for subtasks and dependencies on arbitrary subsets of tasks
   - language agnostic (but written in Python)
@@ -18,11 +18,12 @@ variations.  It has the following features:
 
 What this is project not:
   - not meant for "real-time" computation
-  - unaware of machines, nodes, network topologies and infrastructure
+  - not aware of machines, nodes, network topologies and infrastructure
   - does not (and should not) auto-scale workers
   - by itself, it does no actual "work" other than managing job state
     and queueing future work
   - This is not a grid scheduler (ie this does not solve a bin packing problem)
+  - not a crontab.
 
 
 Requirements:
@@ -42,10 +43,10 @@ The inspiration for this project comes from the notion that the way we
 manage dependencies in our system defines how we characterize the work
 that exists in our system.
 
-This project arose from the not uncommon needs of Sailthru's Data
-Science team.  The team has a complex data pipeline and set of
-requirements.  We have to build models, algorithms and data pipelines
-for many clients, and this leads to a wide variety of work we have to
+This project arose from the needs of Sailthru's Data Science team
+to manage execution of tasks.  The team has a complex data pipeline
+(build models, algorithms and applications that support many clients),
+ and this leads to a wide variety of work we have to
 perform within our system.  Some work is very specific.  For instance,
 we need to train the same predictive model once per (client, date).
 Other tasks might be more complex: a cross-client analysis across
@@ -89,10 +90,10 @@ but `Task_B` and `Task_C` can run in any order.  Also, `Task_D` requires
 `Task_C` to complete, but doesn't care if `Task_B` has run yet.
 `Task_E` requires `Task_D` and `Task_B` to have completed.
 
-We also support the scenario where one task expands into multiple
-subtasks.  The reason for this is that we run a hundred or thousand
-variations of the one task, and the results of each subtask may bubble
-down through the dependency graph.
+By design, we also support the scenario where one task expands into multiple
+subtasks, or jobs.  The reason for this is that if we run a hundred or thousand
+variations of the one task, the results of each job (ie subtask) may
+bubble down through the dependency graph independently of other jobs.
 
 There are several ways subtasks may depend on other subtasks, and this
 system captures them all (as far as we can tell).
@@ -330,10 +331,14 @@ Concept: Job State
 There are 4 recognized job states.  A job_id should be in any one of these
 states at any given time.
 
-- `completed`  --  When the scheduler has successfully completed the work defined by a job_id, the job_id is marked as completed.
-- `pending`  --  A job_id is pending when it is queued for work or otherwise recognized as a task but not executed
-- `failed`  --  Failed job_ids have failed more than the maximum allowed number of times.  Children of failed jobs will never be executed.
-- `skipped`  --  A job_id is skipped if it does not pass valid_if_or criteria defined for that task.  A skipped task is treated like a "failed" task.
+- `completed`  --  When the scheduler has successfully completed the work
+    defined by a job_id, the job_id is marked as completed.
+- `pending`  --  A job_id is pending when it is queued for work or otherwise
+    recognized as a task but not executed
+- `failed`  --  Failed job_ids have failed more than the maximum allowed number
+    of times.  Children of failed jobs will never be executed.
+- `skipped`  --  A job_id is skipped if it does not pass valid_if_or criteria
+    defined for that task.  A skipped task is treated like a "failed" task.
 
 
 Setup:
@@ -341,7 +346,7 @@ Setup:
 
 The first thing you'll want to do is install the scheduler:
 
-    pip install scheduler  # TODO
+    pip install scheduler
 
     # If you prefer a Python egg, clone the repo and then type:
     # python setup.py bdist_egg
@@ -438,7 +443,7 @@ These environment variables must be set and available to scheduler code:
 
 In addition to these defaults, each task in the tasks.json configuration
 may also contain a custom `job_id` template.  See "Configuration: Tasks"
-for details.  # TODO
+for details.  # TODO link
 
 
 Configuration: Tasks, Dependencies and the tasks.json file
@@ -446,8 +451,8 @@ Configuration: Tasks, Dependencies and the tasks.json file
 
 A JSON file defines the task dependency graph and all related
 configuration metadata. This section will show available configuration
-options.  For instructions on how to use this file, see section Setup
-(TODO add setup!)
+options.  For instructions on how to use this file, see section "Setup"
+# TODO link
 
 Here is a minimum viable configuration for a task (api subject to
 change):
@@ -480,7 +485,7 @@ And more complex variant of a `TaskA_i` --> `TaskB_i` relationship:
             "job_type": "bash",
             "job_id": "{date}_{client_id}"
         },
-        "modelBuild"": {
+        "modelBuild": {
             "job_type": "bash",
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
@@ -581,8 +586,7 @@ options:
   the `job_id`s.  If not given, assumes the default `job_id` template.
 - *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
   If a `job_id` for a task does not match the given
-  `valid_if_or` criteria, then the task is immediately marked as
-  "skipped"
+  `valid_if_or` criteria, then the task is immediately marked as "skipped"
 
 
 Configuration: Job Types
@@ -601,9 +605,11 @@ available at the commandline and (possibly) in the tasks.json file.
  - `job_type`="pyspark"
     - `pymodule` - a python import path to python application code.  ie.
       `scheduler.examples.tasks.test_task`,
-    - `spark_conf` - a dict of spark config keys and values
-    - `envs` - a dict of environment variables and values
-    - `uris` - a list of spark files and pyFiles
+    - `spark_conf` - a dict of Spark config keys and values
+    - `env` - a dict of environment variables and values
+    - `env_from_os` - a list if os environment variables that should exist on
+      the Spark driver
+    - `uris` - a list of Spark files and pyFiles
 
 (Developer note) Different `job_type`s correspond to specific "plugins"
 recognized by the scheduler.  One can extend the scheduler to support
