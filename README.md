@@ -404,6 +404,14 @@ This is how you can manually queue a job:
     scheduler-submit -h
 
 
+We also provide a way to bypass the scheduler and execute a job directly.  This
+is useful if you are testing a task that may be dependent on scheduler a
+plugins, such as the pyspark plugin.
+
+
+    scheduler --bypass_scheduler -a my_task --job_id my_job_id
+
+
 Configuration: Job IDs
 ==============
 
