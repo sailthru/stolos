@@ -621,12 +621,66 @@ run existing python code.  Refer to the developer documentation for
 writing custom plugins.
 
 
+Developer's Guide
+===============
+
+Submitting a PR
+---------------
+
+We love that you're interested in contributing to this project!  Hopefully,
+this section will help you make a successful pull request to the project.
+
+If you'd like to make a change, you should:
+
+1. Create an issue and form a plan with maintainers on the issue tracker
+1. Fork this repo, clone it to you machine, make changes
+   and then submit a Pull Request.  Google "How to submit a pull request" or 
+   [follow this guide](https://help.github.com/articles/using-pull-requests).
+  - Before submitting the PR, run tests to verify your code is clean:
+
+    ./bin/test_scheduler.sh  # run the tests
+
+1. Get code reviewed and iterate until PR is closed
+
+
+Creating a plugin
+---------------
+
+Plugins hook arbitrary code into the scheduler.  By default, the scheduler
+supports executing bash tasks (which practically supports everything) and, for
+convenience, Spark (python) tasks.  If you wished to add another plugin, you
+should create a file in the scheduler/plugins directory named "xyz_plugin.py."
+
+
+    ./scheduler/plugins/xyz_plugin.py
+
+
+This plugin file must define exactly two things:
+
+
+  - It must define a `main(ns)` function.  `ns` is an `argparse.Namespace`
+    instance.  This function should use the values defined by variables
+    `ns.app_name` and `ns.job_id` (and whatever other ns variables) to execute
+    some specific piece of code that exists somewhere.
+  - It must define a `build_arg_parser` object that will populate the `ns`.
+    Keep in mind that the scheduler code will also populate this ns and it is
+    generally good practice to avoid naming conflicts in argument options.
+    The `build_arg_parser` object uses the argparse_tools library, and is
+    instantiated like this:
+
+    build_arg_parser = runner.build_plugin_arg_parser([...])
+
+
 Roadmap:
 ===============
 
-Here are some improvements we are planning for in the near future:
+Here are some improvements we are considering in the future:
 
-- Integration with Apache Marathon
-- A web UI for creating, viewing and managing tasks and task dependencies
-  - Ability to create multiple dependency groups
+- Support different configuration backends besides a tasks.json file.
+  - Some of these backends may support a web UI for creating, viewing and
+    managing tasks config and dependencies
+- A web UI showing various things like:
   - Interactive dependency graph
+  - Current task status
+- (Possibly) Support for replacing Zookeeper with another service like Consul
+  - ZooKeeper works really, really well for this project, though!
