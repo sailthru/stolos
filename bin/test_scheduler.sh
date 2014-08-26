@@ -5,6 +5,8 @@ echo $TASKS_JSON
 echo $JOB_ID_DEFAULT_TEMPLATE
 echo $JOB_ID_VALIDATIONS
 
+python $DIR/bin/code_linter.py || exit 1
+
 nosetests \
 `python -c '
 from os.path import dirname ;
