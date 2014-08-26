@@ -194,7 +194,7 @@ def test_topological_sort():
          (u'test_scheduler/test_app', '20140601_102_profile', u'dep1'),
          (u'test_scheduler/test_app2', '20140601_101_profile', u'dep1'),
          (u'test_scheduler/test_app2', '20140601_102_profile', u'dep1'),
+         (u'test_scheduler/test_depends_on', u'20140601_1', u'dep1'),
          (u'test_scheduler/test_bash2', '20140601_101_profile', u'dep1'),
-         (u'test_scheduler/test_bash2', '20140601_102_profile', u'dep1'),
-         (u'test_scheduler/test_depends_on', u'20140601_1', u'dep1')]
+         (u'test_scheduler/test_bash2', '20140601_102_profile', u'dep1')]
     )
