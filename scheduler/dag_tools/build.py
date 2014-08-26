@@ -286,7 +286,7 @@ def _build_dict_deps_part2(dg, app_name, dep_name, dep_info, log_details):
     `dep_name` and `dep_info` are { key: value } of form:
 
        "dependency_name2": {
-         "app_name": ["test_app/test_minimal"],
+         "app_name": ["test_app/test_pyspark"],
          "date": [20140601],
          "client_id": [123, 140, 150],
          ...

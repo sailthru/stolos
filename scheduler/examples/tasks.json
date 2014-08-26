@@ -9,18 +9,18 @@
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
      "job_type": "pyspark"
  },
- "test_scheduler/test_bashworker": {
+ "test_scheduler/test_bash": {
      "job_type": "bash"
  },
- "test_scheduler/test_bashworker2": {
-     "depends_on": {"app_name": ["test_scheduler/test_bashworker"]},
+ "test_scheduler/test_bash2": {
+     "depends_on": {"app_name": ["test_scheduler/test_bash"]},
      "job_type": "bash",
      "bash_opts": "echo 123"
  },
 
- "test_scheduler/test_minimal": {
+ "test_scheduler/test_pyspark": {
      "job_type": "pyspark",
-     "pymodule": "scheduler.examples.tasks.minimal_viable_example"
+     "pymodule": "scheduler.examples.tasks.pyspark_example"
  },
 
   "test_scheduler/test_depends_on": {
@@ -30,7 +30,7 @@
          "app_name": ["test_scheduler/test_app2", "test_scheduler/test_app"],
          "collection_name": ["profile", "purchase"],
          "date": [20140601],
-         "client_id": [450, 1072, 4023],
+         "client_id": [876, 1011, 9020],
          "testID": [1]
          }, {
          "app_name": ["test_scheduler/test_app"],
@@ -38,17 +38,17 @@
          "testID": [1]
        }],
        "depgrp2": {
-         "app_name": ["test_scheduler/test_minimal"],
+         "app_name": ["test_scheduler/test_pyspark"],
          "collection_name": ["profile"],
          "date": [20140601],
-         "client_id": [450, 1072, 4023],
+         "client_id": [876, 1011, 9020],
          "testID": [2]
        },
        "depgrp3": {
          "app_name": ["test_scheduler/test_app"],
          "collection_name": ["profile"],
          "date": [20140601],
-         "client_id": [450],
+         "client_id": [876],
          "testID": [3]
        },
        "depgrp4": {
@@ -73,7 +73,7 @@
          "app_name": [
            "test_scheduler/test_app",
            "test_scheduler/test_app2",
-           "test_scheduler/test_bashworker2"],
+           "test_scheduler/test_bash2"],
          "client_id": [101, 102],
          "collection_name": ["profile"],
          "date": [20140601],

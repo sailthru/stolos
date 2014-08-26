@@ -11,46 +11,46 @@ def test_dag_is_valid():
 def test_passes_filter():
     nt.assert_false(
         dag_tools.passes_filter(
-            'test_scheduler/test_app2', '20130104_450_content')
+            'test_scheduler/test_app2', '20130104_876_content')
     )
     nt.assert_true(
         dag_tools.passes_filter(
-            'test_scheduler/test_app2', '20130104_450_profile')
+            'test_scheduler/test_app2', '20130104_876_profile')
     )
 
 
 def test_job_id_validations():
     with nt.assert_raises(exceptions.InvalidJobId):
         dag_tools.parse_job_id(
-            'test_scheduler/test_app2', '20130104_450_')
+            'test_scheduler/test_app2', '20130104_876_')
 
     with nt.assert_raises(exceptions.InvalidJobId):
         dag_tools.parse_job_id(
-            'test_scheduler/test_app2', '20130104_450a_profile')
+            'test_scheduler/test_app2', '20130104_876a_profile')
 
     with nt.assert_raises(exceptions.InvalidJobId):
         dag_tools.parse_job_id(
-            'test_scheduler/test_app2', '20130199_450_profile')
+            'test_scheduler/test_app2', '20130199_876_profile')
 
 
 def test_get_children():
 
     nt.assert_equal(
         list(dag_tools.get_children(
-            'test_scheduler/test_minimal', '20140601_450_profile')),
+            'test_scheduler/test_pyspark', '20140601_876_profile')),
         [(u'test_scheduler/test_depends_on', u'20140601_2', u'depgrp2')]
     )
 
     nt.assert_equal(
         sorted(list(dag_tools.get_children(
-            'test_scheduler/test_bashworker2', '20140601_9899_purchase'))),
+            'test_scheduler/test_bash2', '20140601_9899_purchase'))),
         []
     )
 
     nt.assert_equal(
         sorted(list(dag_tools.get_children(
-            'test_scheduler/test_bashworker', '20140601_9899_purchase'))),
-        [(u'test_scheduler/test_bashworker2',
+            'test_scheduler/test_bash', '20140601_9899_purchase'))),
+        [(u'test_scheduler/test_bash2',
           '20140601_9899_purchase', 'default')]
     )
 
@@ -66,11 +66,11 @@ def test_get_children():
 
     nt.assert_equal(
         sorted(list(dag_tools.get_children(
-            'test_scheduler/test_app', '20140601_450_purchase'))),
+            'test_scheduler/test_app', '20140601_876_purchase'))),
         sorted([
             (u'test_scheduler/test_depends_on', u'20140601_1', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_450_purchase', 'default')
+             '20140601_876_purchase', 'default')
         ])
     )
 
@@ -80,17 +80,17 @@ def test_get_parents():
     # test case with no parents
     nt.assert_equal(
         list(dag_tools.get_parents(
-            'test_scheduler/test_app', '20140101_450_purchase', True)),
+            'test_scheduler/test_app', '20140101_876_purchase', True)),
         []
     )
 
     # test the basic inheritance scenario
     nt.assert_equal(
         sorted(list(dag_tools.get_parents(
-            'test_scheduler/test_bashworker2', '20140501_450_profile', True))),
+            'test_scheduler/test_bash2', '20140501_876_profile', True))),
         sorted(
-            [(u'test_scheduler/test_bashworker',
-              '20140501_450_profile', 'default')])
+            [(u'test_scheduler/test_bash',
+              '20140501_876_profile', 'default')])
     )
 
     # test invalid job_id
@@ -112,12 +112,12 @@ def test_get_parents():
         sorted(list(dag_tools.get_parents(
             'test_scheduler/test_depends_on', '20140601_2', True))),
         sorted([
-            (u'test_scheduler/test_minimal',
-             '20140601_1072_profile', u'depgrp2'),
-            (u'test_scheduler/test_minimal',
-             '20140601_4023_profile', u'depgrp2'),
-            (u'test_scheduler/test_minimal',
-             '20140601_450_profile', u'depgrp2')
+            (u'test_scheduler/test_pyspark',
+             '20140601_1011_profile', u'depgrp2'),
+            (u'test_scheduler/test_pyspark',
+             '20140601_9020_profile', u'depgrp2'),
+            (u'test_scheduler/test_pyspark',
+             '20140601_876_profile', u'depgrp2')
         ])
     )
 
@@ -128,31 +128,31 @@ def test_get_parents():
             'test_scheduler/test_depends_on', '20140601_1', True))),
         sorted([
             (u'test_scheduler/test_app',
-             '20140601_1072_profile', u'depgrp1'),
+             '20140601_1011_profile', u'depgrp1'),
             (u'test_scheduler/test_app',
-             '20140601_1072_purchase', u'depgrp1'),
+             '20140601_1011_purchase', u'depgrp1'),
             (u'test_scheduler/test_app',
-             '20140601_4023_profile', u'depgrp1'),
+             '20140601_9020_profile', u'depgrp1'),
             (u'test_scheduler/test_app',
-             '20140601_4023_purchase', u'depgrp1'),
+             '20140601_9020_purchase', u'depgrp1'),
             (u'test_scheduler/test_app',
-             '20140601_450_profile', u'depgrp1'),
+             '20140601_876_profile', u'depgrp1'),
             (u'test_scheduler/test_app',
-             '20140601_450_purchase', u'depgrp1'),
+             '20140601_876_purchase', u'depgrp1'),
             (u'test_scheduler/test_app',
              '20140601_999_purchase', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_1072_profile', u'depgrp1'),
+             '20140601_1011_profile', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_1072_purchase', u'depgrp1'),
+             '20140601_1011_purchase', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_4023_profile', u'depgrp1'),
+             '20140601_9020_profile', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_4023_purchase', u'depgrp1'),
+             '20140601_9020_purchase', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_450_profile', u'depgrp1'),
+             '20140601_876_profile', u'depgrp1'),
             (u'test_scheduler/test_app2',
-             '20140601_450_purchase', u'depgrp1')
+             '20140601_876_purchase', u'depgrp1')
         ])
     )
 
@@ -164,7 +164,7 @@ def test_get_parents():
         sorted([
             (u'test_scheduler/test_app',
              '20140601_444_profile', u'depgrp4'),
-            (u'test_scheduler/test_app', '20140601_450_profile', u'depgrp3')
+            (u'test_scheduler/test_app', '20140601_876_profile', u'depgrp3')
         ])
     )
 
@@ -194,7 +194,7 @@ def test_topological_sort():
          (u'test_scheduler/test_app', '20140601_102_profile', u'dep1'),
          (u'test_scheduler/test_app2', '20140601_101_profile', u'dep1'),
          (u'test_scheduler/test_app2', '20140601_102_profile', u'dep1'),
-         (u'test_scheduler/test_bashworker2', '20140601_101_profile', u'dep1'),
-         (u'test_scheduler/test_bashworker2', '20140601_102_profile', u'dep1'),
+         (u'test_scheduler/test_bash2', '20140601_101_profile', u'dep1'),
+         (u'test_scheduler/test_bash2', '20140601_102_profile', u'dep1'),
          (u'test_scheduler/test_depends_on', u'20140601_1', u'dep1')]
     )

@@ -42,9 +42,9 @@ def parse_job_id(app_name, job_id, delimiter=JOB_ID_DELIMITER):
     `delimiter` (str) value to split job_id into different components
 
     ie:
-        20140506_450_profile -->
+        20140506_876_profile -->
 
-        {'date': 20140506, 'client_id': 450, 'collection_name': 'profile'}
+        {'date': 20140506, 'client_id': 876, 'collection_name': 'profile'}
 
     Returned values are cast into the appropriate type by the validations funcs
 

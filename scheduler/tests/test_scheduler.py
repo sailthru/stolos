@@ -21,7 +21,7 @@ TASKS_JSON_TMPFILES = {}
 zk = zkt.get_client('localhost:2181')
 job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
-app1, app2, depends_on1, bashworker1 = [None] * 4
+app1, app2, depends_on1, bash1 = [None] * 4
 log = None  # log is configured
 
 
@@ -90,13 +90,13 @@ def setup_func(func_name):
 
     # TODO: figure out how to make this ugly convenience hack
     # better.  maybe functions should initialize app1 = get_app_name(name)
-    global app1, app2, depends_on1, bashworker1
+    global app1, app2, depends_on1, bash1
     oapp1 = 'test_scheduler/test_app'
     oapp2 = 'test_scheduler/test_app2'
     app1 = '%s__%s' % (oapp1, func_name)
     app2 = '%s__%s' % (oapp2, func_name)
     depends_on1 = 'test_scheduler/test_depends_on__%s' % func_name
-    bashworker1 = 'test_scheduler/test_bashworker__%s' % func_name
+    bash1 = 'test_scheduler/test_bash__%s' % func_name
 
     global log
     log = logging.getLogger('scheduler.tests.test_scheduler')
@@ -144,12 +144,12 @@ def _inject_into_dag(new_task_dct):
 
 @with_setup
 def test_bypass_scheduler():
-    validate_zero_queued_task(bashworker1)
+    validate_zero_queued_task(bash1)
     run_code(
-        bashworker1,
+        bash1,
         '--bypass_scheduler --job_id %s --bash echo 123' % job_id1)
-    validate_zero_queued_task(bashworker1)
-    validate_zero_completed_task(bashworker1)
+    validate_zero_queued_task(bash1)
+    validate_zero_completed_task(bash1)
 
 
 @with_setup
@@ -520,17 +520,17 @@ def test_valid_task():
 
 
 @with_setup
-def test_bashworker():
+def test_bash():
     """a bash task should execute properly """
     # queue task
-    enqueue(bashworker1, job_id1)
-    validate_one_queued_task(bashworker1, job_id1)
+    enqueue(bash1, job_id1)
+    validate_one_queued_task(bash1, job_id1)
     # run failing task
-    run_code(bashworker1, '--bash thiscommandshouldfail')
-    validate_one_queued_task(bashworker1, job_id1)
+    run_code(bash1, '--bash thiscommandshouldfail')
+    validate_one_queued_task(bash1, job_id1)
     # run successful task
-    run_code(bashworker1, '--bash echo 123')
-    validate_zero_queued_task(bashworker1)
+    run_code(bash1, '--bash echo 123')
+    validate_zero_queued_task(bash1)
 
 
 @with_setup
@@ -570,11 +570,11 @@ def test_readd_change_child_state_while_child_running():
 @with_setup
 def test_run_multiple_given_specific_job_id():
     p = run_code(
-        bashworker1,
+        bash1,
         extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
         async=True)
     p2 = run_code(
-        bashworker1,
+        bash1,
         extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
@@ -597,10 +597,10 @@ def test_run_failing_spark_given_specific_job_id():
     task should still get queued if --job_id is specified and the task fails
     """
     with nose.tools.assert_raises(Exception):
-        run_code(bashworker1, '--job_id %s --ajajaj' % job_id1)
-    validate_zero_queued_task(bashworker1)
-    run_code(bashworker1, '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
-    validate_one_queued_task(bashworker1, job_id1)
+        run_code(bash1, '--job_id %s --ajajaj' % job_id1)
+    validate_zero_queued_task(bash1)
+    run_code(bash1, '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
+    validate_one_queued_task(bash1, job_id1)
 
 
 @with_setup

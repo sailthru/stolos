@@ -376,7 +376,7 @@ it.  This takes the form of these steps:
 1. Submit a `job_id` for this task
 1. Run the task.
 
-- **See scheduler/examples/tasks/minimal_viable_example.py for details
+- **See scheduler/examples/tasks/pyspark_example.py for details
   on how to perform these simple steps for a spark job.**
 - A bash job doesn't need any application code to run as long as that
   code is available from command-line
@@ -393,9 +393,9 @@ In order to run a job, you have to queue it and then execute it.
 You can read from the application's queue and execute code via:
 
 
-    scheduler --app_name test_scheduler/test_minimal -h
+    scheduler --app_name test_scheduler/test_pyspark -h
 
-    scheduler --app_name test_scheduler/test_bashworker2 -h
+    scheduler --app_name test_scheduler/test_bash -h
 
 
 This is how you can manually queue a job:

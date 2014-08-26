@@ -34,7 +34,7 @@ def main(elem, ns, **job_id_identifiers):
 
 # And don't forget you would need to add this to the tasks graph:
 
-#   "test_scheduler/test_minimal": {
+#   "test_scheduler/test_pyspark": {
 #     "job_type": "pyspark",
 #     "pymodule": "scheduler.examples.pyspark_example"
 #   }
@@ -48,13 +48,13 @@ def main(elem, ns, **job_id_identifiers):
 
 # Option 1 looks like this:
 
-#   ./bin/submit_task -a test_scheduler/test_minimal --job_id 20140501_1_test
+#   ./bin/submit_task -a test_scheduler/test_pyspark --job_id 20140501_1_test
 #
 #   python -m scheduler.runner --zookeeper_hosts localhost:2181
-#     -a test_scheduler/test_minimal --write_fp /tmp/alex --read_fp ./README.md
+#     -a test_scheduler/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
 
-# Option 2 is not recommended.  It looks like this:
+# Option 2 bypasses scheduling and just runs a task directly:
 #
 #   python -m scheduler.runner --zookeeper_hosts localhost:2181
-#     -a test_scheduler/test_minimal --write_fp /tmp/alex --read_fp ./README.md
-#     --job_id 20140501_1_test
+#     -a test_scheduler/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
+#     --bypass_scheduler --job_id 20140501_1_test
