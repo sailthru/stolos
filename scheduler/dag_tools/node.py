@@ -72,10 +72,12 @@ def _validate_job_id_identifiers(
             val = validations[key](_val)
             assert val, "Failed validation!"
         except KeyError:
+            val = _val
             log.warn(
                 "No job_id validation for key.  You should implement one",
                 extra=dict(job_id_key=key, **ld))
         except Exception as err:
+            val = _val
             msg = "Given job_id is improperly formatted."
             log.exception(msg, extra=dict(
                 expected_key=key, invalid_val=_val, error_details=err, **ld))

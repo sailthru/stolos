@@ -5,7 +5,9 @@ import tempfile
 from scheduler import util
 from scheduler.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
 
-from .constants import DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_DEFAULT_TEMPLATE
+from .constants import (
+    DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_DEFAULT_TEMPLATE,
+    JOB_ID_VALIDATIONS)
 from . import node
 
 
@@ -22,8 +24,8 @@ def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
             "Unrecognized parent_app_name in a `depends_on` dependency group",
             extra=ld,
             exception_kls=DAGMisconfigured)
+        _, parent_template = node.get_job_id_template(parent_app_name)
         if len(dep_info) == 1:
-            _, parent_template = node.get_job_id_template(parent_app_name)
             _log_raise_if(
                 not set(child_template).issuperset(parent_template),
                 ("If you choose specify a dependency with no metadata, then"
@@ -37,29 +39,23 @@ def _validate_dep_grp_metadata(dep_info, ld, tasks_dct, dep_name):
                     child_job_id_template=child_template,
                     **ld),
                 exception_kls=DAGMisconfigured)
+        # for every parent, does the dependency group define enough information
+        # to support a bubble-up or bubble-down operation?
+        required_keys = set(child_template
+                            ).difference(parent_template)
+        _log_raise_if(
+            required_keys.difference(dep_info),
+            ("This app's dependency group is missing some required"
+             " job_id identifiers"), extra=dict(
+                 missing_job_id_identifiers=required_keys.difference(dep_info),
+                 job_id_template=_template, **ld),
+            exception_kls=DAGMisconfigured)
     for k, v in dep_info.items():
         _log_raise_if(
             len(set(v)) != len(v),
             "You have duplicate metadata in dependency group metadata",
             extra=dict(key=k, value=v, **ld),
             exception_kls=DAGMisconfigured)
-
-    for k in child_template:
-        if len(dep_info) == 1 or 'job_id' in dep_info:
-            break
-        if k != 'dependency_group_name':
-            _log_raise_if(
-                k not in dep_info,
-                ("The dependency group must specify all fields specified in"
-                    " the job_id template"),
-                extra=dict(key=k, job_id_template=_template, **ld),
-                exception_kls=DAGMisconfigured)
-            _log_raise_if(
-                len(dep_info[k]) != 1,
-                ("You cannot specify more than 1 value for each field"
-                    " specified in your task's job_id template."),
-                extra=dict(key=k, value=v, job_id_template=_template, **ld),
-                exception_kls=DAGMisconfigured)
 
 
 def _validate_dependency_groups_part2(dep_name, dep_info, ld, tasks_dct):
@@ -74,6 +70,33 @@ def _validate_dependency_groups_part2(dep_name, dep_info, ld, tasks_dct):
         exception_kls=DAGMisconfigured)
     _validate_dep_grp_metadata(
         dep_info, ld=ld, tasks_dct=tasks_dct, dep_name=dep_name)
+    _validate_job_id_validations(dep_info, ld=ld)
+
+
+def _validate_job_id_validations(dep_info, ld):
+    """Do the user defined job_id validations, if they exist,
+    apply to each individual value of the dep group?"""
+    for k, v in dep_info.items():
+        for vv in v:
+            func = JOB_ID_VALIDATIONS.get(k)
+            if not func:
+                continue
+            try:
+                res = func(vv)
+            except Exception as err:
+                _log_raise((
+                    "The job_id_validation you created did not like a value"
+                    " in your task configuration. Your error was: "
+                ) + err.message,
+                    extra=dict(key='%s.%s' % (k, v), value=vv, **ld),
+                    exception_kls=DAGMisconfigured)
+
+            _log_raise_if(
+                vv != res,
+                ("The job_id_validation you created did modified a value"
+                 " in your task configuration."),
+                extra=dict(key='%s.%s' % (k, v), value=vv, **ld),
+                exception_kls=DAGMisconfigured)
 
 
 def _validate_dependency_groups(tasks_dct, metadata, ld):

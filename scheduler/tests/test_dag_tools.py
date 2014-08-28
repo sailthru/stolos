@@ -3,6 +3,9 @@ from nose import tools as nt
 from scheduler import dag_tools
 from scheduler import exceptions
 
+from scheduler.test_utils import configure_logging
+log = configure_logging('scheduler.tests.test_dag')
+
 
 def test_dag_is_valid():
     dag_tools.build_dag()  # validator raises its own asserts
@@ -31,6 +34,17 @@ def test_job_id_validations():
     with nt.assert_raises(exceptions.InvalidJobId):
         dag_tools.parse_job_id(
             'test_scheduler/test_app2', '20130199_876_profile')
+
+
+def test_missing_job_id_validations_okay():
+    """
+    does parse_job_id still work if you don't define a validation func?
+    """
+    items = dag_tools.parse_job_id(
+        'test_scheduler/test_custom_job_id', '20130101_876_equal2me')
+    nt.assert_equal(items['date'], 20130101)
+    nt.assert_equal(items['client_id'], 876)
+    nt.assert_equal(items['unvalidated_field'], 'equal2me')
 
 
 def test_get_children():
@@ -183,6 +197,45 @@ def test_get_parents():
         list(dag_tools.get_parents(
             'test_scheduler/test_depends_on', '20140601_3', True,
             filter_deps=['depgrp99999']))
+
+
+def test_fan_out_tasks():
+    # test for Many-to-Many relationships between parent and child tasks
+    nt.assert_equal(
+        sorted(list(dag_tools.get_parents(
+            'test_scheduler/test_fanout', '20140715_8'))),
+        [])
+
+    nt.assert_equal(
+        sorted(list(dag_tools.get_parents(
+            'test_scheduler/test_fanout', '20140715_5', True))),
+        sorted([
+            (u'test_scheduler/test_app', '20140714_555_profile', u'dep2'),
+            (u'test_scheduler/test_app', '20140715_555_profile', u'dep2'),
+        ]))
+
+    nt.assert_equal(
+        sorted(list(dag_tools.get_children(
+            'test_scheduler/test_app', '20140715_9_profile', True,))),
+        [(u'test_scheduler/test_app2', '20140715_9_profile', 'default'),
+         (u'test_scheduler/test_fanout', '20140715_1', u'dep1'),
+         (u'test_scheduler/test_fanout', '20140715_2', u'dep1'),
+         (u'test_scheduler/test_fanout', '20140715_3', u'dep1'),
+         ])
+
+    nt.assert_equal(
+        sorted(list(dag_tools.get_children(
+            'test_scheduler/test_app', '20140715_555_profile', True,))),
+        [
+            (u'test_scheduler/test_app2', '20140715_555_profile', 'default'),
+            (u'test_scheduler/test_fanout', u'20140714_5', u'dep2'),
+            (u'test_scheduler/test_fanout', u'20140714_6', u'dep2'),
+            (u'test_scheduler/test_fanout', u'20140715_1', u'dep1'),
+            (u'test_scheduler/test_fanout', u'20140715_2', u'dep1'),
+            (u'test_scheduler/test_fanout', u'20140715_3', u'dep1'),
+            (u'test_scheduler/test_fanout', u'20140715_5', u'dep2'),
+            (u'test_scheduler/test_fanout', u'20140715_6', u'dep2'),
+        ])
 
 
 def test_topological_sort():

@@ -44,11 +44,13 @@ def get_parents(app_name, job_id, include_dependency_group=False,
         filter_deps = set(filter_deps)
         if 'dependency_group_name' in parsed_job_id:
             filter_deps.add(parsed_job_id['dependency_group_name'], )
+    else:
+        parsed_job_id = None
 
     ld = dict(  # log details
         app_name=app_name, job_id=job_id)
     for group_name, dep_group in _get_grps(app_name, filter_deps, ld):
-        if not _match_group_to_job_id(app_name, job_id, dep_group, ld):
+        if not dep_group_and_job_id_compatible(dep_group, parsed_job_id):
             log.debug(
                 'ignoring dependency group in call to get_parents',
                 extra=dict(dependency_group_name=group_name, **ld))
@@ -73,24 +75,26 @@ def get_parents(app_name, job_id, include_dependency_group=False,
                 yield rv
 
 
-def _match_group_to_job_id(app_name, job_id, dep_group, ld):
-    if isinstance(dep_group, list):
-        for subgrp in dep_group:
-            v = _match_group_to_job_id(app_name, job_id, subgrp, ld)
-            if not v:
+def dep_group_and_job_id_compatible(dep_group, pjob_id):
+    """Check if the dependency group for this app could possibly have
+    generated this job_id.  If it could have, then this dependency group
+    contains parents and is compatible
+    """
+    if isinstance(dep_group, list):  # recursive AND
+        return all(dep_group_and_job_id_compatible(dg, pjob_id)
+                   for dg in dep_group)
+
+    if pjob_id is None:
+        return True  # all dependency groups are compatible
+
+    for parent in dep_group['app_name']:
+        _, parent_template = get_job_id_template(parent)
+
+        for k, v in pjob_id.items():
+            if k not in dep_group and k not in parent_template:
                 return False
-        return True
-
-    pjob_id = parse_job_id(app_name, job_id)
-    if 'job_id' in dep_group or len(dep_group) == 1:
-        return True  # any parent job_id matches
-
-    for key, value in pjob_id.items():
-        if key == 'dependency_group_name':
-            continue
-
-        if any(value != x for x in dep_group[key]):
-            return False
+            if k in dep_group and v not in dep_group[k]:
+                return False
     return True
 
 
@@ -202,9 +206,8 @@ def _get_parent_job_ids(group_name, dep_group,
     for parent_app_name in dep_group['app_name']:
         dep_group = dep_group.copy()  # shallow copy to change the keys
 
-        if len(dep_group) == 1:
-            _inject_job_id(
-                dep_group, child_app_name, child_job_id, parent_app_name, ld)
+        _inject_job_id(
+            dep_group, child_app_name, child_job_id, parent_app_name, ld)
         # are there specific job_ids the child would inherit from?
         if 'job_id' in dep_group:
             for rv in _iter_job_ids(dep_group=dep_group, group_name=group_name,
@@ -227,7 +230,11 @@ def _get_parent_job_ids(group_name, dep_group,
 def _inject_job_id(dep_group, child_app_name, child_job_id,
                    parent_app_name, ld):
     """Given metadata about a dependency group, set the dep_group['job_id']
-    value.  Assume the dependency group only specifies an app_name key"""
+    value.  Assume the dependency group only specifies an app_name key.
+    Also, if the field for each identifier in the current job_id does
+    not exist in the dependency group, add it.
+
+    Basically, just update the dependency group with information """
     # if only "app_name" is defined in this dependency group,
     # assume child inherited the parent's job_id and passed that
     # to this child
@@ -238,16 +245,21 @@ def _inject_job_id(dep_group, child_app_name, child_job_id,
                 " haven't specified the child's job_id"),
             extra=dict(parent_app_name=parent_app_name, **ld),
             exception_kls=DAGMisconfigured)
-    t, pt = get_job_id_template(parent_app_name)
-    meta = parse_job_id(child_app_name, child_job_id)
-    try:
-        dep_group['job_id'] = [t.format(**meta)]
-    except Exception as err:
-        _log_raise(
-            ("The child job_id doesn't contain enough metadata to"
-                " create the parent job_id. Err details: %s") % err,
-            extra=dict(job_id_template=t, metadata=str(meta), **ld),
-            exception_kls=err.__class__)
+    pjob_id = parse_job_id(child_app_name, child_job_id)
+    if len(dep_group) == 1:
+        t, pt = get_job_id_template(parent_app_name)
+        try:
+            dep_group['job_id'] = [t.format(**pjob_id)]
+        except Exception as err:
+            _log_raise(
+                ("The child job_id doesn't contain enough pjob_id data to"
+                 " create the parent job_id. Err details: %s") % err,
+                extra=dict(job_id_template=t, pjob_iddata=str(pjob_id), **ld),
+                exception_kls=err.__class__)
+    else:
+        for k, v in pjob_id.items():
+            if k not in dep_group:
+                dep_group[k] = [v]
 
 
 def _iter_job_ids(dep_group, group_name, parent_app_name, ld):
@@ -273,6 +285,7 @@ def _iter_job_ids(dep_group, group_name, parent_app_name, ld):
 def get_children(node, job_id, include_dependency_group=True):
     dg = build_dag()
     child_apps = ((k, vv) for k, v in dg.succ[node].items() for vv in v)
+    child_apps = list(child_apps)
     for child, group_name in child_apps:
         grp = dg.node[child]['depends_on']
         if group_name != DEPENDENCY_GROUP_DEFAULT_NAME:
@@ -296,33 +309,47 @@ def _generate_job_ids(node, job_id, child, group_name, grp):
         return [(child, job_id)]
 
     # check that the job_id applies to this group
-    pjob_id = parse_job_id(node, job_id)
-    template, parsed_template = get_job_id_template(child)
+    pjob_id = parse_job_id(node, job_id)  # parent data
+    ctemplate, cparsed_template = get_job_id_template(child)  # child data
 
+    # check if parent job_ids are hardcoded into configuration
     if 'job_id' in grp:
         if job_id in grp['job_id']:
             kwargs = dict()
             kwargs.update(pjob_id)
             kwargs.update({k: v[0] for k, v in grp.items() if len(v) == 1})
-            cjob_id = template.format(**kwargs)
+            cjob_id = ctemplate.format(**kwargs)
             return [(child, cjob_id)]
         return []
 
+    # check if the parent job_id template is compatible with this dep_grp
     for k, v in pjob_id.items():
-        if k not in grp:
+        # is the parent's job_id identifier defined anywhere?
+        if k not in grp and k not in cparsed_template:
             return []
-        if v not in grp[k]:
+        # is the identifier appropriately missing from the dep_grp?
+        if k in grp and v not in grp[k]:
+            return []
+    # check if the child's job_id template is compatible with this dep_grp
+    for k in cparsed_template:
+        # is child's job_id identifier appropriately missing from the dep_grp?
+        if k in grp and k in pjob_id and pjob_id[k] not in grp[k]:
+            return []
+        # is identifier defined anywhere?
+        if k not in grp and k not in pjob_id:
             return []
     return _generate_job_ids2(
-        grp, parsed_template, template, group_name, child)
+        grp, pjob_id, cparsed_template, ctemplate, group_name, child)
 
 
-def _generate_job_ids2(grp, parsed_template, template, group_name, child):
+def _generate_job_ids2(grp, pjob_id,
+                       cparsed_template, ctemplate, group_name, child):
     so_far = set()
-    for job_id_data in crossproduct([grp[_key] for _key in parsed_template]):
-        cjob_id = template.format(
+    for job_id_data in crossproduct([grp.get(_key) or [pjob_id[_key]]
+                                     for _key in cparsed_template]):
+        cjob_id = ctemplate.format(
             dependency_group_name=group_name,
-            **dict(zip(parsed_template, job_id_data)))
+            **dict(zip(cparsed_template, job_id_data)))
         if cjob_id not in so_far:
             so_far.add(cjob_id)
             yield (child, cjob_id)

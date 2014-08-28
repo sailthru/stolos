@@ -7,8 +7,7 @@ import tempfile
 import ujson
 
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
-import logging
-from colorlog import ColoredFormatter
+from scheduler.test_utils import configure_logging
 
 
 CMD = (
@@ -23,32 +22,6 @@ job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
 app1, app2, depends_on1, bash1 = [None] * 4
 log = None  # log is configured
-
-
-def configure_logging():
-    _ignore_log_keys = set(logging.makeLogRecord({}).__dict__)
-
-    def _json_format(record):
-        extras = ' '.join(
-            "%s=%s" % (k, record.__dict__[k])
-            for k in set(record.__dict__).difference(_ignore_log_keys))
-        if extras:
-            record.msg = "%s    %s" % (record.msg, extras)
-        return record
-
-    class ColoredJsonFormatter(ColoredFormatter):
-        def format(self, record):
-            record = _json_format(record)
-            return super(ColoredJsonFormatter, self).format(record)
-
-    log = logging.getLogger()
-    _formatter = ColoredJsonFormatter(
-        "%(log_color)s%(levelname)-8s %(message)s %(reset)s %(cyan)s",
-        reset=True)
-    _h = logging.StreamHandler()
-    _h.setFormatter(_formatter)
-    log.handlers = [_h]  # log.addHandler(_h)
-    log.setLevel(logging.DEBUG)
 
 
 def create_tasks_json(fname_suffix='', inject={}, rename=False):
@@ -99,8 +72,7 @@ def setup_func(func_name):
     bash1 = 'test_scheduler/test_bash__%s' % func_name
 
     global log
-    log = logging.getLogger('scheduler.tests.test_scheduler')
-    configure_logging()
+    log = configure_logging('scheduler.tests.test_scheduler')
 
     f = create_tasks_json(fname_suffix=func_name, rename=True)
     TASKS_JSON_TMPFILES[func_name] = f
