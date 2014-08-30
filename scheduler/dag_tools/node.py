@@ -86,6 +86,33 @@ def _validate_job_id_identifiers(
     return rv
 
 
+def _load_func_path(import_path, ld):
+    """
+    import a python function from an import path like: mypackage.module.func"""
+    log.debug(
+        'attempting to load function from an import path',
+        extra=dict(import_path=import_path, **ld))
+    try:
+        path, func_name = import_path.rsplit('.', 1)
+    except ValueError:
+        _log_raise(
+            ("import path needs at least 1 period in your import path."
+             " An example import path is something like: module.func"),
+            extra=dict(import_path=import_path, **ld),
+            exception_kls=DAGMisconfigured)
+    mod = importlib.import_module(path)
+    try:
+        func = getattr(mod, func_name)
+    except AttributeError:
+        _log_raise(
+            ("function does not exist in given module."
+             " Your import path is not"
+             " properly defined because the given `func_name` does not exist"),
+            extra=dict(import_path=import_path, func_name=func_name, **ld),
+            exception_kls=DAGMisconfigured)
+    return func
+
+
 def passes_filter(app_name, job_id):
     """Determine if this job matches certain criteria that state it is a
     valid job for this app_name.
@@ -101,10 +128,23 @@ def passes_filter(app_name, job_id):
     # autocomplete it
     dg = get_tasks_dct()
     meta = dg[app_name]
+    ld = dict(app_name=app_name, job_id=job_id)
     try:
         dct = meta['valid_if_or']
     except (KeyError, TypeError):
         return True  # everything is valid
+
+    if '_func' in dct:
+        dct = dct.copy()  # ah! we'd potentially modify a mutable object!
+        import_path = dct.pop('_func')
+        try:
+            func = _load_func_path(import_path, ld)
+        except Exception as err:
+            raise err.__class__(
+                "valid_if_or._func misconfigured: %s" % err.message)
+
+        if func(app_name, **pjob_id):
+            return True
 
     for k, v in dct.items():
         try:
@@ -112,8 +152,7 @@ def passes_filter(app_name, job_id):
         except KeyError:
             _log_raise(
                 "valid_if_or contains a key that's not in the job_id",
-                extra=dict(
-                    app_name=app_name, job_id=job_id, valid_if_or_key=k),
+                extra=dict(valid_if_or_key=k, **ld),
                 exception_kls=DAGMisconfigured)
         if kk in v:
             return True

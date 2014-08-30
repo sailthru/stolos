@@ -165,6 +165,8 @@ def validate_depends_on(app_name1, metadata, dg, tasks_dct, ld):
 def validate_if_or(app_name1, metadata, dg, tasks_dct, ld):
     # valid_if_or  -  are we specifying what makes a job valid correctly?
     for k, v in metadata.get('valid_if_or', {}).items():
+        if k == '_func':
+            continue
         assert isinstance(v, (list, set)), (
             "Task is misconfigured.  Expected a list but got"
             " %s. Location: %s"

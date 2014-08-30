@@ -20,7 +20,8 @@ TASKS_JSON_TMPFILES = {}
 zk = zkt.get_client('localhost:2181')
 job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
-app1, app2, depends_on1, bash1 = [None] * 4
+job_id3 = '20140604_1111_profile'
+app1, app2, app3, depends_on1, bash1 = [None] * 5
 log = None  # log is configured
 
 
@@ -63,11 +64,12 @@ def setup_func(func_name):
 
     # TODO: figure out how to make this ugly convenience hack
     # better.  maybe functions should initialize app1 = get_app_name(name)
-    global app1, app2, depends_on1, bash1
+    global app1, app2, app3, depends_on1, bash1
     oapp1 = 'test_scheduler/test_app'
     oapp2 = 'test_scheduler/test_app2'
     app1 = '%s__%s' % (oapp1, func_name)
     app2 = '%s__%s' % (oapp2, func_name)
+    app3 = 'test_scheduler/test_app3__%s' % func_name
     depends_on1 = 'test_scheduler/test_depends_on__%s' % func_name
     bash1 = 'test_scheduler/test_bash__%s' % func_name
 
@@ -476,12 +478,33 @@ def test_retry_failed_task():
 
 
 @with_setup
-def test_invalid_task():
+def test_valid_if_or():
     """Invalid tasks should be automatically completed.
     This is a valid_if_or test  (aka passes_filter )... bad naming sorry!"""
     job_id = '20140606_3333_content'
     enqueue(app2, job_id, validate_queued=False)
     validate_one_skipped_task(app2, job_id)
+
+
+@with_setup
+def test_valid_if_or_func():
+    """Verify that the valid_if_or option supports the "_func" option
+
+    app_name: {"valid_if_or": {"_func": "python.import.path.to.func"}}
+    where the function definition looks like: func(**parsed_job_id)
+    """
+    zk.delete('test_scheduler', recursive=True)
+    enqueue(app3, job_id2, validate_queued=False)
+    validate_one_skipped_task(app3, job_id2)
+
+    zk.delete('test_scheduler', recursive=True)
+    enqueue(app3, job_id3, validate_queued=False)
+    validate_one_skipped_task(app3, job_id3)
+
+    # if the job_id matches the valid_if_or: {"_func": func...} criteria, then:
+    zk.delete('test_scheduler', recursive=True)
+    enqueue(app3, job_id1, validate_queued=False)
+    validate_one_queued_task(app3, job_id1)
 
 
 @with_setup

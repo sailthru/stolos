@@ -9,6 +9,12 @@
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
      "job_type": "pyspark"
  },
+ "test_scheduler/test_app3": {
+     "job_type": "bash",
+     "valid_if_or": {
+       "_func": "scheduler.examples.valid_if_or_example.func"
+     }
+ },
  "test_scheduler/test_custom_job_id": {
      "job_type": "pyspark",
      "job_id": "{date}_{client_id}_{unvalidated_field}"
