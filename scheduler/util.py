@@ -143,7 +143,7 @@ def lazy_set_default(dct, key, lazy_val_func, *args, **kwargs):
     return val
 
 
-def load_obj_from_path(import_path, ld):
+def load_obj_from_path(import_path, ld=dict()):
     """
     import a python object from an import path like:
 

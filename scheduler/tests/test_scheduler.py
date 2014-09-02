@@ -36,7 +36,7 @@ def create_tasks_json(fname_suffix='', inject={}, rename=False):
     `rename` - if True, change the name all tasks to include the fname_suffix
 
     """
-    tasks_dct = dt.get_tasks_dct()
+    tasks_dct = dt.get_tasks_config()
     tasks_dct.update(inject)
 
     f = tempfile.mkstemp(prefix='tasks_json', suffix=fname_suffix)[1]
@@ -104,7 +104,7 @@ def _inject_into_dag(new_task_dct):
     f = create_tasks_json(inject=new_task_dct)
 
     # verify injection worked
-    dg = dt.get_tasks_dct()
+    dg = dt.get_tasks_config()
     dag = dt.build_dag()
     for k, v in new_task_dct.items():
         assert dg[k] == v, (

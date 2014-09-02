@@ -7,7 +7,7 @@ from .build import (
 )
 from .node import (
     create_job_id,
-    get_tasks_dct,
+    get_tasks_config,
     parse_job_id,
     passes_filter,
     get_pymodule,

@@ -8,7 +8,7 @@ from scheduler.exceptions import (
 
 from .build import build_dag
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
-from .node import (get_tasks_dct, parse_job_id, get_job_id_template)
+from .node import (get_tasks_config, parse_job_id, get_job_id_template)
 from . import log
 
 
@@ -126,7 +126,7 @@ def _get_grps(app_name, filter_deps, ld):
     Return an iterator that yields (dependency_group_name, group_metadata)
     tuples
     """
-    td = get_tasks_dct()
+    td = get_tasks_config()
     try:
         depends_on = td[app_name]['depends_on']
     except KeyError:

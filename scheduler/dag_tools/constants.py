@@ -15,4 +15,5 @@ JOB_ID_VALIDATIONS = importlib.import_module(
 ).JOB_ID_VALIDATIONS
 
 CONFIGURATION_BACKEND = os.environ.get(
-    'CONFIGURATION_BACKEND', 'scheduler.configuration_backend.json_config')
+    'CONFIGURATION_BACKEND',
+    'scheduler.configuration_backend.json_config.JSONConfig')
