@@ -11,18 +11,14 @@ from scheduler.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
 from scheduler.util import load_obj_from_path
 
 from .constants import (
-    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,)
+    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,
+    CONFIGURATION_BACKEND)
 from . import log
 
 
 def get_tasks_dct(fp=None):
-    if fp is None:
-        fp = os.environ['TASKS_JSON']
-    try:
-        return ujson.load(open(fp))
-    except:
-        log.error("Failed to read json file.", extra={'fp': fp})
-        raise
+    cb = load_obj_from_path(CONFIGURATION_BACKEND)()
+    return cb()
 
 
 def create_job_id(app_name, **job_id_identifiers):

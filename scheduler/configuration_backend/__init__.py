@@ -1,3 +1,6 @@
+import logging
+log = logging.getLogger('scheduler.configuration_backend')
+
 import collections
 
 

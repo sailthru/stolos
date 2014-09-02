@@ -1,7 +1,7 @@
 import os
 import ujson
 
-from . import TasksConfigBase
+from . import TasksConfigBase, log
 
 
 class JSONConfig(TasksConfigBase):
@@ -11,7 +11,18 @@ class JSONConfig(TasksConfigBase):
     """
     def __init__(self, data=None):
         if data is None:
-            self.cache = ujson.load(open(os.environ['TASKS_JSON']))
+            try:
+                fp = os.environ['TASKS_JSON']
+            except KeyError:
+                log.error(
+                    "You must define TASKS_JSON if you use the JSONConfig"
+                    " configuration backend")
+                raise
+            try:
+                self.cache = ujson.load(open(fp))
+            except:
+                log.error("Failed to read json file.", extra={'fp': fp})
+                raise
         else:
             self.cache = data
 
