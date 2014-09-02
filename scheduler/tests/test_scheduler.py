@@ -7,7 +7,7 @@ import tempfile
 import ujson
 
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
-from scheduler.test_utils import configure_logging
+from scheduler.testing_tools import configure_logging
 
 
 CMD = (
