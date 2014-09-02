@@ -276,7 +276,7 @@ def validate_dag(dg, tasks_dct):
         validate_uris(app_name1, metadata, dg, tasks_dct, ld)
 
 
-def visualize_dag(dg=None, plot=True):
+def visualize_dag(dg=None, plot=True, delete_plot=True):
     """For interactive use"""
     if not dg:
         dg = build_dag()
@@ -285,13 +285,14 @@ def visualize_dag(dg=None, plot=True):
         nx.write_dot(dg, '{0}'.format(tmpf))
         if plot:
             os.popen(
-                'dot {0} -Tpng > {0}.png ; open {0}.png ; sleep .5'
+                'dot {0} -Tpng > {0}.png ; open {0}.png ; sleep 5'
                 .format(tmpf))
     finally:
-        if os.path.exists(tmpf):
-            os.remove(tmpf)
-        if os.path.exists(tmpf + '.png'):
-            os.remove(tmpf + '.png')
+        if delete_plot:
+            if os.path.exists(tmpf):
+                os.remove(tmpf)
+            if os.path.exists(tmpf + '.png'):
+                os.remove(tmpf + '.png')
 
 
 def _add_nodes(tasks_dct, dg):
