@@ -8,6 +8,7 @@ import ujson
 import os
 
 from scheduler.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
+from scheduler.util import load_obj_from_path
 
 from .constants import (
     JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,)
@@ -86,33 +87,6 @@ def _validate_job_id_identifiers(
     return rv
 
 
-def _load_func_path(import_path, ld):
-    """
-    import a python function from an import path like: mypackage.module.func"""
-    log.debug(
-        'attempting to load function from an import path',
-        extra=dict(import_path=import_path, **ld))
-    try:
-        path, func_name = import_path.rsplit('.', 1)
-    except ValueError:
-        _log_raise(
-            ("import path needs at least 1 period in your import path."
-             " An example import path is something like: module.func"),
-            extra=dict(import_path=import_path, **ld),
-            exception_kls=DAGMisconfigured)
-    mod = importlib.import_module(path)
-    try:
-        func = getattr(mod, func_name)
-    except AttributeError:
-        _log_raise(
-            ("function does not exist in given module."
-             " Your import path is not"
-             " properly defined because the given `func_name` does not exist"),
-            extra=dict(import_path=import_path, func_name=func_name, **ld),
-            exception_kls=DAGMisconfigured)
-    return func
-
-
 def passes_filter(app_name, job_id):
     """Determine if this job matches certain criteria that state it is a
     valid job for this app_name.
@@ -138,7 +112,7 @@ def passes_filter(app_name, job_id):
         dct = dct.copy()  # ah! we'd potentially modify a mutable object!
         import_path = dct.pop('_func')
         try:
-            func = _load_func_path(import_path, ld)
+            func = load_obj_from_path(import_path, ld)
         except Exception as err:
             raise err.__class__(
                 "valid_if_or._func misconfigured: %s" % err.message)

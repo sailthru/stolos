@@ -689,8 +689,10 @@ Here are some improvements we are considering in the future:
 - Support different configuration backends besides a tasks.json file.
   - Some of these backends may support a web UI for creating, viewing and
     managing tasks config and dependencies
+- Support different queue backends in addition to Zookeeper
+  - (scheduler should use backends through a shared api of some sort)
 - A web UI showing various things like:
   - Interactive dependency graph
   - Current task status
-- (Possibly) Support for replacing Zookeeper with another service like Consul
-  - ZooKeeper works really, really well for this project, though!
+  - ideally, the backend(s) can just support this so we don't have to.
+    - we should be able to visualize the dag graph, though
