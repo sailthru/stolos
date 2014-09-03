@@ -608,6 +608,32 @@ def test_readd_change_child_state_while_child_running():
 
 
 @with_setup
+def test_race_condition_when_parent_queues_child():
+    # The parent queues the child and the child runs before the parent gets
+    # a chance to mark itself as completed
+    zkt.set_state(app1, job_id1, zk=zk, pending=True)
+    zkt._maybe_queue_children(
+        parent_app_name=app1, parent_job_id=job_id1, zk=zk)
+    validate_one_queued_task(app2, job_id1)
+    validate_zero_queued_task(app1)
+
+    # should not complete child.
+    # should not queue parent.
+    # should exit gracefully
+    run_spark_code(app2)
+    validate_zero_queued_task(app1)
+    validate_one_queued_task(app2, job_id1)
+
+    zkt.set_state(app1, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_queued_task(app2, job_id1)
+
+    run_spark_code(app2)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_completed_task(app2, job_id1)
+
+
+@with_setup
 def test_run_multiple_given_specific_job_id():
     p = run_code(
         bash1,
@@ -687,6 +713,9 @@ def run_code(app_name, extra_opts, capture=False, raise_on_err=True,
         raise Exception(
             "command failed. returncode: %s\ncmd: %s\nstderr: %s\nstdout: %s\n"
             % (rc, cmd, stderr, stdout))
+    log.warn("Ran a shell command and got this stdout and stderr: "
+             " \nSTDOUT:\n%s \nSTDERR:\n %s"
+             % (stdout, stderr))
     if capture:
         return stdout, stderr
 

@@ -32,20 +32,27 @@ def main(ns):
         if ns.job_id is None:
             log.info('No jobs found in %d seconds...' % ns.timeout)
             return
-
-    if not ensure_parents_completed(
-            app_name=ns.app_name, job_id=ns.job_id, zk=zk, q=q):
-        return
-
     lock = get_lock_if_job_is_runnable(
         app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout,
         lock=lock)
+
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
         log.info("Could not obtain a lock.  Will requeue and try again later",
                  extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         _send_to_back_of_queue(
             q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+        return
+
+    parents_completed, queued_parent = ensure_parents_completed(
+        app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+    if not parents_completed:
+        if queued_parent:
+            q.consume()
+        else:
+            _send_to_back_of_queue(
+                q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+        lock.release()
         return
 
     try:
@@ -130,13 +137,14 @@ def _send_to_back_of_queue(q, app_name, job_id, zk):
         extra=dict(app_name=app_name, job_id=job_id))
 
 
-def ensure_parents_completed(app_name, job_id, zk, q):
+def ensure_parents_completed(app_name, job_id, zk):
     """
     Check that the parent tasks for this (app_name, job_id) pair have completed
     If they haven't completed and aren't pending, maybe create the
     parent task in its appropriate queue.
     """
-    rv = True
+    parents_completed = True
+    queued_parent = False
     for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
                                                           job_id, True):
         if not zookeeper_tools.check_state(
@@ -147,10 +155,10 @@ def ensure_parents_completed(app_name, job_id, zk, q):
                 ' when parent tasks complete', extra=dict(
                     parent_app_name=parent, parent_job_id=pjob_id,
                     child_app_name=app_name, child_job_id=job_id))
-            zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk)
-            q.consume()
-            rv = False
-    return rv
+            if zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk):
+                queued_parent = True
+            parents_completed = False
+    return parents_completed, queued_parent
 
 
 def _handle_failure(ns, job_id, zk, q, lock):
