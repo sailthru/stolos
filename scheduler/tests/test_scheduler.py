@@ -21,7 +21,7 @@ zk = zkt.get_client('localhost:2181')
 job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
 job_id3 = '20140604_1111_profile'
-app1, app2, app3, depends_on1, bash1 = [None] * 5
+app1, app2, app3, app4, depends_on1, bash1 = [None] * 6
 log = None  # log is configured
 
 
@@ -64,12 +64,13 @@ def setup_func(func_name):
 
     # TODO: figure out how to make this ugly convenience hack
     # better.  maybe functions should initialize app1 = get_app_name(name)
-    global app1, app2, app3, depends_on1, bash1
+    global app1, app2, app3, app4, depends_on1, bash1
     oapp1 = 'test_scheduler/test_app'
     oapp2 = 'test_scheduler/test_app2'
     app1 = '%s__%s' % (oapp1, func_name)
     app2 = '%s__%s' % (oapp2, func_name)
     app3 = 'test_scheduler/test_app3__%s' % func_name
+    app4 = 'test_scheduler/test_app4__%s' % func_name
     depends_on1 = 'test_scheduler/test_depends_on__%s' % func_name
     bash1 = 'test_scheduler/test_bash__%s' % func_name
 
@@ -424,6 +425,7 @@ def test_complex_dependencies_readd():
 def test_pull_tasks():
     """
     Parent tasks should be generated and executed before child tasks
+    (The Bubble Up and then Bubble Down test)
 
     If A --> B, and:
         we queue and run B, then we should have 0 completed tasks,
@@ -447,6 +449,49 @@ def test_pull_tasks():
     validate_one_queued_task(app2, job_id1)
     run_spark_code(app2)
     validate_one_completed_task(app2, job_id1)
+
+
+@with_setup
+def test_pull_tasks_with_many_children():
+    enqueue(app4, job_id1)
+    validate_one_queued_task(app4, job_id1)
+    validate_zero_queued_task(app1)
+    validate_zero_queued_task(app2)
+    validate_zero_queued_task(app3)
+
+    run_code(app4, '--bash echo app4helloworld')
+    validate_zero_queued_task(app4)
+    validate_one_queued_task(app1, job_id1)
+    validate_one_queued_task(app2, job_id1)
+    validate_one_queued_task(app3, job_id1)
+
+    consume_queue(app1)
+    zkt.set_state(app1, job_id1, zk=zk, completed=True)
+    validate_zero_queued_task(app4)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_queued_task(app2, job_id1)
+    validate_one_queued_task(app3, job_id1)
+
+    consume_queue(app2)
+    zkt.set_state(app2, job_id1, zk=zk, completed=True)
+    validate_zero_queued_task(app4)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_completed_task(app2, job_id1)
+    validate_one_queued_task(app3, job_id1)
+
+    consume_queue(app3)
+    zkt.set_state(app3, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_completed_task(app2, job_id1)
+    validate_one_completed_task(app3, job_id1)
+    validate_one_queued_task(app4, job_id1)
+
+    consume_queue(app4)
+    zkt.set_state(app4, job_id1, zk=zk, completed=True)
+    validate_one_completed_task(app1, job_id1)
+    validate_one_completed_task(app2, job_id1)
+    validate_one_completed_task(app3, job_id1)
+    validate_one_completed_task(app4, job_id1)
 
 
 @with_setup

@@ -15,6 +15,12 @@
        "_func": "scheduler.examples.valid_if_or_example.func"
      }
  },
+ "test_scheduler/test_app4": {
+     "job_type": "bash",
+     "depends_on": {
+       "app_name": ["test_scheduler/test_app", "test_scheduler/test_app2", "test_scheduler/test_app3"]
+     }
+ },
  "test_scheduler/test_custom_job_id": {
      "job_type": "pyspark",
      "job_id": "{date}_{client_id}_{unvalidated_field}"

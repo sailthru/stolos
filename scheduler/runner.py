@@ -136,6 +136,7 @@ def ensure_parents_completed(app_name, job_id, zk, q):
     If they haven't completed and aren't pending, maybe create the
     parent task in its appropriate queue.
     """
+    rv = True
     for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
                                                           job_id, True):
         if not zookeeper_tools.check_state(
@@ -148,9 +149,8 @@ def ensure_parents_completed(app_name, job_id, zk, q):
                     child_app_name=app_name, child_job_id=job_id))
             zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk)
             q.consume()
-            return False
-
-    return True
+            rv = False
+    return rv
 
 
 def _handle_failure(ns, job_id, zk, q, lock):

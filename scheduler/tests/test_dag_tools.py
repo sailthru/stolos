@@ -73,8 +73,8 @@ def test_get_children():
             'test_scheduler/test_app', '20140601_999_purchase'))),
         sorted([
             (u'test_scheduler/test_depends_on', u'20140601_1', u'depgrp1'),
-            (u'test_scheduler/test_app2',
-             '20140601_999_purchase', 'default')
+            (u'test_scheduler/test_app2', '20140601_999_purchase', 'default'),
+            (u'test_scheduler/test_app4', '20140601_999_purchase', 'default'),
         ])
     )
 
@@ -83,8 +83,8 @@ def test_get_children():
             'test_scheduler/test_app', '20140601_876_purchase'))),
         sorted([
             (u'test_scheduler/test_depends_on', u'20140601_1', u'depgrp1'),
-            (u'test_scheduler/test_app2',
-             '20140601_876_purchase', 'default')
+            (u'test_scheduler/test_app2', '20140601_876_purchase', 'default'),
+            (u'test_scheduler/test_app4', '20140601_876_purchase', 'default'),
         ])
     )
 
@@ -218,6 +218,7 @@ def test_fan_out_tasks():
         sorted(list(dag_tools.get_children(
             'test_scheduler/test_app', '20140715_9_profile', True,))),
         [(u'test_scheduler/test_app2', '20140715_9_profile', 'default'),
+         (u'test_scheduler/test_app4', '20140715_9_profile', 'default'),
          (u'test_scheduler/test_fanout', '20140715_1', u'dep1'),
          (u'test_scheduler/test_fanout', '20140715_2', u'dep1'),
          (u'test_scheduler/test_fanout', '20140715_3', u'dep1'),
@@ -228,6 +229,7 @@ def test_fan_out_tasks():
             'test_scheduler/test_app', '20140715_555_profile', True,))),
         [
             (u'test_scheduler/test_app2', '20140715_555_profile', 'default'),
+            (u'test_scheduler/test_app4', '20140715_555_profile', 'default'),
             (u'test_scheduler/test_fanout', u'20140714_5', u'dep2'),
             (u'test_scheduler/test_fanout', u'20140714_6', u'dep2'),
             (u'test_scheduler/test_fanout', u'20140715_1', u'dep1'),

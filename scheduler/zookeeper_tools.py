@@ -94,13 +94,14 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
         do_not_queue = False
         if job_id in queued_jobs:
             if _ignore_if_queued:
-                log.warn(
-                    "Job already queued!  You may have entered this state"
+                log.debug(
+                    "Job already queued!  We'll handle this properly."
+                    " You may have entered this state"
                     " because you manually re-added a child and parent task"
-                    " and then completed the parent task first."
-                    "  We'll handle this properly, but in the future, you"
-                    " should re-queue either the child xor the parent,"
-                    " not both.", extra=dict(
+                    " and then completed the parent task first.  This could"
+                    " also happen if, via bubble up, a child queued parents"
+                    " and then a parent just tried, via"
+                    " bubble down, to queue one of children.", extra=dict(
                         app_name=app_name, job_id=job_id)
                 )
                 do_not_queue = True
