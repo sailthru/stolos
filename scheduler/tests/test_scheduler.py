@@ -680,6 +680,20 @@ def test_failing_task():
         run_spark_code(app1, '--jaikahhaha')
 
 
+@with_setup
+def test_invalid_queued_job_id():
+    job_id = '0011_i_dont_work_123_w_234'
+    # manually bypass the decorator that validates job_id
+    zkt._set_state_unsafe(app4, job_id, zk=zk, pending=True)
+    q = zk.LockingQueue(app4)
+    q.put(job_id)
+    validate_one_queued_task(app4, job_id)
+
+    run_code(app4, '--bash echo 123')
+    validate_one_failed_task(app4, job_id)
+    validate_zero_queued_task(app4)
+
+
 def enqueue(app_name, job_id, validate_queued=True):
     # initialize job
     zkt.maybe_add_subtask(app_name, job_id, zk)

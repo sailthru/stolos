@@ -29,8 +29,8 @@ def main(ns):
     else:
         lock = None
         ns.job_id = q.get(timeout=ns.timeout)
-        if ns.job_id is None:
-            log.info('No jobs found in %d seconds...' % ns.timeout)
+        if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,
+                               q=q, zk=zk, timeout=ns.timeout):
             return
     lock = get_lock_if_job_is_runnable(
         app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout,
@@ -67,6 +67,28 @@ def main(ns):
             % (err.__class__.__name__, err), extra=ns.__dict__)
         return
     _handle_success(ns, ns.job_id, zk, q, lock)
+
+
+def validate_job_id(app_name, job_id, q, zk, timeout):
+    """Return True if valid job_id.
+    If invalid, do whatever cleanup for this job is necessary and return False.
+      --> necessary cleanup may include removing this job_id from queue
+    """
+    if job_id is None:
+        log.info('No jobs found in %d seconds...' % timeout)
+        return False
+    try:
+        dag_tools.parse_job_id(app_name, job_id)
+    except exceptions.InvalidJobId as err:
+        log.error((
+            "Scheduler found an invalid job_id.  Removing it from queue"
+            " and marking that job_id as failed.  Error details: %s") % err,
+            extra=dict(app_name=app_name, job_id=job_id))
+        q.consume()
+        zookeeper_tools._set_state_unsafe(
+            app_name, job_id, zk=zk, failed=True)
+        return False
+    return True
 
 
 def _handle_manually_given_job_id(ns, zk):

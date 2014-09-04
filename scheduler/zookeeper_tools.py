@@ -330,6 +330,8 @@ def set_state(app_name, job_id, zk,
         "Set task state",
         extra=dict(state=state, app_name=app_name, job_id=job_id))
 
+_set_state_unsafe = set_state.func_closure[0].cell_contents
+
 
 def check_state(app_name, job_id, zk, raise_if_not_exists=False,
                 pending=False, completed=False, failed=False, skipped=False,
