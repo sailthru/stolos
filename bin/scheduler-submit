@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from scheduler import argparse_shared as at
 from scheduler import zookeeper_tools as zkt, dag_tools
+from scheduler import log
 
 
 def main(ns):
@@ -8,7 +9,9 @@ def main(ns):
     if ns.readd:
         zkt.readd_subtask(ns.app_name, ns.job_id, zk=zk)
     else:
-        zkt.maybe_add_subtask(ns.app_name, ns.job_id, zk=zk)
+        rv = zkt.maybe_add_subtask(ns.app_name, ns.job_id, zk=zk)
+        if not rv:
+            log.warn("Did not add subtask")
 
 
 build_arg_parser = at.build_arg_parser([
