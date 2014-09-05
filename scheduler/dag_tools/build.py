@@ -276,14 +276,16 @@ def validate_dag(dg, tasks_dct):
         validate_uris(app_name1, metadata, dg, tasks_dct, ld)
 
 
-def visualize_dag(dg=None, plot=True, delete_plot=True):
+def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
     """For interactive use"""
     if not dg:
         dg = build_dag()
     tmpf = tempfile.mkstemp(suffix='.dot')[1]
     try:
-        nx.write_dot(dg, '{0}'.format(tmpf))
         if plot:
+            nx.draw_graphviz(dg, prog='dot')
+        if write_dot:
+            nx.write_dot(dg, '{0}'.format(tmpf))
             os.popen(
                 'dot {0} -Tpng > {0}.png ; open {0}.png ; sleep 5'
                 .format(tmpf))
