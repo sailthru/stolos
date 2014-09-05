@@ -1,3 +1,4 @@
+import atexit
 from kazoo.client import KazooClient
 import kazoo.exceptions
 from os.path import join
@@ -21,9 +22,10 @@ def get_client(zookeeper_hosts=None):
         zookeeper_hosts = os.environ["ZOOKEEPER_HOSTS"]
     log.debug("Connecting to ZooKeeper: %s" % zookeeper_hosts)
     zk = KazooClient(zookeeper_hosts)
-    zk.start()
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
+    zk.start()
+    atexit.register(zk.stop)
     return zk
 
 
