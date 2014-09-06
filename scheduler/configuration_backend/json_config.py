@@ -6,7 +6,7 @@ from . import TasksConfigBaseMapping, TasksConfigBaseSequence, log
 
 def _getitem(self, key):
     rv = self.cache[key]
-    if isinstance(rv, (list, tuple)):
+    if isinstance(rv, list):
         return JSONConfigSeq(rv)
     elif isinstance(rv, dict):
         return JSONConfig(rv)

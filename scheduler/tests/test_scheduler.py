@@ -105,6 +105,7 @@ def _inject_into_dag(new_task_dct):
     Assumes that the config we're using is the JSONConfig
     """
     f = create_tasks_json(inject=new_task_dct)
+    new_task_dct = JSONConfig(new_task_dct)
 
     # verify injection worked
     dg = dt.get_tasks_config()
@@ -156,7 +157,7 @@ def test_create_child_task_after_one_parent_completed():
     dct = {
         injected_app: {
             "job_type": "bash",
-            "depends_on": {"app_name": (app1, app2)},
+            "depends_on": {"app_name": [app1, app2]},
         },
     }
     with _inject_into_dag(dct):
@@ -189,7 +190,7 @@ def test_create_parent_task_after_child_completed():
         },
         child_injapp: {
             "job_type": "bash",
-            "depends_on": {"app_name": (injected_app, )}
+            "depends_on": {"app_name": [injected_app]}
         }
     }
     with _inject_into_dag(dct):
