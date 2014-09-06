@@ -1,10 +1,24 @@
 import os
 import ujson
 
-from . import TasksConfigBase, log
+from . import TasksConfigBaseMapping, TasksConfigBaseSequence, log
 
 
-class JSONConfig(TasksConfigBase):
+def _getitem(self, key):
+    rv = self.cache[key]
+    if isinstance(rv, (list, tuple)):
+        return JSONConfigSeq(rv)
+    elif isinstance(rv, dict):
+        return JSONConfig(rv)
+    else:
+        return rv
+
+
+def _len(self):
+    return len(self.cache)
+
+
+class JSONConfig(TasksConfigBaseMapping):
     """
     A read-only dictionary loaded with data from a file identified by
     the environment variable, TASKS_JSON
@@ -24,19 +38,20 @@ class JSONConfig(TasksConfigBase):
                 log.error("Failed to read json file.", extra={'fp': fp})
                 raise
         else:
+            assert isinstance(data, dict)
             self.cache = data
 
-    def __getitem__(self, key):
-        rv = self.cache[key]
-        if isinstance(rv, list):
-            return tuple(rv)
-        elif isinstance(rv, dict):
-            return JSONConfig(rv)
-        else:
-            return rv
-
-    def __len__(self):
-        return len(self.cache)
+    __getitem__ = _getitem
+    __len__ = _len
 
     def __iter__(self):
         return iter(self.cache)
+
+
+class JSONConfigSeq(TasksConfigBaseSequence):
+    def __init__(self, data):
+        assert isinstance(data, list)
+        self.cache = data
+
+    __getitem__ = _getitem
+    __len__ = _len

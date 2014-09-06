@@ -4,25 +4,60 @@ log = logging.getLogger('scheduler.configuration_backend')
 import collections
 
 
-class TasksConfigBase(collections.Mapping):
-    """Abstract Base Class interface all configuration backends.
-    This implements a read-only dictionary"""
-
+class ABCTasksConfigBase(object):
     def __getitem__(self, key):
-        # fetch the configuration for an app_name.  This can return a dict,
-        # but could also return a new instance of this class or some kind
-        # of collections.Mapping  - Remember, a collections.Mapping object is
-        # immutable while a normal dict is mutable.
-        raise NotImplementedError("You need to write this")
-
-    def __iter__(self):
-        # iterate over all known app_names
+        """
+        This should return the appropriate TasksConfig instance
+        if the gotten value is a mapping or sequence.
+        """
+        # For example:
+        # if isinstance(val, (list, tuple)):
+        #     return MySubclassOfTasksConfigBaseSequence(val)
+        # elif isinstance(val, dict):
+        #     return MySubclassOfTasksConfigBaseMapping(val)
         raise NotImplementedError("You need to write this")
 
     def __len__(self):
-        # number of apps recognized by the scheduler
+        raise NotImplementedError("You need to write this")
+
+
+class TasksConfigBaseMapping(ABCTasksConfigBase, collections.Mapping):
+    """Abstract Base Class interface for all configuration backends.
+    This implements a read-only dictionary
+
+    Any TasksConfig object that is a key:value mapping should
+    inherit from this class"""
+
+    def __iter__(self):
         raise NotImplementedError("You need to write this")
 
     def __repr__(self):
-        return "TasksConfig<%s keys:%s>" % (
+        return "TasksConfigMapping<%s keys:%s>" % (
             self.__class__.__name__, len(self))
+
+    def __eq__(self, other):
+        if isinstance(other, TasksConfigBaseMapping):
+            return list(other) == list(self)
+        else:
+            return False
+
+
+class TasksConfigBaseSequence(ABCTasksConfigBase, collections.Sequence):
+    """Abstract Base Class interface for all configuration backends.
+    This implements an immutable sequence.
+
+    Any TasksConfig object that is a sequence should inherit from this class
+    """
+
+    def __repr__(self):
+        return "TasksConfigSequence<%s keys:%s>" % (
+            self.__class__.__name__, len(self))
+
+    def __eq__(self, other):
+        if isinstance(other, TasksConfigBaseSequence):
+            return list(other) == list(self)
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self == other
