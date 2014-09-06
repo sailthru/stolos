@@ -4,6 +4,7 @@ DIR="$( dirname "$( cd "$( dirname "$0" )" && pwd )")"
 echo $TASKS_JSON
 echo $JOB_ID_DEFAULT_TEMPLATE
 echo $JOB_ID_VALIDATIONS
+echo $CONFIGURATION_BACKEND
 
 python $DIR/bin/code_linter.py || exit 1
 
