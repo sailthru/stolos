@@ -1,3 +1,4 @@
+import collections
 import functools
 import inspect
 import importlib
@@ -33,9 +34,9 @@ def cached(_func=None, ignore_kwargs=(), memoize=1):
                     del params[ign]
             # convert all dicts and lists to tuples
             for key in params:
-                if isinstance(params[key], dict):
+                if isinstance(params[key], collections.Mapping):
                     params[key] = hash(tuple(sorted(params[key].items())))
-                elif isinstance(params[key], list):
+                elif isinstance(params[key], collections.Sequence):
                     params[key] = hash(tuple(sorted(params[key])))
                 elif isinstance(params[key], argparse.Namespace):
                     print params[key]
@@ -112,7 +113,7 @@ def flatmap_with_kwargs(func, kwarg_name, list_or_value, **func_kwargs):
     `list_or_value` - a list of values to kwarg_name, or just a single value
     `func_kwargs` - any extra arguments to pass on
     """
-    if isinstance(list_or_value, list):
+    if isinstance(list_or_value, collections.Sequence):
         for _grp in list_or_value:
             func_kwargs[kwarg_name] = _grp
             for rv in func(**func_kwargs):
