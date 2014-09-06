@@ -4,7 +4,8 @@ import tempfile
 
 from scheduler import util
 from scheduler.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
-from scheduler.configuration_backend import TasksConfigBase
+from scheduler.configuration_backend import (
+    TasksConfigBaseMapping, TasksConfigBaseSequence)
 
 from .constants import (DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_VALIDATIONS)
 from . import node
@@ -15,14 +16,13 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
     Test that a dependency group correctly defined.
 
     `dep_grp` (obj) - Configuration data for a dependency group.  It is an
-        instance that inherits from
-        scheduler.configuration_backend.TasksConfigBase Visualized as a dict or
-        json, a dep_grp might look like:
+        instance that inherits from TasksConfigBaseMapping.
+        Visualized as a dict or json, a dep_grp might look like:
             dep_grp = {"app_name": ["app2", "app3"]}
     `ld` (dict) - helpful info for error logs.  It also contains
         the app_name this dep_grp belongs to.
     `tasks_conf` (obj) - The configuration for all tasks. It is an instance
-        that inherits from scheduler.configuration_backend.TasksConfigBase
+        that inherits from TasksConfigBaseMapping
     `dep_name` (str) - The name for this dependency group.
 
     """
@@ -76,9 +76,10 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
 def _validate_dependency_groups_part2(dep_name, dep_grp, ld, tasks_conf):
     _log_raise_if(
         ("app_name" not in dep_grp
-         or not isinstance(dep_grp["app_name"], tuple)),
+         or not isinstance(dep_grp["app_name"], TasksConfigBaseSequence)),
         ("Each dependency group the task depends on must specify"
-         " an app_name key whose value is a sequence of items (ie a tuple)"),
+         " an app_name key whose value is a sequence of items"
+         " (ie a TasksConfigBaseSequence)"),
         extra=dict(
             key="depends_on", invalid_dependency_group=dep_name,
             dep_grp=str(dict(dep_grp)), **ld),
@@ -130,7 +131,7 @@ def _validate_dependency_groups(tasks_conf, metadata, ld):
                 **ld),
             exception_kls=DAGMisconfigured)
         # validate scenario where the dep_grp is made up of subgrpA AND subgrpB
-        if isinstance(dep_grp, tuple):
+        if isinstance(dep_grp, TasksConfigBaseSequence):
             for _dep_grp in dep_grp:
                 _validate_dependency_groups_part2(
                     dep_name, _dep_grp, ld, tasks_conf)
@@ -162,9 +163,9 @@ def validate_depends_on(app_name1, metadata, dg, tasks_conf, ld):
         return
 
     _log_raise_if(
-        not isinstance(metadata["depends_on"], TasksConfigBase),
+        not isinstance(metadata["depends_on"], TasksConfigBaseMapping),
         ("Configuration Error: Task's value at the depends_on key"
-         " must subclass TasksConfigBase"),
+         " must subclass TasksConfigBaseMapping"),
         extra=dict(key="depends_on",
                    received_value_type=type(metadata["depends_on"]),
                    **ld),
@@ -197,7 +198,7 @@ def validate_if_or(app_name1, metadata, dg, tasks_conf, ld):
             continue
         location = "%s.valid_if_or.%s" % (app_name1, k)
         _log_raise_if(
-            not isinstance(v, tuple),
+            not isinstance(v, TasksConfigBaseSequence),
             "Task is misconfigured.  Wrong value type. Expected a sequence",
             extra=dict(wrong_value_type=type(v), key=location, **ld),
             exception_kls=DAGMisconfigured)
@@ -249,7 +250,7 @@ def validate_spark_conf(app_name, metadata, dg, tasks_conf, ld):
 
     # spark_conf - Is it a dict of str: str pairs?
     _log_raise_if(
-        not isinstance(metadata["spark_conf"], TasksConfigBase),
+        not isinstance(metadata["spark_conf"], TasksConfigBaseMapping),
         "spark_conf, if supplied, must be a key:value mapping.",
         extra=dict(**ld),
         exception_kls=DAGMisconfigured)
@@ -261,7 +262,7 @@ def validate_spark_conf(app_name, metadata, dg, tasks_conf, ld):
             extra=dict(key=k, key_type=type(k), **ld),
             exception_kls=DAGMisconfigured)
         _log_raise_if(
-            isinstance(v, (tuple, TasksConfigBase,
+            isinstance(v, (TasksConfigBaseSequence, TasksConfigBaseMapping,
                            list, dict, tuple)),
             "Value for given key in spark_conf must be an int, string or bool",
             extra=dict(key=k, value_type=type(v), **ld),
@@ -273,7 +274,7 @@ def validate_env(app_name, metadata, dg, tasks_conf, ld):
         return
 
     _log_raise_if(
-        not isinstance(metadata["env"], TasksConfigBase),
+        not isinstance(metadata["env"], TasksConfigBaseMapping),
         "env, if supplied, must be a key: value mapping",
         extra=dict(**ld),
         exception_kls=DAGMisconfigured
@@ -294,7 +295,7 @@ def validate_env_from_os(app_name, metadata, dg, tasks_conf, ld):
         return
 
     _log_raise_if(
-        not isinstance(metadata["env_from_os"], tuple),
+        not isinstance(metadata["env_from_os"], TasksConfigBaseSequence),
         "env_from_os, if supplied, must be sequence of environment variables",
         extra=dict(**ld),
         exception_kls=DAGMisconfigured
@@ -314,7 +315,7 @@ def validate_uris(app_name, metadata, dg, tasks_conf, ld):
     msg = ("%s, if supplied, must be a list of hadoop-compatible filepaths"
            % key)
     _log_raise_if(
-        not isinstance(metadata[key], tuple),
+        not isinstance(metadata[key], TasksConfigBaseSequence),
         msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
     _log_raise_if(
         not all(isinstance(x, (unicode, str)) for x in metadata[key]),
@@ -359,7 +360,7 @@ def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
 
 def _add_nodes(tasks_conf, dg):
     """Add nodes to a networkx graph
-    `tasks_conf` a subclass of scheduler.configuration_backend.TasksConfigBase
+    `tasks_conf` a subclass of TasksConfigBaseMapping
     `dg` a networkx.MultiDiGraph instance (or something compatible)
     """
     for app_name, _attr_conf in tasks_conf.items():
@@ -376,29 +377,30 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
     `dg` is an instance of a nx.MultiDiGraph, which means we can have
         multiple edges between two nodes
     `dep_name` (str) - the name of a dependency group
-    `dep_grp` (obj) - dependency group data.  Subclass of TasksConfigBase.  An
-        example of what this may look like is:
-       dep_grp = {
-         "app_name": ["test_app"],
-         "date": [20140601],
-         "client_id": [123, 140, 150],
-         ...
-       }
+    `dep_grp` (obj) - dependency group data.  Subclass of
+        TasksConfigBaseMapping.  An example of what this may look like is:
+            dep_grp = {
+                "app_name": ["test_app"],
+                "date": [20140601],
+                "client_id": [123, 140, 150],
+                ...
+            }
     """
     parent = dep_grp['app_name']
     if isinstance(parent, (unicode, str)):
         dg.add_edge(parent, app_name, key=dep_name, label=dep_name)
-    elif isinstance(parent, tuple):
+    elif isinstance(parent, TasksConfigBaseSequence):
         for _parent in parent:
             dg.add_edge(_parent, app_name, key=dep_name, label=dep_name)
     else:
         _log_raise((
-            "Unrecognized value:"
+            "Unrecognized type:"
             " I found a child that doesn't properly define parents."
             " Children should have the parent app_name"
             " define a string or sequence"
             " of strings that represent the child's parents."),
-            dict(parent_app_name=parent, **log_details),
+            dict(parent_app_name=parent, parent_app_name_type=type(parent),
+                 **log_details),
             exception_kls=DAGMisconfigured)
 
 
@@ -408,20 +410,20 @@ def _build_dict_deps(dg, app_name, deps):
     `dg` (nx.MultiDiGraph instance) - the Tasks configuration as a graph
     `app_name` (str) - the name of a scheduled application
     `deps` (obj) - the dependencies for given `app_name`.  Should be a subclass
-        of TasksConfigBase
+        of TasksConfigBaseMapping
     """
-    log_details = dict(app_name=app_name, key='depends_on', deps=str(deps))
+    log_details = dict(app_name=app_name, key='depends_on', deps=dict(deps))
     if "app_name" in deps:
         _add_edges(
             dg, app_name=app_name, dep_name=DEPENDENCY_GROUP_DEFAULT_NAME,
             dep_grp=deps, log_details=log_details)
     else:
         for dep_name, dep_grp in deps.items():
-            if isinstance(dep_grp, TasksConfigBase):
+            if isinstance(dep_grp, TasksConfigBaseMapping):
                 _add_edges(
                     dg=dg, app_name=app_name, dep_name=dep_name,
                     dep_grp=dep_grp, log_details=log_details)
-            elif isinstance(dep_grp, tuple):
+            elif isinstance(dep_grp, TasksConfigBaseSequence):
                 for _dep_grp in dep_grp:
                     _add_edges(
                         dg=dg, app_name=app_name, dep_name=dep_name,
