@@ -22,7 +22,3 @@ from .traversal import (
     get_children,
     topological_sort,
 )
-
-
-if __name__ == '__main__':
-    dg = build_dag()
