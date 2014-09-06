@@ -223,8 +223,8 @@ def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
     _log_raise_if(
         metadata.get('job_type') not in ['pyspark', 'bash'],
         ("Invalid job_type. All tasks must define one."
-         " Valid job_types are 'pyspark' or 'bash'"),
-        extra=dict(job_type=metadata.get('job_type', 'no job_type specified')),
+         " Valid job_types are 'pyspark' or 'bash'"), extra=dict(
+             job_type=metadata.get('job_type', 'no job_type specified'), **ld),
         exception_kls=DAGMisconfigured)
 
 

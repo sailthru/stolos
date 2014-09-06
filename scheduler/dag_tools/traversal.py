@@ -6,6 +6,8 @@ from scheduler.util import crossproduct, flatmap_with_kwargs
 from scheduler.exceptions import (
     _log_raise, _log_raise_if, DAGMisconfigured, InvalidJobId)
 
+from scheduler.configuration_backend import TasksConfigBaseSequence
+
 from .build import build_dag
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
 from .node import (get_tasks_config, parse_job_id, get_job_id_template)
@@ -60,7 +62,7 @@ def get_parents(app_name, job_id, include_dependency_group=False,
             group_name=group_name, app_name=app_name, job_id=job_id, ld=ld,
             include_dependency_group=include_dependency_group
         )
-        if isinstance(dep_group, list):
+        if isinstance(dep_group, TasksConfigBaseSequence):
             gen = _get_parents_handle_subgroups(
                 group_name, dep_group, _filter_parents, ld, kwargs)
             for rv in gen:
@@ -80,7 +82,7 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id):
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
-    if isinstance(dep_group, list):  # recursive AND
+    if isinstance(dep_group, TasksConfigBaseSequence):  # recursive AND
         return all(dep_group_and_job_id_compatible(dg, pjob_id)
                    for dg in dep_group)
 
@@ -132,7 +134,7 @@ def _get_grps(app_name, filter_deps, ld):
     except KeyError:
         return []  # this task has no dependencies
     if "app_name" in depends_on:
-        grps = [(DEPENDENCY_GROUP_DEFAULT_NAME, depends_on.copy())]
+        grps = [(DEPENDENCY_GROUP_DEFAULT_NAME, depends_on)]
         _get_parents_validate_group_names(
             [DEPENDENCY_GROUP_DEFAULT_NAME], filter_deps, ld)
     elif filter_deps:
@@ -182,7 +184,7 @@ def _get_parents(group_name, dep_group, app_name, job_id, ld,
     by the `_filter_parents` option
     """
     if _filter_parents:
-        dep_group = dep_group.copy()  # shallow copy to change the keys
+        dep_group = dict(dep_group)  # shallow copy to change the keys
         dep_group['app_name'] = _filter_parents
 
     for rv in _get_parent_job_ids(
@@ -204,7 +206,7 @@ def _get_parent_job_ids(group_name, dep_group,
     particular parent app's job_id template, ignore it.
     """
     for parent_app_name in dep_group['app_name']:
-        dep_group = dep_group.copy()  # shallow copy to change the keys
+        dep_group = dict(dep_group)  # shallow copy to change the keys
 
         _inject_job_id(
             dep_group, child_app_name, child_job_id, parent_app_name, ld)

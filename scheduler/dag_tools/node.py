@@ -98,13 +98,12 @@ def passes_filter(app_name, job_id):
     meta = dg[app_name]
     ld = dict(app_name=app_name, job_id=job_id)
     try:
-        dct = meta['valid_if_or']
+        dct = dict(meta['valid_if_or'])
     except (KeyError, TypeError):
         return True  # everything is valid
 
     if '_func' in dct:
-        dct = dct.copy()  # ah! we'd potentially modify a mutable object!
-        import_path = dct.pop('_func')
+        import_path = dct.pop('_func')  # safe because config is immutable
         try:
             func = load_obj_from_path(import_path, ld)
         except Exception as err:

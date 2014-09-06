@@ -8,6 +8,7 @@ import ujson
 
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
 from scheduler.testing_tools import configure_logging
+from scheduler.configuration_backend.json_config import JSONConfig
 
 
 CMD = (
@@ -36,14 +37,14 @@ def create_tasks_json(fname_suffix='', inject={}, rename=False):
     `rename` - if True, change the name all tasks to include the fname_suffix
 
     """
-    tasks_dct = dt.get_tasks_config()
-    tasks_dct.update(inject)
+    tasks_config = dt.get_tasks_config().cache
+    tasks_config.update(inject)  # assume we're using a json config
 
     f = tempfile.mkstemp(prefix='tasks_json', suffix=fname_suffix)[1]
-    frv = ujson.dumps(tasks_dct)
+    frv = ujson.dumps(tasks_config)
     if rename:
         renames = [(k, "%s__%s" % (k, fname_suffix))
-                   for k in tasks_dct]
+                   for k in tasks_config]
         for k, new_k in renames:
             frv = frv.replace(ujson.dumps(k), ujson.dumps(new_k))
     with open(f, 'w') as fout:
@@ -100,11 +101,14 @@ def with_setup(func):
 def _inject_into_dag(new_task_dct):
     """Update (add or replace) tasks in dag with new task config.
     This should reset any cacheing within the scheduler app,
-    but it's not guaranteed"""
+    but it's not guaranteed.
+    Assumes that the config we're using is the JSONConfig
+    """
     f = create_tasks_json(inject=new_task_dct)
 
     # verify injection worked
     dg = dt.get_tasks_config()
+    assert isinstance(dg, JSONConfig)
     dag = dt.build_dag()
     for k, v in new_task_dct.items():
         assert dg[k] == v, (
@@ -152,7 +156,7 @@ def test_create_child_task_after_one_parent_completed():
     dct = {
         injected_app: {
             "job_type": "bash",
-            "depends_on": {"app_name": [app1, app2]},
+            "depends_on": {"app_name": (app1, app2)},
         },
     }
     with _inject_into_dag(dct):
@@ -185,7 +189,7 @@ def test_create_parent_task_after_child_completed():
         },
         child_injapp: {
             "job_type": "bash",
-            "depends_on": {"app_name": [injected_app]}
+            "depends_on": {"app_name": (injected_app, )}
         }
     }
     with _inject_into_dag(dct):
