@@ -32,6 +32,9 @@ def main(ns):
         if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,
                                q=q, zk=zk, timeout=ns.timeout):
             return
+    log.info(
+        "Scheduler got a job_id.  Checking if it is runnable", extra=dict(
+            app_name=ns.app_name, job_id=ns.job_id))
     lock = get_lock_if_job_is_runnable(
         app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout,
         lock=lock)
@@ -55,18 +58,21 @@ def main(ns):
         lock.release()
         return
 
+    log.info(
+        "Job starting!", extra=dict(app_name=ns.app_name, job_id=ns.job_id))
     try:
         ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
-        _handle_failure(ns, ns.job_id, zk, q, lock)
+        _handle_failure(ns, zk, q, lock)
         return
     except Exception as err:
         log.exception(
             ("Shit!  Unhandled exception in an application! Fix ASAP because"
-             " it is unclear how to handle this failure. Job failure.  %s: %s")
-            % (err.__class__.__name__, err), extra=ns.__dict__)
+             " it is unclear how to handle this failure. Job failed.  %s: %s")
+            % (err.__class__.__name__, err), extra=dict(
+                app_name=ns.app_name, job_id=ns.job_id, failed=True))
         return
-    _handle_success(ns, ns.job_id, zk, q, lock)
+    _handle_success(ns, zk, q, lock)
 
 
 def validate_job_id(app_name, job_id, q, zk, timeout):
@@ -183,30 +189,30 @@ def ensure_parents_completed(app_name, job_id, zk):
     return parents_completed, queued_parent
 
 
-def _handle_failure(ns, job_id, zk, q, lock):
+def _handle_failure(ns, zk, q, lock):
     """The job has failed.  Increase it's retry limit, send to back of queue,
     and release the lock"""
     exceeded_retry_limit = zookeeper_tools.inc_retry_count(
-        app_name=ns.app_name, job_id=job_id, zk=zk,
+        app_name=ns.app_name, job_id=ns.job_id, zk=zk,
         max_retry=ns.max_retry)
     if exceeded_retry_limit:
         q.consume()
     else:
         _send_to_back_of_queue(
-            q=q, app_name=ns.app_name, job_id=job_id, zk=zk)
+            q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
     lock.release()
-    log.warn(
-        "Job failed", extra=dict(job_id=job_id, app_name=ns.app_name))
+    log.warn("Job failed", extra=dict(
+        job_id=ns.job_id, app_name=ns.app_name, failed=True))
 
 
-def _handle_success(ns, job_id, zk, q, lock):
+def _handle_success(ns, zk, q, lock):
     zookeeper_tools.set_state(
-        app_name=ns.app_name, job_id=job_id, zk=zk, completed=True)
+        app_name=ns.app_name, job_id=ns.job_id, zk=zk, completed=True)
     q.consume()
     lock.release()
     log.info(
         "successfully completed job",
-        extra=dict(app_name=ns.app_name, job_id=job_id))
+        extra=dict(app_name=ns.app_name, job_id=ns.job_id, completed=True))
 
 
 def log_and_raise(err, log_details):
