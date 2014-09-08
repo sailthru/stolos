@@ -191,7 +191,8 @@ def ensure_parents_completed(app_name, job_id, zk):
                     parent, pjob_id, zk=zk, pending=True)
                 if parent_pending:
                     log.info(
-                        'Parent is or was previously queued.', extra=dict(
+                        ('Parent is or was previously queued.'
+                         ' Removing from queue'), extra=dict(
                             parent_app_name=parent, parent_job_id=pjob_id,
                             app_name=app_name, job_id=job_id))
                     consume_queue = True
