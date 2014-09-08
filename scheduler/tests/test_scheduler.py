@@ -622,7 +622,7 @@ def test_race_condition_when_parent_queues_child():
     # should exit gracefully
     run_spark_code(app2)
     validate_zero_queued_task(app1)
-    validate_one_queued_task(app2, job_id1)
+    validate_zero_queued_task(app2)
 
     zkt.set_state(app1, job_id1, zk=zk, completed=True)
     validate_one_completed_task(app1, job_id1)

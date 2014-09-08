@@ -47,10 +47,10 @@ def main(ns):
             q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         return
 
-    parents_completed, queued_parent = ensure_parents_completed(
+    parents_completed, consume_queue = ensure_parents_completed(
         app_name=ns.app_name, job_id=ns.job_id, zk=zk)
-    if not parents_completed:
-        if queued_parent:
+    if parents_completed is False:
+        if consume_queue:
             q.consume()
         else:
             _send_to_back_of_queue(
@@ -81,7 +81,8 @@ def validate_job_id(app_name, job_id, q, zk, timeout):
       --> necessary cleanup may include removing this job_id from queue
     """
     if job_id is None:
-        log.info('No jobs found in %d seconds...' % timeout)
+        log.info('No jobs found in %d seconds...' % timeout, extra=dict(
+            app_name=app_name))
         return False
     try:
         dag_tools.parse_job_id(app_name, job_id)
@@ -172,7 +173,7 @@ def ensure_parents_completed(app_name, job_id, zk):
     parent task in its appropriate queue.
     """
     parents_completed = True
-    queued_parent = False
+    consume_queue = False
     for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
                                                           job_id, True):
         if not zookeeper_tools.check_state(
@@ -182,11 +183,20 @@ def ensure_parents_completed(app_name, job_id, zk):
                 ' child task. Removing job from queue.  It will get re-added'
                 ' when parent tasks complete', extra=dict(
                     parent_app_name=parent, parent_job_id=pjob_id,
-                    child_app_name=app_name, child_job_id=job_id))
+                    app_name=app_name, job_id=job_id))
             if zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk):
-                queued_parent = True
+                consume_queue = True
+            else:
+                parent_pending = zookeeper_tools.check_state(
+                    parent, pjob_id, zk=zk, pending=True)
+                if parent_pending:
+                    log.info(
+                        'Parent is or was previously queued.', extra=dict(
+                            parent_app_name=parent, parent_job_id=pjob_id,
+                            app_name=app_name, job_id=job_id))
+                    consume_queue = True
             parents_completed = False
-    return parents_completed, queued_parent
+    return parents_completed, consume_queue
 
 
 def _handle_failure(ns, zk, q, lock):
