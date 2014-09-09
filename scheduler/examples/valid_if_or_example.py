@@ -32,7 +32,6 @@ def func(app_name, **parsed_job_id):
         str(parsed_job_id['date']), '%Y%m%d').strftime("%A")
     c2 = _day_of_week in ['Friday', 'Sunday']
     from scheduler.examples import log
-    print app_name, parsed_job_id, c1, c2, _day_of_week
     log.critical('%s %s %s %s' % (app_name, parsed_job_id, c1, c2))
     if c1 and c2:
         return True

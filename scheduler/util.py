@@ -39,7 +39,6 @@ def cached(_func=None, ignore_kwargs=(), memoize=1):
                 elif isinstance(params[key], collections.Sequence):
                     params[key] = hash(tuple(sorted(params[key])))
                 elif isinstance(params[key], argparse.Namespace):
-                    print params[key]
                     params[key] = hash(
                         tuple(sorted(params[key].__dict__.items())))
             key = (func.func_name, hash(tuple(sorted(params.items()))))
