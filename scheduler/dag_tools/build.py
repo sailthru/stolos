@@ -340,7 +340,7 @@ def validate_dag(dg, tasks_conf):
 def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
     """For interactive use"""
     if not dg:
-        dg = build_dag()
+        dg = build_dag_cached()
     tmpf = tempfile.mkstemp(suffix='.dot')[1]
     try:
         if plot:

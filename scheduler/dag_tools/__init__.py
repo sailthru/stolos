@@ -3,6 +3,7 @@ log = logging.getLogger('scheduler.dag_tools')
 
 from .build import (
     build_dag,
+    build_dag_cached,
     visualize_dag
 )
 from .node import (

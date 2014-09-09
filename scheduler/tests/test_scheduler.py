@@ -52,7 +52,7 @@ def create_tasks_json(fname_suffix='', inject={}, rename=False):
 
     os.environ['TASKS_JSON'] = f
     try:
-        dt.build_dag.cache.clear()
+        dt.build_dag_cached.cache.clear()
     except AttributeError:
         pass
     return f
@@ -110,16 +110,16 @@ def _inject_into_dag(new_task_dct):
     # verify injection worked
     dg = dt.get_tasks_config()
     assert isinstance(dg, JSONConfig)
-    dag = dt.build_dag()
+    dag = dt.build_dag_cached()
     for k, v in new_task_dct.items():
         assert dg[k] == v, (
             "test code: _inject_into_dag didn't insert the new tasks?")
-        assert dag.node[k] == v, (
+        assert dag.node[k] == dict(v), (
             "test code: _inject_into_dag didn't reset the dag graph")
 
     yield
     os.remove(f)
-    dt.build_dag.cache.clear()
+    dt.build_dag_cached.cache.clear()
 
 
 @with_setup
