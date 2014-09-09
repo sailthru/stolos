@@ -1,4 +1,4 @@
-"""This example demonstrates what you need to do to incorporate a
+"""This example demonstrates how to incorporate your
 pyspark application with the scheduler's pyspark plugin
 """
 
@@ -36,7 +36,7 @@ def main(elem, ns, **job_id_identifiers):
 
 #   "test_scheduler/test_pyspark": {
 #     "job_type": "pyspark",
-#     "pymodule": "scheduler.examples.pyspark_example"
+#     "pymodule": "scheduler.examples.tasks.pyspark_example"
 #   }
 
 #
@@ -48,13 +48,15 @@ def main(elem, ns, **job_id_identifiers):
 
 # Option 1 looks like this:
 
-#   ./bin/submit_task -a test_scheduler/test_pyspark --job_id 20140501_1_test
+#   ./bin/scheduler-submit -a test_scheduler/test_pyspark
+#     --job_id 20140501_1_test
 #
-#   python -m scheduler.runner --zookeeper_hosts localhost:2181
+#   python -m scheduler --zookeeper_hosts localhost:2181
 #     -a test_scheduler/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
 
-# Option 2 bypasses scheduling and just runs a task directly:
+# Option 2 bypasses scheduling and just runs a task + plugin directly.  This
+# option is useful if you wish to verify that your code works with the plugin:
 #
-#   python -m scheduler.runner --zookeeper_hosts localhost:2181
+#   python -m scheduler --zookeeper_hosts localhost:2181
 #     -a test_scheduler/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
 #     --bypass_scheduler --job_id 20140501_1_test
