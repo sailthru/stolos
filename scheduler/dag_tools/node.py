@@ -15,7 +15,12 @@ from . import log
 
 
 def get_tasks_config():
-    cb = load_obj_from_path(CONFIGURATION_BACKEND)()
+    try:
+        cb = load_obj_from_path(
+            CONFIGURATION_BACKEND, dict(key='CONFIGURATION_BACKEND'))()
+    except:
+        log.error("Could not load configuration backend")
+        raise
     return cb
 
 
