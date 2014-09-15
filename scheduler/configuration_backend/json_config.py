@@ -28,17 +28,20 @@ class JSONConfig(TasksConfigBaseMapping):
             try:
                 fp = os.environ['TASKS_JSON']
             except KeyError:
-                log.error(
-                    "You must define TASKS_JSON if you use the JSONConfig"
-                    " configuration backend")
+                log.error((
+                    "You must define TASKS_JSON if you use the %s"
+                    " configuration backend") % self.__class__.__name__)
                 raise
             try:
                 self.cache = ujson.load(open(fp))
             except:
                 log.error("Failed to read json file.", extra={'fp': fp})
                 raise
+        elif isinstance(data, self.__class__):
+            self.cache = data.cache
         else:
-            assert isinstance(data, dict)
+            assert isinstance(data, dict), (
+                "Oops! %s did not receive a dict" % self.__class__.__name__)
             self.cache = data
 
     __getitem__ = _getitem
