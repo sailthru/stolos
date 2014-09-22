@@ -402,7 +402,47 @@ To do this, you need to follow a couple steps:
 
 Setup: Configuration Backends
 ==============
-# TODO
+
+The configuration backend identifies where you store the dependency graph.  By
+default, and in all examples, the scheduler expects to use a a simple json file
+to store the dependency graph.  However, you can choose to store this data in
+other formats or databases.  The choice of configuration backend defines how
+you store configuration.  Also, keep in mind that every time a scheduler app
+initializes, it queries the configuration.
+
+Currently, the only supported configuration backends are a JSON file or a Redis
+database.  However, it is also simple to extend the scheduler with your own
+configuration backend.  If you do implement your own configuration backend,
+please consider submitting a pull request to us!
+
+These are the steps you need to take to use a particular backend:
+
+1. First, let the scheduler know which backend to load.  You could also specify
+   your own code here, if you are so inclined:
+
+```
+export CONFIGURATION_BACKEND="scheduler.configuration_backend.json_config.JSONConfig"
+```
+
+OR
+
+```
+export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.RedisConfig"
+```
+
+2. Second, each backend has its own options.
+    - For the JSON backend, you must define:
+
+        export TASKS_JSON="$DIR/scheduler/examples/tasks.json"
+
+    - For the Redis backend, it is optional to overide these defaults:
+
+        export SCHEDULER_REDIS_DB=0  # which redis db is the scheduler using?
+        export SCHEDULER_REDIS_PORT=6379
+        export SCHEDULER_REDIS_HOST='localhost'
+
+
+For examples, see the file, `conf/scheduler-env.sh`  # TODO link
 
 
 Usage:
