@@ -6,16 +6,16 @@ from . import (
     _ensure_type)
 
 
-class _JSONConfigBase(object):
+class _JSONMappingBase(object):
     def __getitem__(self, key):
         return _ensure_type(
-            self.cache[key], JSONConfig, JSONConfigSeq)
+            self.cache[key], JSONMapping, JSONSequence)
 
     def __len__(self):
         return len(self.cache)
 
 
-class JSONConfig(_JSONConfigBase, TasksConfigBaseMapping):
+class JSONMapping(_JSONMappingBase, TasksConfigBaseMapping):
     """
     A read-only dictionary loaded with data from a file identified by
     the environment variable, TASKS_JSON
@@ -45,7 +45,7 @@ class JSONConfig(_JSONConfigBase, TasksConfigBaseMapping):
         return iter(self.cache)
 
 
-class JSONConfigSeq(_JSONConfigBase, TasksConfigBaseSequence):
+class JSONSequence(_JSONMappingBase, TasksConfigBaseSequence):
     def __init__(self, data):
         assert isinstance(data, list)
         self.cache = data

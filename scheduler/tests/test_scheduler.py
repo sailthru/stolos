@@ -8,7 +8,7 @@ import ujson
 
 from scheduler import zookeeper_tools as zkt, exceptions, dag_tools as dt
 from scheduler.testing_tools import configure_logging
-from scheduler.configuration_backend.json_config import JSONConfig
+from scheduler.configuration_backend.json_config import JSONMapping
 
 
 CMD = (
@@ -102,14 +102,14 @@ def _inject_into_dag(new_task_dct):
     """Update (add or replace) tasks in dag with new task config.
     This should reset any cacheing within the scheduler app,
     but it's not guaranteed.
-    Assumes that the config we're using is the JSONConfig
+    Assumes that the config we're using is the JSONMapping
     """
     f = create_tasks_json(inject=new_task_dct)
-    new_task_dct = JSONConfig(new_task_dct)
+    new_task_dct = JSONMapping(new_task_dct)
 
     # verify injection worked
     dg = dt.get_tasks_config()
-    assert isinstance(dg, JSONConfig)
+    assert isinstance(dg, JSONMapping)
     dag = dt.build_dag_cached()
     for k, v in new_task_dct.items():
         assert dg[k] == v, (
