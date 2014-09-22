@@ -1,6 +1,7 @@
 from scheduler import testing_tools as tt
 import nose.tools as nt
-from scheduler.configuration_backend import JSONConfig, JSONConfigSeq
+from scheduler.configuration_backend.json_config import (
+    JSONConfig, JSONConfigSeq)
 
 
 def with_setup(func):

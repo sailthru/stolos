@@ -1,24 +1,21 @@
 import os
 import ujson
 
-from . import TasksConfigBaseMapping, TasksConfigBaseSequence, log
+from . import (
+    TasksConfigBaseMapping, TasksConfigBaseSequence, log,
+    _ensure_type)
 
 
-def _getitem(self, key):
-    rv = self.cache[key]
-    if isinstance(rv, list):
-        return JSONConfigSeq(rv)
-    elif isinstance(rv, dict):
-        return JSONConfig(rv)
-    else:
-        return rv
+class _JSONConfigBase(object):
+    def __getitem__(self, key):
+        return _ensure_type(
+            self.cache[key], JSONConfig, JSONConfigSeq)
+
+    def __len__(self):
+        return len(self.cache)
 
 
-def _len(self):
-    return len(self.cache)
-
-
-class JSONConfig(TasksConfigBaseMapping):
+class JSONConfig(_JSONConfigBase, TasksConfigBaseMapping):
     """
     A read-only dictionary loaded with data from a file identified by
     the environment variable, TASKS_JSON
@@ -44,17 +41,11 @@ class JSONConfig(TasksConfigBaseMapping):
                 "Oops! %s did not receive a dict" % self.__class__.__name__)
             self.cache = data
 
-    __getitem__ = _getitem
-    __len__ = _len
-
     def __iter__(self):
         return iter(self.cache)
 
 
-class JSONConfigSeq(TasksConfigBaseSequence):
+class JSONConfigSeq(_JSONConfigBase, TasksConfigBaseSequence):
     def __init__(self, data):
         assert isinstance(data, list)
         self.cache = data
-
-    __getitem__ = _getitem
-    __len__ = _len
