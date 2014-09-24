@@ -90,7 +90,7 @@ def main(ns):
     log.info('running command', extra=dict(cmd=cmd))
     returncode, stdout, stderr = run(
         cmd, shell=True, timeout=ns.watch, stdout=_std, stderr=_std)
-    ld = dict(bash_returncode=returncode, stdout=_std, stderr=_std, **ld)
+    ld = dict(bash_returncode=returncode, stdout=stdout, stderr=stderr, **ld)
     if returncode == -9:
         runner.log_and_raise("Bash job timed out", ld)
     elif returncode != 0:
