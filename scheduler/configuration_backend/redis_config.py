@@ -27,6 +27,9 @@ class _RedisConfig(object):
                 not val,
                 "Given app_name does not exist in redis",
                 dict(app_name=key), KeyError)
+
+            # Convert redis values to python objects.  Potentially dangerous.
+            val = {eval(k, {}, {}): eval(v, {}, {}) for k, v in val.items()}
             self.cache[key] = val
         return _ensure_type(self.cache[key], JSONMapping, JSONSequence)
 
@@ -66,10 +69,14 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
             app_name for app_name in self.cli.keys('%s*' % REDIS_PREFIX))
 
 
-def set_config(app_name, app_conf, cli):
+def set_config(app_name, app_conf, cli, delete_first=False):
     """
     A simple function to help you create redis config from a python dict.
+    It intelligently stores string keys as strings and int keys as ints so
+    that they can be eval'd on read.
     This mostly just serves as an example.
+
+    If `delete_first` is True, remove the app config first
 
         >>> app_name = 'myapp1'
         >>> app_conf = {"job_type": "bash"}
@@ -80,4 +87,13 @@ def set_config(app_name, app_conf, cli):
         {'job_type': 'bash'}
 
     """
-    return cli.hmset('%s%s' % (REDIS_PREFIX, app_name), app_conf)
+    key = '%s%s' % (REDIS_PREFIX, app_name)
+    with cli.pipeline(transaction=True) as pipe:
+        if delete_first:
+            pipe.delete(key)
+        pipe.hmset(key, {repr(k): repr(v) for k, v in app_conf.items()})
+        rv = pipe.execute()
+    if not rv[-1]:
+        raise Exception(
+            "Failed to set app config data",
+            extra=dict(app_name=app_name, app_config=app_conf))
