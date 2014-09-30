@@ -17,7 +17,7 @@ export TASKS_JSON="$DIR/scheduler/examples/tasks.json"
 
 
 # Redis configuration backend
-# export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.REDISConfig"
+# export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.RedisMapping"
 # export SCHEDULER_REDIS_DB=3
 # export SCHEDULER_REDIS_PORT=6379
 # export SCHEDULER_REDIS_HOST='localhost'
