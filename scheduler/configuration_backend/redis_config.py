@@ -5,8 +5,7 @@ import os
 import redis
 
 from scheduler.exceptions import _log_raise_if
-from . import (
-    TasksConfigBaseMapping, TasksConfigBaseSequence, _ensure_type, log)
+from . import TasksConfigBaseMapping, _ensure_type, log
 from .json_config import JSONMapping, JSONSequence
 
 

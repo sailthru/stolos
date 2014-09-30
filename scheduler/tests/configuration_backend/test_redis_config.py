@@ -5,9 +5,7 @@ import nose.tools as nt
 from scheduler.configuration_backend.redis_config import (
     RedisMapping, REDIS_PREFIX)
 from scheduler.configuration_backend.json_config import (
-    JSONMapping, JSONSequence)
-
-from scheduler.dag_tools import get_tasks_config
+    JSONMapping)
 
 from scheduler.testing_tools import configure_logging
 log = configure_logging(
