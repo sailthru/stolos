@@ -442,7 +442,7 @@ export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.Redis
         export SCHEDULER_REDIS_HOST='localhost'
 
 
-For examples, see the file, `conf/scheduler-env.sh`  # TODO link
+For examples, see the file, [conf/scheduler-env.sh](conf/scheduler-env.sh)
 
 
 Usage:
@@ -618,7 +618,8 @@ The same applies to job, `client1_numberOfPageviews`.  However, it does not
 matter whether `client1_numberOfPageviews` or `client1_purchaseRevenue` runs
 first.  Also, notice that these dates are hardcoded.  If you would like to
 create dates that aren't hardcoded, you should refer to the section,
-"Configuration: Defining Dependencies with Two-Way Functions".  # TODO link
+[Configuration: Defining Dependencies with Two-Way
+Functions](README.md#configuration-defining-dependencies-with-a-two-way-functions).
 
     {
         "preprocess": {
