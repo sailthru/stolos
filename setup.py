@@ -45,6 +45,7 @@ setup(
 
     extras_require={
         'pyspark': ['pyspark'],
+        'redis': ['redis', 'hiredis']
     },
 
     # include_package_data = True,

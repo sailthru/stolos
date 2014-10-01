@@ -2,13 +2,12 @@
 Test that tasks get executed properly using zookeeper
 """
 from scheduler import argparse_shared as at
-import logging
-logging.basicConfig()
-log = logging.getLogger('scheduler.examples.test_task')
+from scheduler.examples import log
 
 
 def main(sc, ns, **job_id_identifiers):
     if ns.disable_log:
+        import logging
         logging.disable = True
     log.info(ns.read_fp)
     log.info('test_module!!!')

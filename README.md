@@ -24,6 +24,9 @@ What this is project not:
     and queueing future work
   - This is not a grid scheduler (ie this does not solve a bin packing problem)
   - not a crontab.
+  - not really meant to execute long-running services, unless it makes
+    sense to express the work those services do as batch jobs that
+    depend on each other
 
 
 Requirements:
@@ -172,8 +175,10 @@ explains what `job_id`s are.
 The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
 (`TaskA_1`, `TaskA_2`, ...).  A task represents a group of subtasks.  A
 `job_id` identifies subtasks, and it is made up of "identifiers" that we
-mash together via a `job_id` template.  To give some context for how
-`job_id` templates characterize tasks, see below:
+mash together via a `job_id` template.  A `job_id` identifies all
+possible variations of some task that the scheduler is aware of.  To
+give some context for how `job_id` templates characterize tasks, see
+below:
 
 
                Task_A    "{date}_{client_id}_{dataset}"
@@ -349,15 +354,21 @@ The first thing you'll want to do is install the scheduler:
 
     pip install scheduler
 
-    # If you prefer a Python egg, clone the repo and then type:
+    # If you prefer a portable Python egg, clone the repo and then type:
     # python setup.py bdist_egg
 
-Next, you need to define environment vars.  For other options, see [a
-more detailed environment conf](conf/scheduler-env.sh)
+Next, you need to define environment vars that tell the scheduler how to
+run.  For more options, see [a more detailed environment
+conf](conf/scheduler-env.sh)
 
-    export TASKS_JSON="/path/to/a/file/called/tasks.json"
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+
+    # and assuming you use the default json configuration backend:
+    export TASKS_JSON="/path/to/a/file/called/tasks.json"
+
+    # and assuming you use the default queue backend:
+    export ZOOKEEPER_HOSTS="localhost:2181"
 
 
 The next steps may vary based on how you just configured the scheduler,
@@ -371,38 +382,80 @@ is a json file).
   
 - the configuration backend
   
-  - If using the json configuration backend (this is the
-    default),`TASKS_JSON` is the filepath to the json file explained in
-the [Configuration]() (# TODO link) section.  This file describes tasks, their
-dependencies and some other basic metadata about how to execute them.
+    - See section: [Setup: Configuration
+      Backends](README.md#setup-configuration-backends)
   
-    - See [an example tasks.json](scheduler/examples/tasks.json)
-  
-  - If using the redis or another backend, you will need to enter the
-    task configuration.  These backends provide methods to help you do this.
-  
-    - See [the redis configuration backend](
-scheduler/configuration_backends/redis_config.py) for an example
 
-After this initial setup, you will need to create a task and register
-it.  This takes the form of these steps:
+After this initial setup, you may run your applications using the scheduler.
+To do this, you need to follow a couple steps:
 
 1. Create some application that can be called through bash or initiated
    as a spark job
-1. Create an entry for it in the tasks.json
+1. Create an entry for it in the tasks config (ie the file pointed to by
+   `TASKS_JSON` if you use that)
 1. Submit a `job_id` for this task
 1. Run the task.
 
 **Take a look at some [example tasks](scheduler/examples/tasks/) for details
   on how to perform these simple steps.**
 
+
+Setup: Configuration Backends
+==============
+
+The configuration backend identifies where you store the dependency graph.  By
+default, and in all examples, the scheduler expects to use a a simple json file
+to store the dependency graph.  However, you can choose to store this data in
+other formats or databases.  The choice of configuration backend defines how
+you store configuration.  Also, keep in mind that every time a scheduler app
+initializes, it queries the configuration.
+
+Currently, the only supported configuration backends are a JSON file or a Redis
+database.  However, it is also simple to extend the scheduler with your own
+configuration backend.  If you do implement your own configuration backend,
+please consider submitting a pull request to us!
+
+These are the steps you need to take to use a particular backend:
+
+1. First, let the scheduler know which backend to load.  You could also specify
+   your own code here, if you are so inclined:
+
+```
+export CONFIGURATION_BACKEND="scheduler.configuration_backend.json_config.JSONConfig"
+```
+
+OR
+
+```
+export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.RedisConfig"
+```
+
+2. Second, each backend has its own options.
+    - For the JSON backend, you must define:
+
+        export TASKS_JSON="$DIR/scheduler/examples/tasks.json"
+
+    - For the Redis backend, it is optional to overide these defaults:
+
+        export SCHEDULER_REDIS_DB=0  # which redis db is the scheduler using?
+        export SCHEDULER_REDIS_PORT=6379
+        export SCHEDULER_REDIS_HOST='localhost'
+
+
+For examples, see the file, [conf/scheduler-env.sh](conf/scheduler-env.sh)
+
+
 Usage:
 ==============
 
-In order to run a job, you have to queue it and then execute it.
+This scheduler wraps your application code so it can track job state
+before and after the application runs.  Therefore, you should think of
+running an application hooked into the scheduler like running the
+application itself.
 
 
-You can read from the application's queue and execute code via:
+In order to run a job, you have to queue it and then execute it.  You
+can read from the application's queue and execute code via:
 
 
     scheduler --app_name test_scheduler/test_pyspark -h
@@ -416,9 +469,9 @@ This is how you can manually queue a job:
     scheduler-submit -h
 
 
-We also provide a way to bypass the scheduler and execute a job directly.  This
-is useful if you are testing a task that may be dependent on scheduler a
-plugins, such as the pyspark plugin.
+We also provide a way to bypass the scheduler and execute a job
+directly.  This is useful if you are testing a task that may be
+dependent on scheduler a plugins, such as the pyspark plugin.
 
 
     scheduler --bypass_scheduler -a my_task --job_id my_job_id
@@ -429,43 +482,68 @@ Configuration: Job IDs
 
 This section explains what configuration for `job_id`s must exist.
 
-These environment variables must be set and available to scheduler code:
+These environment variables must be available to scheduler code:
 
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export JOB_ID_VALIDATIONS="tasks.job_id_validations"
 
 - `JOB_ID_VALIDATIONS` points to a python module containing code to
-  verify the identifiers in a `job_id` are correct.
+  verify that the identifiers in a `job_id` are correct.
   - See
     [scheduler/examples/job_id_validations.py](scheduler/examples/job_id_validations.py)
     for the expected code structure
   - These validations specify exactly which identifiers can be used in
     job_id templates and what format they take (ie is `date` a datetime
     instance, an int or string?).
-  - They are optional, but you will see a warning message for each
-    unvalidated `job_id` identifier.
+  - They are optional to implement, but you will see several warning
+    messages for each unvalidated `job_id` identifier.
 - `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for a task if
-  the `job_id` template isn't explicitly defined in the tasks.json.  You
+  the `job_id` template isn't explicitly defined in the tasks config.  You
   should have `job_id` validation code for each identifier in your default
   template.
 
-In addition to these defaults, each task in the tasks.json configuration
-may also contain a custom `job_id` template.  See section:
-[Configuration: Tasks, Dependencies,
-...](README.md#configuration-tasks-dependencies-and-the-tasksjson-file)
-for details.
+In addition to these defaults, each task in the tasks.json configuration may
+also contain a custom `job_id` template.  See section: [Configuration: Tasks,
+Dependencies,
+...](README.md#configuration-tasks-dependencies-and-the-tasksjson-file) for
+details.
 
 
-Configuration: Tasks, Dependencies and the tasks.json file
+Configuration: Tasks, Dependencies and the Task Configuration
 ==============
 
-A JSON file defines the task dependency graph and all related
-configuration metadata. This section will show available configuration
-options.  For instructions on how to use this file, see section:
-[Setup](README.md#setup)
+Task configuration defines the task dependency graph and metadata the
+scheduler needs to run a task.  Task configuration answers questions
+like: "What are the parents or children for this (`app_name`, `job_id`)
+pair?" and "What general key:value configuration is defined for this
+task?".  It does not store the state of `job_id`s and it has nothing to
+do with the scheduler's queuing system.  This section will show
+available configuration options.
 
-Here is a minimum viable configuration for a task (api subject to
-change):
+Configuration can be defined using various different configuration backends:
+a json file, a key-value database, etc. For instructions on how to setup a
+different or custom configuration backends, see section
+"Setup: Configuration Backends."  The purpose of this section, however, is to
+expose how to define the tasks and their relationships with other tasks.
+
+There are a few different configuration options each task may define.  Here is
+a list of configuration options:
+
+- *`job_type`* - (required) Select which plugin this particular task uses
+  to execute your code.  The `job_type` choice also adds other configuration
+  options based on how the respective scheduler plugin works.
+- *`depends_on`* - (optional) A designation that this task can only be queued
+  to run if certain parent `job_id`s have completed.
+- *`job_id`* - (optional) A template describing what identifiers compose
+  the `job_id`s for your task.  If not given, assumes the default `job_id`
+  template.  `job_id` templates determine how work changes through your
+  pipeline
+- *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
+  If a `job_id` for a task does not match the given
+  `valid_if_or` criteria, then the task is immediately marked as "skipped"
+
+
+Here is a minimum viable configuration for a task:
 
     {
         "task_name": {
@@ -473,22 +551,29 @@ change):
         }
     }
 
-Here is a more complex example of a `TaskA_i` --> `TaskB_i`
-relationship:
+As you can see, there's not much to it.  You would need to define a
+command-line like "--bash echo 123" for this example to run properly.
+
+Here is an example of a simple TaskA_i` --> `TaskB_i` relationship.
+Also notice that the `bash_opts` performs string interpolation so
+applications can receive dynamically determined command-line parameters.
 
     {
         "task1": {
             "job_type": "bash",
-            "bash_opts": "echo Running Task 1 | grep 1"
+            "bash_opts": "echo {app_name} is Running Task 1 with {job_id}"
         },
         "task2": {
             "job_type": "bash",
-            "bash_opts": "echo Running Task 2"
+            "bash_opts": "echo Running Task 2. job_id contains date={date}"
             "depends_on": {"app_name": ["task1"]}
         }
     }
 
-And more complex variant of a `TaskA_i` --> `TaskB_i` relationship:
+A slightly more complex variant of a `TaskA_i` --> `TaskB_i` relationship.
+Notice that the `job_id` of the child task has changed, meaning a `preprocess`
+job identified by `{date}_{client_id}` would kick off a `modelBuild` job
+identified by `{date}_{client_id}_purchaseRevenue`
 
     {
         "preprocess": {
@@ -500,13 +585,15 @@ And more complex variant of a `TaskA_i` --> `TaskB_i` relationship:
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
                 "app_name": ["preprocess"],
-                "target": ["purchase_revenue"]
+                "target": ["purchaseRevenue"]
             }
         }
     }
 
-A complicated dependency graph demonstrating how `TaskA` expands
-into multiple `TaskB_i`:
+A dependency graph demonstrating how `TaskA` queues up multiple `TaskB_i`.  In
+this example, the completion of a `preprocess` job identified by
+`20140101_1234` enqueues two `modelBuild` jobs:
+`20140101_1234_purchaseRevenue` and `20140101_1234_numberOfPageviews`
 
     {
         "preprocess": {
@@ -517,19 +604,22 @@ into multiple `TaskB_i`:
             "job_type": "bash",
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
-                "dependency_group_1": {
-                    "app_name": ["preprocess"],
-                    "target": ["purchase_revenue"]
-                },
-                "group2": {
-                    "app_name": ["preprocess"],
-                    "target": ["number_of_pageviews"]
-                }
+                "app_name": ["preprocess"],
+                "target": ["purchaseRevenue", "numberOfPageviews"]
+            }
         }
     }
 
-This configuration demonstrates how multiple `TaskA_i` reduce to
-`TaskB_j`:
+The below configuration demonstrates how multiple `TaskA_i` reduce to
+`TaskB_j`.  In other words, the `modelBuild` of `client1_purchaseRevenue`
+cannot run (or be queued to run) until `preprocess` has completed these
+`job_ids`: `20140601_client1`, `20140501_client1`, and `20140401_client1`.
+The same applies to job, `client1_numberOfPageviews`.  However, it does not
+matter whether `client1_numberOfPageviews` or `client1_purchaseRevenue` runs
+first.  Also, notice that these dates are hardcoded.  If you would like to
+create dates that aren't hardcoded, you should refer to the section,
+[Configuration: Defining Dependencies with Two-Way
+Functions](README.md#configuration-defining-dependencies-with-a-two-way-functions).
 
     {
         "preprocess": {
@@ -540,63 +630,66 @@ This configuration demonstrates how multiple `TaskA_i` reduce to
             "job_type": "bash",
             "job_id": "{client_id}_{target}"
             "depends_on": {
-                "dependency_group_1": {
-                    "app_name": ["preprocess"],
-                    "target": ["purchase_revenue"],
-                    "date": [20140601, 20140501, 20140401]
-                },
-                "group2": {
-                    "app_name": ["preprocess"],
-                    "target": ["number_of_pageviews"],
-                    "date": [20140615]
-                }
+                "app_name": ["preprocess"],
+                "target": ["purchaseRevenue", "numberOfPageviews"],
+                "date": [20140601, 20140501, 20140401]
+            }
         }
     }
 
 We also enable boolean logic in dependency structures.  A task can
 depend on `dependency_group_1` OR another dependency group.  Within a
-dependency group, you can specify that the dependencies come from one
-different set of `job_ids` AND another set.  In this example, note that
-the value of `dependency_group_1` is a list.  The use of a list
-specifies AND logic, while the declaration of different dependency
-groups specifies OR logic.
+dependency group, you can also specify that the dependencies come from one
+different set of `job_ids` AND another set.  The AND and OR logic can also be
+combined in one example, and this can result in surprisingly complex
+relationships.  In this example, there are several things happening.  Firstly,
+note that in order for any of modelBuild's jobs to be queued to run, either
+the dependencies in `dependency_group_1` OR those in `dependency_group_2` must
+be met.  Looking more closely at `dependency_group_1`, we can see that it
+defines a list of key-value objects ANDed together using a list.
+`dependency_group_1` will not be satisfied unless all of the following is true:
+the three listed dates for `preprocess` have completed AND the two dates for
+`otherPreprocess`  have completed.  In summary, the value of
+`dependency_group_1` is a list.  The use of a list specifies AND logic, while
+the declaration of different dependency groups specifies OR logic.
 
-            ...
+    {
+        "preprocess": {
+            "job_type": "bash",
+            "job_id": "{date}_{client_id}"
+        },
+        "modelBuild": {
+            "job_id": "{client_id}_{target}"
             "depends_on": {
                 "dependency_group_1": [
                     {"app_name": ["preprocess"],
-                     "target": ["purchase_revenue", "purchase_quantity"],
+                     "target": ["purchaseRevenue", "purchaseQuantity"],
                      "date": [20140601, 20140501, 20140401]
                     },
-                    {"app_name": ["other_preprocess"],
-                     "target": ["purchase_revenue"],
+                    {"app_name": ["otherPreprocess"],
+                     "target": ["purchaseRevenue", "purchaseQuantity"],
                      "date": [20120101, 20130101]
                     }
                   ],
-                "group2": {
+                "dependency_group_2": {
                     "app_name": ["preprocess"],
-                    "target": ["number_of_pageviews"],
+                    "target": ["numberOfPageviews"],
                     "date": [20140615]
                 }
             }
 
 
-In other words, the above task depends on completion of one job_id from
-group2 OR the following: completion of six job_ids from the "preprocess"
-task AND completion of a set of 2 job_ids from task, "other_preprocess".
+There are many structures that `depends_on` can take, and some are better than
+others.  We've given you enough building blocks to express almost any
+batch processing pipeline.
 
-There are other variations not listed.  Here is a list of configuration
-options:
 
-- *`job_type`* - (required) Select how to execute the following task's
-  code.  The `job_type` choice also adds other configuration options
-- *`depends_on`* - (optional) A specification of all parent `job_id`s and
-  tasks, if any.
-- *`job_id`* - (optional) A template describing what identifiers compose
-  the `job_id`s.  If not given, assumes the default `job_id` template.
-- *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
-  If a `job_id` for a task does not match the given
-  `valid_if_or` criteria, then the task is immediately marked as "skipped"
+Configuration: Defining Dependencies with a Two-Way Functions
+==============
+
+# TODO  This isn't implemented yet.
+# depends_on:
+#     {_func: "python.import.path.to.package.module.func", app_name: ...}
 
 
 Configuration: Job Types
@@ -658,7 +751,7 @@ Creating a plugin
 
 Plugins hook arbitrary code into the scheduler.  By default, the scheduler
 supports executing bash tasks (which practically supports everything) and, for
-convenience, Spark (python) tasks.  If you wished to add another plugin, you
+convenience, Spark (python) tasks.  If you wish to add another plugin, you
 should create a file in the scheduler/plugins directory named "xyz_plugin.py."
 
 
@@ -689,8 +782,10 @@ Here are some improvements we are considering in the future:
 - Support different configuration backends besides a tasks.json file.
   - Some of these backends may support a web UI for creating, viewing and
     managing tasks config and dependencies
+- Support different queue backends in addition to Zookeeper
+  - (scheduler should use backends through a shared api of some sort)
 - A web UI showing various things like:
   - Interactive dependency graph
   - Current task status
-- (Possibly) Support for replacing Zookeeper with another service like Consul
-  - ZooKeeper works really, really well for this project, though!
+  - ideally, the backend(s) can just support this so we don't have to.
+    - we should be able to visualize the dag graph, though

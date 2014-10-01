@@ -3,7 +3,7 @@ from nose import tools as nt
 from scheduler import dag_tools
 from scheduler import exceptions
 
-from scheduler.test_utils import configure_logging
+from scheduler.testing_tools import configure_logging
 log = configure_logging('scheduler.tests.test_dag')
 
 

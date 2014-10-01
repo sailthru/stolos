@@ -3,11 +3,12 @@ log = logging.getLogger('scheduler.dag_tools')
 
 from .build import (
     build_dag,
+    build_dag_cached,
     visualize_dag
 )
 from .node import (
     create_job_id,
-    get_tasks_dct,
+    get_tasks_config,
     parse_job_id,
     passes_filter,
     get_pymodule,
@@ -22,7 +23,3 @@ from .traversal import (
     get_children,
     topological_sort,
 )
-
-
-if __name__ == '__main__':
-    dg = build_dag()

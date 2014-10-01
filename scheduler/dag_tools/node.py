@@ -4,24 +4,24 @@ Assume a node == info about a task
 """
 import importlib
 import re
-import ujson
-import os
 
 from scheduler.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
+from scheduler.util import load_obj_from_path
 
 from .constants import (
-    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,)
+    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,
+    CONFIGURATION_BACKEND)
 from . import log
 
 
-def get_tasks_dct(fp=None):
-    if fp is None:
-        fp = os.environ['TASKS_JSON']
+def get_tasks_config():
     try:
-        return ujson.load(open(fp))
+        cb = load_obj_from_path(
+            CONFIGURATION_BACKEND, dict(key='CONFIGURATION_BACKEND'))()
     except:
-        log.error("Failed to read json file.", extra={'fp': fp})
+        log.error("Could not load configuration backend")
         raise
+    return cb
 
 
 def create_job_id(app_name, **job_id_identifiers):
@@ -86,33 +86,6 @@ def _validate_job_id_identifiers(
     return rv
 
 
-def _load_func_path(import_path, ld):
-    """
-    import a python function from an import path like: mypackage.module.func"""
-    log.debug(
-        'attempting to load function from an import path',
-        extra=dict(import_path=import_path, **ld))
-    try:
-        path, func_name = import_path.rsplit('.', 1)
-    except ValueError:
-        _log_raise(
-            ("import path needs at least 1 period in your import path."
-             " An example import path is something like: module.func"),
-            extra=dict(import_path=import_path, **ld),
-            exception_kls=DAGMisconfigured)
-    mod = importlib.import_module(path)
-    try:
-        func = getattr(mod, func_name)
-    except AttributeError:
-        _log_raise(
-            ("function does not exist in given module."
-             " Your import path is not"
-             " properly defined because the given `func_name` does not exist"),
-            extra=dict(import_path=import_path, func_name=func_name, **ld),
-            exception_kls=DAGMisconfigured)
-    return func
-
-
 def passes_filter(app_name, job_id):
     """Determine if this job matches certain criteria that state it is a
     valid job for this app_name.
@@ -126,19 +99,18 @@ def passes_filter(app_name, job_id):
 
     # does this job matches criteria that makes it executable? if so, we can't
     # autocomplete it
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     meta = dg[app_name]
     ld = dict(app_name=app_name, job_id=job_id)
     try:
-        dct = meta['valid_if_or']
+        dct = dict(meta['valid_if_or'])
     except (KeyError, TypeError):
         return True  # everything is valid
 
     if '_func' in dct:
-        dct = dct.copy()  # ah! we'd potentially modify a mutable object!
-        import_path = dct.pop('_func')
+        import_path = dct.pop('_func')  # safe because config is immutable
         try:
-            func = _load_func_path(import_path, ld)
+            func = load_obj_from_path(import_path, ld)
         except Exception as err:
             raise err.__class__(
                 "valid_if_or._func misconfigured: %s" % err.message)
@@ -160,13 +132,13 @@ def passes_filter(app_name, job_id):
 
 
 def get_pymodule(app_name):
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     module_name = dg[app_name]['pymodule']
     return importlib.import_module(module_name)
 
 
 def get_job_id_template(app_name, template=JOB_ID_DEFAULT_TEMPLATE):
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     template = dg[app_name].get('job_id', template)
     parsed_template = re.findall(r'{(.*?)}', template)
     return (template, parsed_template)
@@ -174,20 +146,20 @@ def get_job_id_template(app_name, template=JOB_ID_DEFAULT_TEMPLATE):
 
 def get_job_type(app_name):
     """Lookup the job_type in tasks graph"""
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     return dg[app_name]['job_type']
 
 
 def get_task_names():
     """Lookup the tasks in the tasks graph"""
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     return dg.keys()
 
 
 def get_bash_opts(app_name):
     """Lookup the bash command-line options for a bash task
     If they don't exist, return empty string"""
-    dg = get_tasks_dct()
+    dg = get_tasks_config()
     meta = dg[app_name]
     job_type = meta['job_type']
     try:

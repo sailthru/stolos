@@ -6,9 +6,11 @@ from scheduler.util import crossproduct, flatmap_with_kwargs
 from scheduler.exceptions import (
     _log_raise, _log_raise_if, DAGMisconfigured, InvalidJobId)
 
-from .build import build_dag
+from scheduler.configuration_backend import TasksConfigBaseSequence
+
+from .build import build_dag_cached
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
-from .node import (get_tasks_dct, parse_job_id, get_job_id_template)
+from .node import (get_tasks_config, parse_job_id, get_job_id_template)
 from . import log
 
 
@@ -22,7 +24,7 @@ def topological_sort(lst):
     dct = defaultdict(list)
     for app_job in lst:
         dct[app_job[0]].append(app_job)
-    for node in nx.topological_sort(build_dag()):
+    for node in nx.topological_sort(build_dag_cached()):
         for app_job2 in dct[node]:
             yield app_job2
 
@@ -38,7 +40,7 @@ def get_parents(app_name, job_id, include_dependency_group=False,
         dependency group
 
     """
-    build_dag()  # run validations
+    build_dag_cached()  # run validations
     if job_id:
         parsed_job_id = parse_job_id(app_name, job_id)
         filter_deps = set(filter_deps)
@@ -60,7 +62,7 @@ def get_parents(app_name, job_id, include_dependency_group=False,
             group_name=group_name, app_name=app_name, job_id=job_id, ld=ld,
             include_dependency_group=include_dependency_group
         )
-        if isinstance(dep_group, list):
+        if isinstance(dep_group, TasksConfigBaseSequence):
             gen = _get_parents_handle_subgroups(
                 group_name, dep_group, _filter_parents, ld, kwargs)
             for rv in gen:
@@ -80,7 +82,7 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id):
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
-    if isinstance(dep_group, list):  # recursive AND
+    if isinstance(dep_group, TasksConfigBaseSequence):  # recursive AND
         return all(dep_group_and_job_id_compatible(dg, pjob_id)
                    for dg in dep_group)
 
@@ -126,13 +128,13 @@ def _get_grps(app_name, filter_deps, ld):
     Return an iterator that yields (dependency_group_name, group_metadata)
     tuples
     """
-    td = get_tasks_dct()
+    td = get_tasks_config()
     try:
         depends_on = td[app_name]['depends_on']
     except KeyError:
         return []  # this task has no dependencies
     if "app_name" in depends_on:
-        grps = [(DEPENDENCY_GROUP_DEFAULT_NAME, depends_on.copy())]
+        grps = [(DEPENDENCY_GROUP_DEFAULT_NAME, depends_on)]
         _get_parents_validate_group_names(
             [DEPENDENCY_GROUP_DEFAULT_NAME], filter_deps, ld)
     elif filter_deps:
@@ -182,7 +184,7 @@ def _get_parents(group_name, dep_group, app_name, job_id, ld,
     by the `_filter_parents` option
     """
     if _filter_parents:
-        dep_group = dep_group.copy()  # shallow copy to change the keys
+        dep_group = dict(dep_group)  # shallow copy to change the keys
         dep_group['app_name'] = _filter_parents
 
     for rv in _get_parent_job_ids(
@@ -204,7 +206,7 @@ def _get_parent_job_ids(group_name, dep_group,
     particular parent app's job_id template, ignore it.
     """
     for parent_app_name in dep_group['app_name']:
-        dep_group = dep_group.copy()  # shallow copy to change the keys
+        dep_group = dict(dep_group)  # shallow copy to change the keys
 
         _inject_job_id(
             dep_group, child_app_name, child_job_id, parent_app_name, ld)
@@ -283,7 +285,7 @@ def _iter_job_ids(dep_group, group_name, parent_app_name, ld):
 
 
 def get_children(node, job_id, include_dependency_group=True):
-    dg = build_dag()
+    dg = build_dag_cached()
     child_apps = ((k, vv) for k, v in dg.succ[node].items() for vv in v)
     child_apps = list(child_apps)
     for child, group_name in child_apps:

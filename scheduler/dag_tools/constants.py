@@ -13,3 +13,7 @@ JOB_ID_DELIMITER = os.environ.get('JOB_ID_DELIMITER', '_')
 JOB_ID_VALIDATIONS = importlib.import_module(
     os.environ['JOB_ID_VALIDATIONS']
 ).JOB_ID_VALIDATIONS
+
+CONFIGURATION_BACKEND = os.environ.get(
+    'CONFIGURATION_BACKEND',
+    'scheduler.configuration_backend.json_config.JSONMapping')

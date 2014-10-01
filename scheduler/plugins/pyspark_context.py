@@ -98,7 +98,7 @@ def get_module_from_fp(fp):
 def get_spark_conf(app_name):
     """Query the scheduler's dag graph for all information necessary to
     create a pyspark.SparkContext"""
-    dg = dt.get_tasks_dct()
+    dg = dt.get_tasks_config()
     conf = dict(**dg[app_name].get('spark_conf', {}))
     conf['spark.app.name'] = app_name
     osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
