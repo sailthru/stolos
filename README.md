@@ -165,8 +165,9 @@ default in this scheduler (`Task_Bi` depends only on `Task_Ai`).
 Concept: Job IDs
 ==============
 
-*For details on how to use and configure `job_id`s, see the section, "Job
-ID Configuration"*  This section explains what `job_id`s are.
+*For details on how to use and configure `job_id`s, see the section, [Job
+ID Configuration](/README.md#configuration-job-ids)*  This section
+explains what `job_id`s are.
 
 The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
 (`TaskA_1`, `TaskA_2`, ...).  A task represents a group of subtasks.  A
@@ -351,26 +352,37 @@ The first thing you'll want to do is install the scheduler:
     # If you prefer a Python egg, clone the repo and then type:
     # python setup.py bdist_egg
 
-The first time only, you need to create some basic environment vars.
-**See scheduler/conf/scheduler-env for example environment var
-configuration.**  # TODO link
+Next, you need to define environment vars.  For other options, see [a
+more detailed environment conf](conf/scheduler-env.sh)
 
     export TASKS_JSON="/path/to/a/file/called/tasks.json"
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export JOB_ID_VALIDATIONS="tasks.job_id_validations"
 
 
-You also need to create some files at the locations you just mentioned:
-
-- `TASKS_JSON` is the filepath to the json file explained in the
-"Configuration" section.  This file describes tasks, their dependencies
-and some other basic metadata about how to execute them.
-
-    - **See scheduler/examples/tasks.json**  # TODO link
+The next steps may vary based on how you just configured the scheduler,
+but you generally need to 1) define a `job_id_validations`module, and 2)
+finish setting up your configuration backend (which in the example above
+is a json file).
 
 - the `job_id_validations` python module should look like this:
-
-    - **See scheduler/examples/job_id_validations.py**  # TODO link
+  
+    - See [example `job_id` validations file](scheduler/examples/job_id_validations.py)
+  
+- the configuration backend
+  
+  - If using the json configuration backend (this is the
+    default),`TASKS_JSON` is the filepath to the json file explained in
+the [Configuration]() (# TODO link) section.  This file describes tasks, their
+dependencies and some other basic metadata about how to execute them.
+  
+    - See [an example tasks.json](scheduler/examples/tasks.json)
+  
+  - If using the redis or another backend, you will need to enter the
+    task configuration.  These backends provide methods to help you do this.
+  
+    - See [the redis configuration backend](
+scheduler/configuration_backends/redis_config.py) for an example
 
 After this initial setup, you will need to create a task and register
 it.  This takes the form of these steps:
@@ -381,13 +393,8 @@ it.  This takes the form of these steps:
 1. Submit a `job_id` for this task
 1. Run the task.
 
-- **See scheduler/examples/tasks/pyspark_example.py for details
-  on how to perform these simple steps for a spark job.**
-- A bash job doesn't need any application code to run as long as that
-  code is available from command-line
-
-A fully working example exists in **scheduler/examples/**  # TODO link
-
+**Take a look at some [example tasks](scheduler/examples/tasks/) for details
+  on how to perform these simple steps.**
 
 Usage:
 ==============
@@ -429,8 +436,9 @@ These environment variables must be set and available to scheduler code:
 
 - `JOB_ID_VALIDATIONS` points to a python module containing code to
   verify the identifiers in a `job_id` are correct.
-  - See `scheduler/examples/job_id_validations.py` for the expected
-    code structure  # TODO link
+  - See
+    [scheduler/examples/job_id_validations.py](scheduler/examples/job_id_validations.py)
+    for the expected code structure
   - These validations specify exactly which identifiers can be used in
     job_id templates and what format they take (ie is `date` a datetime
     instance, an int or string?).
@@ -442,8 +450,10 @@ These environment variables must be set and available to scheduler code:
   template.
 
 In addition to these defaults, each task in the tasks.json configuration
-may also contain a custom `job_id` template.  See "Configuration: Tasks"
-for details.  # TODO link
+may also contain a custom `job_id` template.  See section:
+[Configuration: Tasks, Dependencies,
+...](README.md#configuration-tasks-dependencies-and-the-tasksjson-file)
+for details.
 
 
 Configuration: Tasks, Dependencies and the tasks.json file
@@ -451,8 +461,8 @@ Configuration: Tasks, Dependencies and the tasks.json file
 
 A JSON file defines the task dependency graph and all related
 configuration metadata. This section will show available configuration
-options.  For instructions on how to use this file, see section "Setup"
-# TODO link
+options.  For instructions on how to use this file, see section:
+[Setup](README.md#setup)
 
 Here is a minimum viable configuration for a task (api subject to
 change):
