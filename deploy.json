@@ -1,0 +1,5 @@
+{
+  "cmd": "python setup.py bdist_egg -d . ; mv *egg scheduler.egg",
+  "files": ["scheduler.egg"]
+}
+
