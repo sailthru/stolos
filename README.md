@@ -687,9 +687,10 @@ batch processing pipeline.
 Configuration: Defining Dependencies with a Two-Way Functions
 ==============
 
-# TODO  This isn't implemented yet.
-# depends_on:
-#     {_func: "python.import.path.to.package.module.func", app_name: ...}
+ TODO  This isn't implemented yet.
+
+   depends_on:
+       {_func: "python.import.path.to.package.module.func", app_name: ...}
 
 
 Configuration: Job Types
