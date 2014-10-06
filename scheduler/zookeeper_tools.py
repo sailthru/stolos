@@ -198,7 +198,7 @@ def inc_retry_count(app_name, job_id, zk, max_retry):
     if cnt + 1 >= max_retry:
         set_state(app_name, job_id, zk, failed=True)
         log.error(
-            'Task retried too many times and is set as permanantly failed.',
+            'Task retried too many times and is set as permanently failed.',
             extra=dict(retry_cnt=cnt, app_name=app_name, job_id=job_id))
         exceeded_limit = True
     else:
