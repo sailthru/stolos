@@ -1,3 +1,7 @@
+"""
+This code fetches jobs from the queue, decides whether to run jobs, and then
+runs them or manipulates its own and parent/child queues
+"""
 import importlib
 
 from scheduler import argparse_shared as at
@@ -7,10 +11,12 @@ from scheduler import dag_tools, exceptions, zookeeper_tools
 
 def main(ns):
     """
-    Fetch a job from a given application's queue and obtain ZooKeeper lock(s),
-    Execute the given code using appropriate plugin module,
-    Handle dependencies
-    And then gracefully die
+    Fetch a job_id from the `app_name` queue and figure out what to with it.
+
+    If the job is runnable, execute it and then queue its children into their
+    respective queues.  If it's not runnable, queue its parents into respective
+    parent queues and remove the job from its own queue.
+    If the job fails, either requeue it or mark it as permanently failed
     """
     if ns.bypass_scheduler:
         log.info(

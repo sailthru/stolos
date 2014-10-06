@@ -1,3 +1,7 @@
+"""
+Fairly generic utility functions that have no knowledge of the scheduler and
+could just as well be in a third party library
+"""
 import collections
 import functools
 import inspect

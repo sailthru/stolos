@@ -1,3 +1,7 @@
+"""
+We leverage argparse_tools to manage how arguments are passed in from
+the command-line.  This file contains argparse options that may be shared.
+"""
 import os
 from argparse_tools import (
     build_arg_parser, add_argument, group, mutually_exclusive, lazy_kwargs)

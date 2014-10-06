@@ -1,3 +1,8 @@
+"""
+Useful utilities for testing
+"""
+
+
 def configure_logging(logname):
     import logging
     from colorlog import ColoredFormatter

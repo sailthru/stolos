@@ -1,3 +1,7 @@
+"""
+This sub-package contains code to work with the tasks graph.  The configuration
+data used by this package comes from a configuration backend.
+"""
 import logging
 log = logging.getLogger('scheduler.dag_tools')
 

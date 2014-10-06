@@ -1,3 +1,11 @@
+"""
+The configuration backend determines where the tasks configuration data is
+stored.  For instance, configuration may be in a json file, or it may be in a
+redis database.
+
+This code doesn't know what is stored in the backend, but it does determine how
+the data is stored.
+"""
 import logging
 log = logging.getLogger('scheduler.configuration_backend')
 

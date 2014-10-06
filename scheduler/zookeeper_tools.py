@@ -1,3 +1,6 @@
+"""
+Manages the application queues in zookeeper
+"""
 import atexit
 from kazoo.client import KazooClient
 import kazoo.exceptions

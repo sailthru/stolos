@@ -1,3 +1,6 @@
+"""
+Convert a directory into an executable
+"""
 from runner import build_arg_parser, main
 
 
