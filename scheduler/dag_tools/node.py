@@ -126,7 +126,8 @@ def passes_filter(app_name, job_id):
                 "valid_if_or contains a key that's not in the job_id",
                 extra=dict(valid_if_or_key=k, **ld),
                 exception_kls=DAGMisconfigured)
-        if kk in v:
+        vals = [JOB_ID_VALIDATIONS[k](x) for x in v]
+        if kk in vals:
             return True
     return False
 

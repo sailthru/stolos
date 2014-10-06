@@ -208,13 +208,20 @@ def validate_if_or(app_name1, metadata, dg, tasks_conf, ld):
             "valid_if_or contains a key that isn't in its job_id template",
             extra=dict(key=k, job_id_template=templ, **ld),
             exception_kls=DAGMisconfigured)
+        try:
+            validation_func = JOB_ID_VALIDATIONS[k]
+        except KeyError:
+            continue
         for vv in v:
-            _log_raise_if(
-                not isinstance(vv, (str, unicode)),
-                ("Task is misconfigured.  Expected sequence of strings, but"
-                 " found a sequence with a non-string."),
-                extra=dict(key=location, wrong_value_type=type(vv), **ld),
-                exception_kls=DAGMisconfigured)
+            try:
+                validation_func(vv)
+            except Exception as err:
+                _log_raise(
+                    ("valid_if_or contains a value that wasn't validated"
+                     " by your job_id_validations. err: %s(%s)")
+                    % (err.__class__, err),
+                    extra=dict(key=location, wrong_value_type=type(vv), **ld),
+                    exception_kls=DAGMisconfigured)
 
 
 def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
