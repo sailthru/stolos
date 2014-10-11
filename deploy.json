@@ -1,5 +1,5 @@
 {
-  "cmd": "rm -rf *egg && python setup.py bdist_egg -d . && ls && mv *egg scheduler.egg",
+  "cmd": "rm -rf *egg ; python setup.py bdist_egg -d . && mv *egg scheduler.egg ",
   "files": ["scheduler.egg"]
 }
 
