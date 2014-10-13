@@ -32,22 +32,25 @@ def get_client(zookeeper_hosts=None):
     return zk
 
 
-def _queue(app_name, job_id, zk, queue=True):
+def _queue(app_name, job_id, zk, queue=True, priority=None):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
-    log.info('Creating and queueing new subtask',
-             extra=dict(app_name=app_name, job_id=job_id))
-
+    log.info(
+        'Creating and queueing new subtask',
+        extra=dict(app_name=app_name, job_id=job_id, priority=priority))
     if dag_tools.passes_filter(app_name, job_id):
         # hack: zookeeper doesn't like unicode
         if isinstance(job_id, unicode):
             job_id = str(job_id)
         if queue:
-            zk.LockingQueue(app_name).put(job_id)
+            if priority:
+                zk.LockingQueue(app_name).put(job_id, priority=priority)
+            else:
+                zk.LockingQueue(app_name).put(job_id)
         else:
             log.warn(
-                'create a subtask but not actually queueing it',
-                extra=dict(app_name=app_name, job_id=job_id))
+                'create a subtask but not actually queueing it', extra=dict(
+                    app_name=app_name, job_id=job_id, priority=priority))
         set_state(app_name, job_id, zk, pending=True)
     else:
         log.info(
@@ -126,8 +129,17 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
 
 @util.pre_condition(dag_tools.parse_job_id)
 def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
-                      timeout=5, queue=True):
-    """Add a subtask to the queue if it hasn't been added yet"""
+                      timeout=5, queue=True, priority=None):
+    """Add a subtask to the queue if it hasn't been added yet.
+
+    `zk` (kazoo.client.KazooClient instance)
+    `zookeeper_hosts` - A zookeeper connection string. Used if `zk` not given.
+    `queue` (bool, optional) - if False, don't add the subtask to queue
+    `timeout` (int, optional) - num seconds to wait for a lock before queueing
+    `priority` (int, optional) - prioritize this item in the queue.
+        1 is highest priority 100 is lowest priority.
+        Irrelevant if `queue` is False
+    """
     if zk is None:
         zk = get_client(zookeeper_hosts)
     if zk.exists(_get_zookeeper_path(app_name, job_id)):
@@ -137,7 +149,7 @@ def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
     if not lock:
         return False
     try:
-        _queue(app_name, job_id, zk, queue=queue)
+        _queue(app_name, job_id, zk, queue=queue, priority=priority)
     finally:
         lock.release()
     return True

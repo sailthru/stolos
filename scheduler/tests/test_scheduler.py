@@ -123,6 +123,30 @@ def _inject_into_dag(new_task_dct):
 
 
 @with_setup
+def test_maybe_add_subtask_no_priority():
+    zkt.maybe_add_subtask(app1, job_id1)
+    zkt.maybe_add_subtask(app1, job_id2)
+    nose.tools.assert_equal(consume_queue(app1), job_id1)
+    nose.tools.assert_equal(consume_queue(app1), job_id2)
+
+
+@with_setup
+def test_maybe_add_subtask_priority_first():
+    zkt.maybe_add_subtask(app1, job_id1, priority=10)
+    zkt.maybe_add_subtask(app1, job_id2, priority=20)
+    nose.tools.assert_equal(consume_queue(app1), job_id1)
+    nose.tools.assert_equal(consume_queue(app1), job_id2)
+
+
+@with_setup
+def test_maybe_add_subtask_priority_second():
+    zkt.maybe_add_subtask(app1, job_id1, priority=20)
+    zkt.maybe_add_subtask(app1, job_id2, priority=10)
+    nose.tools.assert_equal(consume_queue(app1), job_id2)
+    nose.tools.assert_equal(consume_queue(app1), job_id1)
+
+
+@with_setup
 def test_bypass_scheduler():
     validate_zero_queued_task(bash1)
     run_code(
