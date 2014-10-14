@@ -637,23 +637,57 @@ def test_readd_change_child_state_while_child_running():
 
 
 @with_setup
+def test_child_running_while_parent_pending_but_not_executing():
+    enqueue(app1, job_id1)
+    enqueue(app2, job_id1)
+    parents_completed, consume_queue, parent_locks = \
+        zkt.ensure_parents_completed(app2, job_id1, zk=zk, timeout=1)
+    # ensure lock is obtained by ensure_parents_completed
+    validate_one_queued_executing_task(app1, job_id1)
+    validate_one_queued_task(app2, job_id1)
+    nose.tools.assert_equal(parents_completed, False)
+    # child should promise to remove itself from queue
+    nose.tools.assert_equal(consume_queue, True)
+    nose.tools.assert_equal(len(parent_locks), 1)
+
+
+@with_setup
+def test_child_running_while_parent_pending_and_executing():
+    enqueue(app1, job_id1)
+    enqueue(app2, job_id1)
+    lock = zkt.obtain_execute_lock(app1, job_id1, zk=zk)
+    assert lock
+    parents_completed, consume_queue, parent_locks = \
+        zkt.ensure_parents_completed(app2, job_id1, zk=zk, timeout=1)
+    validate_one_queued_executing_task(app1, job_id1)
+    validate_one_queued_task(app2, job_id1)
+    nose.tools.assert_equal(parents_completed, False)
+    # child should not promise to remove itself from queue
+    nose.tools.assert_equal(consume_queue, False)
+    nose.tools.assert_equal(parent_locks, set())
+
+
+@with_setup
 def test_race_condition_when_parent_queues_child():
     # The parent queues the child and the child runs before the parent gets
     # a chance to mark itself as completed
     zkt.set_state(app1, job_id1, zk=zk, pending=True)
+    lock = zkt.obtain_execute_lock(app1, job_id1, zk=zk)
+    assert lock
     zkt._maybe_queue_children(
         parent_app_name=app1, parent_job_id=job_id1, zk=zk)
     validate_one_queued_task(app2, job_id1)
     validate_zero_queued_task(app1)
 
-    # should not complete child.
+    # should not complete child.  should de-queue child
     # should not queue parent.
     # should exit gracefully
     run_spark_code(app2)
     validate_zero_queued_task(app1)
-    validate_zero_queued_task(app2)
+    validate_one_queued_task(app2, job_id1)
 
     zkt.set_state(app1, job_id1, zk=zk, completed=True)
+    lock.release()
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
@@ -777,15 +811,26 @@ def validate_zero_completed_task(app_name):
 
 def validate_one_failed_task(app_name, job_id):
     status = get_zk_status(app_name, job_id)
-    nose.tools.assert_equal(status['num_locks'], 0)
+    nose.tools.assert_equal(status['num_execute_locks'], 0)
+    nose.tools.assert_equal(status['num_add_locks'], 0)
     nose.tools.assert_equal(status['in_queue'], False)
     # nose.tools.assert_equal(status['app_qsize'], 1)
     nose.tools.assert_equal(status['state'], 'failed')
 
 
+def validate_one_queued_executing_task(app_name, job_id):
+    status = get_zk_status(app_name, job_id)
+    nose.tools.assert_equal(status['num_execute_locks'], 1)
+    nose.tools.assert_equal(status['num_add_locks'], 0)
+    nose.tools.assert_equal(status['in_queue'], True)
+    nose.tools.assert_equal(status['app_qsize'], 1)
+    nose.tools.assert_equal(status['state'], 'pending')
+
+
 def validate_one_queued_task(app_name, job_id):
     status = get_zk_status(app_name, job_id)
-    nose.tools.assert_equal(status['num_locks'], 0)
+    nose.tools.assert_equal(status['num_execute_locks'], 0)
+    nose.tools.assert_equal(status['num_add_locks'], 0)
     nose.tools.assert_equal(status['in_queue'], True)
     nose.tools.assert_equal(status['app_qsize'], 1)
     nose.tools.assert_equal(status['state'], 'pending')
@@ -793,7 +838,8 @@ def validate_one_queued_task(app_name, job_id):
 
 def validate_one_completed_task(app_name, job_id):
     status = get_zk_status(app_name, job_id)
-    nose.tools.assert_equal(status['num_locks'], 0)
+    nose.tools.assert_equal(status['num_execute_locks'], 0)
+    nose.tools.assert_equal(status['num_add_locks'], 0)
     nose.tools.assert_equal(status['in_queue'], False)
     nose.tools.assert_equal(status['app_qsize'], 0)
     nose.tools.assert_equal(status['state'], 'completed')
@@ -801,7 +847,8 @@ def validate_one_completed_task(app_name, job_id):
 
 def validate_one_skipped_task(app_name, job_id):
     status = get_zk_status(app_name, job_id)
-    nose.tools.assert_equal(status['num_locks'], 0)
+    nose.tools.assert_equal(status['num_execute_locks'], 0)
+    nose.tools.assert_equal(status['num_add_locks'], 0)
     nose.tools.assert_equal(status['in_queue'], False)
     nose.tools.assert_equal(status['app_qsize'], 0)
     nose.tools.assert_equal(status['state'], 'skipped')
@@ -825,11 +872,14 @@ def consume_queue(app_name, timeout=1):
 
 def get_zk_status(app_name, job_id):
     path = zkt._get_zookeeper_path(app_name, job_id)
-    lockpath = join(path, 'lock')
+    elockpath = join(path, 'execute_lock')
+    alockpath = join(path, 'add_lock')
     entriespath = join(app_name, 'entries')
     return {
-        'num_locks': len(zk.exists(lockpath)
-                         and zk.get_children(lockpath) or []),
+        'num_add_locks': len(
+            zk.exists(alockpath) and zk.get_children(alockpath) or []),
+        'num_execute_locks': len(
+            zk.exists(elockpath) and zk.get_children(elockpath) or []),
         'in_queue': (
             any(zk.get(join(app_name, 'entries', x))[0] == job_id
                 for x in zk.get_children(entriespath))

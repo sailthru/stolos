@@ -53,8 +53,9 @@ def main(ns):
             q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         return
 
-    parents_completed, consume_queue = ensure_parents_completed(
-        app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+    parents_completed, consume_queue, parent_locks = \
+        zookeeper_tools.ensure_parents_completed(
+            app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout)
     if parents_completed is False:
         if consume_queue:
             q.consume()
@@ -62,7 +63,10 @@ def main(ns):
             _send_to_back_of_queue(
                 q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
         lock.release()
+        [l.release() for l in parent_locks]
         return
+    else:
+        assert not parent_locks
 
     log.info(
         "Job starting!", extra=dict(app_name=ns.app_name, job_id=ns.job_id))
@@ -121,7 +125,7 @@ def _handle_manually_given_job_id(ns, zk):
         log.critical(
             msg, extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         raise UserWarning(msg)
-    lock = zookeeper_tools.obtain_lock(
+    lock = zookeeper_tools.obtain_execute_lock(
         ns.app_name, ns.job_id, zk=zk, safe=False, raise_on_error=True,
         timeout=ns.timeout)
     zookeeper_tools.set_state(ns.app_name, ns.job_id, zk=zk, pending=True)
@@ -153,10 +157,11 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
     if lock:
         l = lock
     else:
-        l = zookeeper_tools.obtain_lock(app_name, job_id, zk, timeout=timeout)
+        l = zookeeper_tools.obtain_execute_lock(
+            app_name, job_id, zk, timeout=timeout)
     if l is False:
-        log.warn('Could not obtain lock for task most likely because'
-                 ' the job_id appears more than once in the queue',
+        log.warn('Could not obtain execute lock for task because'
+                 ' something is already processing this job_id',
                  extra=dict(app_name=app_name, job_id=job_id))
         return False
     return l
@@ -165,45 +170,16 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
 def _send_to_back_of_queue(q, app_name, job_id, zk):
     # this exists so un-runnable tasks don't hog the front of the queue
     # and soak up resources
-    q.put(job_id)
-    q.consume()
-    log.info(
-        "Job sent to back of queue",
-        extra=dict(app_name=app_name, job_id=job_id))
-
-
-def ensure_parents_completed(app_name, job_id, zk):
-    """
-    Check that the parent tasks for this (app_name, job_id) pair have completed
-    If they haven't completed and aren't pending, maybe create the
-    parent task in its appropriate queue.
-    """
-    parents_completed = True
-    consume_queue = False
-    for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
-                                                          job_id, True):
-        if not zookeeper_tools.check_state(
-                app_name=parent, job_id=pjob_id, zk=zk, completed=True):
-            log.info(
-                'Must wait for parent task to complete before executing'
-                ' child task. Removing job from queue.  It will get re-added'
-                ' when parent tasks complete', extra=dict(
-                    parent_app_name=parent, parent_job_id=pjob_id,
-                    app_name=app_name, job_id=job_id))
-            if zookeeper_tools.maybe_add_subtask(parent, pjob_id, zk):
-                consume_queue = True
-            else:
-                parent_pending = zookeeper_tools.check_state(
-                    parent, pjob_id, zk=zk, pending=True)
-                if parent_pending:
-                    log.info(
-                        ('Parent is or was previously queued.'
-                         ' Removing from queue'), extra=dict(
-                            parent_app_name=parent, parent_job_id=pjob_id,
-                            app_name=app_name, job_id=job_id))
-                    consume_queue = True
-            parents_completed = False
-    return parents_completed, consume_queue
+    try:
+        zookeeper_tools.readd_subtask(app_name, job_id, zk=zk, _force=True)
+        q.consume()
+        log.info(
+            "Job sent to back of queue",
+            extra=dict(app_name=app_name, job_id=job_id))
+    except exceptions.JobAlreadyQueued:
+        log.info(
+            "Job already queued. Cannot send to back of queue.",
+            extra=dict(app_name=app_name, job_id=job_id))
 
 
 def _handle_failure(ns, zk, q, lock):

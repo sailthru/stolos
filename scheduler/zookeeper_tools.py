@@ -59,14 +59,28 @@ def _queue(app_name, job_id, zk, queue=True, priority=None):
         set_state(app_name, job_id, zk, skipped=True)
 
 
+def check_if_queued(app_name, job_id, zk):
+    p = join(app_name, 'entries')
+    try:
+        queued_jobs = {zk.get(join(p, x))[0] for x in zk.get_children(p)}
+    except kazoo.exceptions.NoNodeError:
+        queued_jobs = set()
+
+    if job_id in queued_jobs:
+        return True
+    return False
+
+
 @util.pre_condition(dag_tools.parse_job_id)
-def readd_subtask(app_name, job_id, zk, timeout=5,
+def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
                   _reset_descendants=True, _ignore_if_queued=False):
     """
     Queue a new task if it isn't already in the queue.
 
     This is slow if the queue is large.  Use carefully!
 
+    `_force` (bool) If True, add to queue regardless of whether job_id
+        is previously queued
     `_reset_descendants` (bool)  If True, recurse through descendants and reset
         their states to pending
     `_ignore_if_queued` (bool)  If the job_id is previously queued,
@@ -79,29 +93,29 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
     """
     # obtain lock
     try:
-        lock = obtain_lock(
+        lock = obtain_add_lock(
             app_name, job_id, zk, timeout=timeout, raise_on_error=True)
     except exceptions.CouldNotObtainLock:
         # call maybe_add_subtask(...) and return
-        if not maybe_add_subtask(app_name, job_id, zk=zk):
+        added = maybe_add_subtask(
+            app_name, job_id, zk=zk)
+        if not added:
             raise exceptions.CodeError(
                 "wtf?  If I can't obtain a lock on a job_id, then I should"
                 " be able to maybe_add_subtask.")
-        return
-
+        return added
+    except exceptions.LockAlreadyAcquired:
+        # here's why something else might hold an add lock on the object:
+        # - task currently being added by another process
+        # - process that was performing above op died a few seconds ago
+        raise
     try:
-        p = join(app_name, 'entries')
-        try:
-            queued_jobs = {zk.get(join(p, x))[0] for x in zk.get_children(p)}
-        except kazoo.exceptions.NoNodeError:
-            # if the task was never actually added, we'll add it for the first
-            # time.  The child's parents are marked as
-            # completed, but the child hasn't run yet
-            queued_jobs = set()
-
-        do_not_queue = False
-        if job_id in queued_jobs:
-            if _ignore_if_queued:
+        if _force:
+            queued = False
+        else:
+            queued = check_if_queued(
+                app_name, job_id, zk)
+            if queued and _ignore_if_queued:
                 log.debug(
                     "Job already queued!  We'll handle this properly."
                     " You may have entered this state"
@@ -112,8 +126,7 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
                     " bubble down, to queue one of children.", extra=dict(
                         app_name=app_name, job_id=job_id)
                 )
-                do_not_queue = True
-            else:
+            elif queued:
                 raise exceptions.JobAlreadyQueued(
                     "%s %s" % (app_name, job_id))
 
@@ -121,10 +134,11 @@ def readd_subtask(app_name, job_id, zk, timeout=5,
             # all child tasks will also get re-executed
             _recursively_reset_child_task_state(app_name, job_id, zk=zk)
 
-        if not do_not_queue:
+        if not queued:
             _queue(app_name, job_id, zk)
     finally:
         lock.release()
+    return True
 
 
 @util.pre_condition(dag_tools.parse_job_id)
@@ -145,20 +159,28 @@ def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
     if zk.exists(_get_zookeeper_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice
-    lock = obtain_lock(app_name, job_id, zk, timeout=timeout, safe=False)
+    lock = obtain_add_lock(app_name, job_id, zk, timeout=timeout, safe=False)
     if not lock:
         return False
     try:
         _queue(app_name, job_id, zk, queue=queue, priority=priority)
     finally:
-        lock.release()
+            lock.release()
     return True
 
 
-def obtain_lock(app_name, job_id, zk, timeout=None, blocking=True,
-                raise_on_error=False, safe=True):
+def _get_lockpath(typ, app_name, job_id):
+    assert typ in set(['execute', 'add'])
+    return join(_get_zookeeper_path(app_name, job_id), '%s_lock' % typ)
+
+
+def _obtain_lock(typ, app_name, job_id, zk,
+                 timeout=None, blocking=True, raise_on_error=False, safe=True):
     """Try to acquire a lock.
 
+    `typ` (str) either "execute" or "add"  - defines the type of lock to create
+        execute locks guarantee only one instance of a job at a time
+        add locks guarantee only one process can queue a job at a time
     `safe` (bool) By default, this function is `safe` because it will not
     create a node for the job_id if it doesn't already exist.
     `raise_on_error` (bool) if False, just return False.
@@ -179,20 +201,41 @@ def obtain_lock(app_name, job_id, zk, timeout=None, blocking=True,
         else:
             return False
 
-    path = join(_path, 'lock')
+    path = _get_lockpath(typ, app_name, job_id)
+    assert path.startswith(_path), "Code Error!"
     l = zk.Lock(path)
     try:
         l.acquire(timeout=timeout, blocking=blocking)
     except:
         if raise_on_error:
             raise exceptions.LockAlreadyAcquired(
-                'Lock already acquired. %s %s' % (app_name, job_id))
+                '%s Lock already acquired. %s %s' % (typ, app_name, job_id))
         else:
             log.warn(
-                "Lock already acquired.",
+                "%s Lock already acquired." % typ,
                 extra=dict(app_name=app_name, job_id=job_id))
             return False
     return l
+
+
+def obtain_add_lock(app_name, job_id, zk, *args, **kwargs):
+    """Obtain a lock used when adding a job to queue"""
+    return _obtain_lock(
+        'add', app_name=app_name, job_id=job_id, zk=zk, *args, **kwargs)
+
+
+def obtain_execute_lock(app_name, job_id, zk, *args, **kwargs):
+    """Obtain a lock used when executing a job"""
+    return _obtain_lock(
+        'execute', app_name=app_name, job_id=job_id, zk=zk, *args, **kwargs)
+
+
+def is_execute_locked(app_name, job_id, zk):
+    path = _get_lockpath('execute', app_name, job_id)
+    try:
+        return bool(zk.get_children(path))
+    except kazoo.exceptions.NoNodeError:
+        return False
 
 
 @util.pre_condition(dag_tools.parse_job_id)
@@ -273,8 +316,9 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
 
         ld = dict(
             child_app_name=child_app_name,
-            parent_app_name=parent_app_name,
-            job_id=cjob_id)
+            child_job_id=cjob_id,
+            app_name=parent_app_name,
+            job_id=parent_job_id)
         if (pcomplete == ptotal):
             log.info(
                 "Parent is queuing a child task", extra=ld)
@@ -289,11 +333,14 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
                     " and children. Just queue one of them.",
                     extra=ld)
 
-            readd_subtask(
-                child_app_name, cjob_id, zk=zk,
-                _reset_descendants=False,  # descendants previously handled
-                _ignore_if_queued=True
-            )
+            try:
+                readd_subtask(
+                    child_app_name, cjob_id, zk=zk,
+                    _reset_descendants=False,  # descendants previously handled
+                    _ignore_if_queued=True)
+            except exceptions.JobAlreadyQueued:
+                log.info("Child already in queue", extra=dict(**ld))
+                raise
         elif (pcomplete < ptotal):
             log.info(
                 "Child task is one step closer to being queued!",
@@ -304,6 +351,69 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
             raise exceptions.CodeError(
                 "For some weird reason, I calculated that more parents"
                 " completed than there are parents.")
+
+
+def ensure_parents_completed(app_name, job_id, zk, timeout):
+    """
+    Assume that given job_id is pulled from the app_name's queue.
+
+    Check that the parent tasks for this (app_name, job_id) pair have completed
+    If they haven't completed and aren't pending, maybe create the
+    parent task in its appropriate queue.  Also decide whether the calling
+    process should requeue given job_id or remove itself from queue.
+
+    Returns a tuple:
+        (are_parents_completed, should_job_id_be_consumed_from_queue,
+         parent_execute_locks_to_release)
+    """
+    parents_completed = True
+    consume_queue = False
+    parent_locks = set()
+    for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
+                                                          job_id, True):
+        if not check_state(
+                app_name=parent, job_id=pjob_id, zk=zk, completed=True):
+            parents_completed = False
+            log.info(
+                'Must wait for parent task to complete before executing'
+                ' child task.', extra=dict(
+                    parent_app_name=parent, parent_job_id=pjob_id,
+                    app_name=app_name, job_id=job_id))
+            if maybe_add_subtask(parent, pjob_id, zk):
+                msg_if_get_lock = (
+                    "Waiting for parent to complete."
+                    " Not unqueuing myself"
+                    " because parent might have completed already.")
+                if _ensure_parents_completed_get_lock(
+                        app_name, job_id, parent, pjob_id, zk,
+                        timeout, parent_locks, msg_if_get_lock):
+                    consume_queue = True
+            elif check_state(parent, pjob_id, zk=zk, pending=True):
+                msg_if_get_lock = (
+                    'A parent is or was previously queued but is not'
+                    ' running. Will remove myself from queue since my'
+                    ' parent will eventually run and queue me.')
+                if _ensure_parents_completed_get_lock(
+                        app_name, job_id, parent, pjob_id, zk,
+                        timeout, parent_locks, msg_if_get_lock):
+                    consume_queue = True
+    return parents_completed, consume_queue, parent_locks
+
+
+def _ensure_parents_completed_get_lock(app_name, job_id, parent, pjob_id, zk,
+                                       timeout, parent_locks, msg_if_get_lock):
+    """If we can obtain an execute lock on the given parent, then we can
+    guarantee that removing the child from its queue is safe"""
+    elock = obtain_execute_lock(
+        parent, pjob_id, zk=zk,
+        raise_on_error=False, timeout=timeout)
+    if elock:
+        parent_locks.add(elock)
+        log.info(msg_if_get_lock, extra=dict(
+            parent_app_name=parent, parent_job_id=pjob_id,
+            app_name=app_name, job_id=job_id))
+        return True
+    return False
 
 
 def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
@@ -343,6 +453,7 @@ def set_state(app_name, job_id, zk,
         zk.set(zookeeper_path, state)
     else:
         zk.create(zookeeper_path, state, makepath=True)
+
     log.debug(
         "Set task state",
         extra=dict(state=state, app_name=app_name, job_id=job_id))
