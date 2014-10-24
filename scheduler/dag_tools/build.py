@@ -309,7 +309,7 @@ def validate_env_from_os(app_name, metadata, dg, tasks_conf, ld):
     )
     for key in metadata["env_from_os"]:
         _log_raise_if(
-            not os.environ[key],
+            not os.environ.get(key),
             "key not in os environment but expected it to be there",
             extra=dict(key=key, **ld),
             exception_kls=DAGMisconfigured)
