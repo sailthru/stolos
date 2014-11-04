@@ -7,23 +7,26 @@ except ImportError:
     raise
 
 setup(
-    name='scheduler',
+    name='stolos',
     version='1.0.0',
-    description=('A DAG-based job scheduler for performing work with complex'
-                 ' dependency requirements.'),
+    description=(
+        'A DAG-based job queueing system and executor for performing work'
+        ' with complex dependency requirements between applications'),
     long_description="Check the project homepage for details",
-    keywords=['scheduler', 'dag', 'directed acyclic graph', 'graph', 'data',
-              'dependency'],
+    keywords=[
+        'stolos', 'scheduler', 'dag', 'directed acyclic graph', 'graph',
+        'data', 'dependency', 'queue', 'queueing system', 'pipeline',
+        'applications', 'machine learning', 'executor'],
 
     author='Sailthru Data Science Team',
     author_email='agaudio@sailthru.com',
-    url='https://github.com/sailthru/scheduler',
+    url='https://github.com/sailthru/stolos',
 
     packages=find_packages(),
-    scripts=['./bin/scheduler-submit'],
+    scripts=['./bin/stolos-submit'],
     data_files=[
         ('conf', findall('conf')),
-        ('scheduler/examples', findall('scheduler/examples'))
+        ('stolos/examples', findall('stolos/examples'))
     ],
 
     install_requires = [
@@ -56,10 +59,10 @@ setup(
 
     entry_points = {
         'console_scripts': [
-            'scheduler = scheduler.__main__:go',
+            'stolos = stolos.__main__:go',
         ],
         'setuptools.installation': [
-            'eggsecutable = scheduler.__main__:go',
+            'eggsecutable = stolos.__main__:go',
         ],
     },
 )
