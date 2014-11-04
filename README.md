@@ -1,32 +1,39 @@
 Summary:
 ==============
 
-This tasks scheduler manages the order of execution of dependent tasks
-where a task represents some piece of work that may have many
-variations.  It has the following features:
+Stolos is a kind of scheduler that manages the order of execution of dependent
+apps where an app is some piece of work that may have many variations.  It is
+not aware of resources and does not implement the bin packing algorithm that
+most people think of when they deal with schedulers.
 
-  - very simple to use (create an issue if it isn't!)
+Stolos has the following features:
+
+  - very simple to use (create an issue if something isn't obvious!)
+  - characterizes dependencies between apps using a directed acyclic
+    multi-graph
+  - supports subtasks and dependencies on arbitrary subsets of tasks
+  - decentralized and distributed, except that it centralizes work queues in
+    ZooKeeper.
   - excellent fault tolerance (via ZooKeeper)
-  - as scalable as ZooKeeper (<100k simultaneous subtasks?)
-  - characterize dependencies as a directed acyclic multi-graph
-  - support for subtasks and dependencies on arbitrary subsets of tasks
+  - as scalable as ZooKeeper
   - language agnostic (but written in Python)
-  - "at least once" semantics (a guarantee that a task will successfully
+  - "at least once" semantics (a guarantee that a job will successfully
     complete or fail after n retries)
-  - designed for tasks of various sizes: from large hadoop tasks to
-    tasks that take a second to complete
+  - designed for apps of various sizes: from large hadoop jobs to
+    jobs that take a second to complete
 
 What this is project not:
   - not meant for "real-time" computation
   - not aware of machines, nodes, network topologies and infrastructure
   - does not (and should not) auto-scale workers
-  - by itself, it does no actual "work" other than managing job state
-    and queueing future work
+  - by itself, it does no actual "work" other than managing job state,
+    queueing future work, and spawning a subprocess that may perform work.
   - This is not a grid scheduler (ie this does not solve a bin packing problem)
-  - not a crontab.
-  - not really meant to execute long-running services, unless it makes
+  - not a crontab.  (in certain cases, this is not entirely true)
+  - usually not meant to execute services, unless it makes
     sense to express the work those services do as batch jobs that
     depend on each other
+  - requires that your dependency graph is completely deterministic.
 
 
 Requirements:
@@ -46,123 +53,122 @@ The inspiration for this project comes from the notion that the way we
 manage dependencies in our system defines how we characterize the work
 that exists in our system.
 
-This project arose from the needs of Sailthru's Data Science team
-to manage execution of tasks.  The team has a complex data pipeline
-(build models, algorithms and applications that support many clients),
- and this leads to a wide variety of work we have to
-perform within our system.  Some work is very specific.  For instance,
-we need to train the same predictive model once per (client, date).
-Other tasks might be more complex: a cross-client analysis across
-various groups of clients and ranges of dates.  In either case, we
-cannot return results without having previously identified data sets we
-need, transformed them, created some extra features on the data, and
+This project arose from the needs of Sailthru's Data Science team to manage
+execution of pipeline applications.  The team has a complex data pipeline
+(build models, algorithms and applications that support many clients), and this
+leads to a wide variety of work we have to perform within our system.  Some
+work is very specific.  For instance, we need to train the same predictive
+model once per (client, date).  Other tasks might be more complex: a
+cross-client analysis across various groups of clients and ranges of dates.  In
+either case, we cannot return results without having previously identified data
+sets we need, transformed them, created some extra features on the data, and
 built the model or analysis.
 
-Since we have hundreds or thousands of instances of any particular task,
+Since we have hundreds or thousands of instances of any particular app,
 we cannot afford to manually verify that work gets completed. Therefore,
-we need a system to manage execution of tasks.
+we need a system to manage execution of applications.
 
 
-Concept: Task Dependencies as a Directed Graph
+Concept: Application Dependencies as a Directed Graph
 ==============
 
 
-We can model dependencies between tasks as a directed graph, where nodes
-are tasks and edges are dependency requirements.  The following section
-explains how this scheduler uses a directed graph to define task
+We can model dependencies between applications as a directed graph, where nodes
+are apps and edges are dependency requirements.  The following section
+explains how Stolos uses a directed graph to define application
 dependencies.
 
-We start with an assumption that tasks depend on each other:
+We start with an assumption that our applications depend on each other:
 
            Scenario 1:               Scenario 2:
 
-              Task_A                     Task_A
+              App_A                     App_A
                 |                        /     \
                 v                       v       v
-              Task_B                  Task_B   Task_C
+              App_B                  App_B   App_C
                                         |       |
-                                        |      Task_D
+                                        |      App_D
                                         |       |
                                         v       v
-                                          Task_E
+                                          App_E
 
 
-In Scenario 1, `Task_B` cannot run until `Task_A` completes.  In
-Scenario 2, `Task_B` and `Task_C` cannot run until `Task_A` completes,
-but `Task_B` and `Task_C` can run in any order.  Also, `Task_D` requires
-`Task_C` to complete, but doesn't care if `Task_B` has run yet.
-`Task_E` requires `Task_D` and `Task_B` to have completed.
+In Scenario 1, `App_B` cannot run until `App_A` completes.  In
+Scenario 2, `App_B` and `App_C` cannot run until `App_A` completes,
+but `App_B` and `App_C` can run in any order.  Also, `App_D` requires
+`App_C` to complete, but doesn't care if `App_B` has run yet.
+`App_E` requires `App_D` and `App_B` to have completed.
 
-By design, we also support the scenario where one task expands into multiple
-subtasks, or jobs.  The reason for this is that if we run a hundred or thousand
-variations of the one task, the results of each job (ie subtask) may
+By design, we also support the scenario where one application expands into
+multiple subtasks, or jobs.  The reason for this is that if we run a hundred or
+thousand variations of the one app, the results of each job (ie subtask) may
 bubble down through the dependency graph independently of other jobs.
 
-There are several ways subtasks may depend on other subtasks, and this
-system captures them all (as far as we can tell).
+There are several ways jobs may depend on other jobs, and this
+system captures all deterministic dependency relationships (as far as we can
+tell).
 
 
-Imagine the scenario where `Task_A` --> `Task_B`
+Imagine the scenario where `App_A` --> `App_B`
 
 
             Scenario 1:
 
-               Task_A
+               App_A
                  |
                  v
-               Task_B
+               App_B
 
 
-Let's say `Task_A` becomes multiple subtasks, `Task_A_i`.  And `Task_B`
-also becomes multiple subtasks, `Task_Bi`.  Scenario 1 may transform
+Let's say `App_A` becomes multiple jobs, or subtasks, `App_A_i`.  And `App_B`
+also becomes multiple jobs, `App_Bi`.  Scenario 1 may transform
 into one of the following:
 
 
 ###### Scenario1, Situation I
 
-     becomes     Task_A1  Task_A2  Task_A3  Task_An
+     becomes     App_A1  App_A2  App_A3  App_An
      ------->      |          |      |         |
                    +----------+------+---------+
                    |          |      |         |
                    v          v      v         v
-                 Task_B1  Task_B2  Task_B3  Task_Bn
+                 App_B1  App_B2  App_B3  App_Bn
 
 ###### Scenario1, Situation II
 
-                 Task_A1  Task_A2  Task_A3  Task_An
+                 App_A1  App_A2  App_A3  App_An
      or becomes    |          |      |         |
      ------->      |          |      |         |
                    v          v      v         v
-                Task_B1  Task_B2  Task_B3  Task_Bn
+                App_B1  App_B2  App_B3  App_Bn
 
 
-In Situation 1, each subtask, `Task_Bi`, depends on completion of all of
-`TaskA`'s subtasks before it can run.  For instance, `Task_B1` cannot
-run until all `Task_A` subtasks (1 to n) have completed.  From the
-scheduler's point of view, this is not different than the simple case
-where `Task_A(1 to n)` --> `Task_Bi`.  In this case, we create a
-dependency graph for each `Task_Bi`.  See below:
+In Situation 1, each job, `App_Bi`, depends on completion of all of `App_A`'s
+jobs before it can run.  For instance, `App_B1` cannot run until all `App_A`
+jobs (1 to n) have completed.  From Stolos's point of view, this is not
+different than the simple case where `App_A(1 to n)` --> `App_Bi`.  In this
+case, we create a dependency graph for each `App_Bi`.  See below:
 
 ###### Scenario1, Situation I (view 2)
 
-     becomes     Task_A1  Task_A2  Task_A3  Task_An
+     becomes     App_A1  App_A2  App_A3  App_An
      ------->      |          |      |         |
                    +----------+------+---------+
                                  |
                                  v
-                               Task_Bi
+                               App_Bi
 
 
-In Situation 2, each subtask, `Task_Bi`, depends only on completion of
-its related subtask in `Task_A`, or `Task_Ai`.  For instance,
-`Task_B1` depends on completion of `Task_A1`, but it doesn't have any
-dependency on `Task_A2`'s completion.  In this case, we create n
+In Situation 2, each job, `App_Bi`, depends only on completion of
+its related job in `App_A`, or `App_Ai`.  For instance,
+`App_B1` depends on completion of `App_A1`, but it doesn't have any
+dependency on `App_A2`'s completion.  In this case, we create n
 dependency graphs, as shown in Scenario 1, Situation II.
 
 As we have just seen, dependencies can be modeled as directed acyclic
 multi-graphs.  (acyclic means no cycles - ie no loops.  multi-graph
 contains many separate graphs).  Situation 2 is the
-default in this scheduler (`Task_Bi` depends only on `Task_Ai`).
+default in Stolos (`App_Bi` depends only on `App_Ai`).
 
 
 Concept: Job IDs
@@ -172,72 +178,70 @@ Concept: Job IDs
 ID Configuration](/README.md#configuration-job-ids)*  This section
 explains what `job_id`s are.
 
-The scheduler recognizes tasks (ie `TaskA` or `TaskB`) and subtasks
-(`TaskA_1`, `TaskA_2`, ...).  A task represents a group of subtasks.  A
-`job_id` identifies subtasks, and it is made up of "identifiers" that we
-mash together via a `job_id` template.  A `job_id` identifies all
-possible variations of some task that the scheduler is aware of.  To
-give some context for how `job_id` templates characterize tasks, see
-below:
+Stolos recognizes apps (ie `App_` or `App_B`) and jobs (`App_A1`,
+`App_A2`, ...).  An application, or app, represents a group of jobs.  A
+`job_id` identifies jobs, and it is made up of "identifiers" that we mash
+together via a `job_id` template.  A `job_id` identifies all possible
+variations of some application that Stolos is aware of.  To give some
+context for how `job_id` templates characterize apps, see below:
 
 
-               Task_A    "{date}_{client_id}_{dataset}"
+               App_A    "{date}_{client_id}_{dataset}"
                  |
                  v
-               Task_B    "{date}_{your_custom_identifier}"
+               App_B    "{date}_{your_custom_identifier}"
 
 
-Some example `job_id`s for subtasks of `Task_A` and `Task_B`,
-respectively, might be:
+Some example `job_id`s of `App_A` and `App_B`, respectively, might be:
 
-    Task_A:  "20140614_client1_dataset1"  <--->  "{date}_{client_id}_{dataset}"
-    Task_B:  "20140601_analysis1"  <--->  "{date}_{your_custom_identifier}"
+    App_A:  "20140614_client1_dataset1"  <--->  "{date}_{client_id}_{dataset}"
+    App_B:  "20140601_analysis1"  <--->  "{date}_{your_custom_identifier}"
 
 
-A `job_id` represents the smallest piece of work the scheduler can
+A `job_id` represents the smallest piece of work that Stolos can
 recognize, and good choices in `job_id` structure identify how work is
-changing from task to task.  For instance, assume the second `job_id`
+changing from app to app.  For instance, assume the second `job_id`
 above, `20140601_analysis1`, depends on all `job_id`s from `20140601`
 that matched a specific subset of clients and datasets.  We chose to
 identify this subset of clients and datasets with the name `analysis1`.
 But our `job_id` template also includes a `date` because we wish to run
 `analysis1` on different days.  Note how the choice of `job_id`
-clarifies what the first and second tasks have in common.
+clarifies what the first and second apps have in common.
 
 Here's some general advice for choosing a `job_id` template:
 
-  - What results does this task generate?  The words that differentiate
+  - What results does this app generate?  The words that differentiate
     those results are great candidates for identifers in a `job_id`.
-  - What parameters does this task expect?  The command-line arguments
+  - What parameters does this app expect?  The command-line arguments
     to a piece of code can be great `job_id` identiers.
-  - How many different variations of this task exist?
-  - How do I expect to use this task in my system?
+  - How many different variations of this app exist?
+  - How do I expect to use this app in my system?
   - How complex is my data pipeline?  Do I have any branches in my
     dependency tree?  If you have a very simple pipeline, you may simply
-    wish to have all `job_id` templates be the same across tasks.
+    wish to have all `job_id` templates be the same across apps.
 
-It is important to note that the way(s) in which `Task_B` depends on
-`Task_A` have not been explained in this section.  A `job_id` does not
-explain how tasks depend on each other, but rather, it characterizes how
-we choose to identify a task's subtasks in context of the parent and child
-tasks.
+It is important to note that the way(s) in which `App_B` depends on
+`App_A` have not been explained in this section.  A `job_id` does not
+explain how apps depend on each other, but rather, it characterizes how
+we choose to identify a app's jobs in context of the parent and child
+apps.
 
 
 Concept: Bubble Up and Bubble Down
 ==============
 
 "Bubble Up" and "Bubble Down" refer to the direction in which work and
-task state move through the dependency graph.
+app state move through the dependency graph.
 
-Recall Scenario 1, which defines two tasks.  `Task_B` depends on
-`Task_A`.  The following picture is a dependency tree:
+Recall Scenario 1, which defines two apps.  `App_B` depends on
+`App_A`.  The following picture is a dependency tree:
 
            Scenario 1:
 
-              Task_A
+              App_A
                 |
                 v
-              Task_B
+              App_B
 
 "Bubble Down"
 --------------
@@ -245,20 +249,20 @@ Recall Scenario 1, which defines two tasks.  `Task_B` depends on
 By analogy, the "Bubble Down" approach is like "pushing" work through a
 pipe.
 
-Assume that `Task_A` and `Task_B` each had their own `job_id` queue.  A
-`job_id`, `job_id_123` is submitted to `Task_A`'s queue, some worker
-fetches that task, completes required work, and then marks the
-`(Task_A, job_id_123)` pair as completed.
+Assume that `App_A` and `App_B` each had their own `job_id` queue.  A
+`job_id`, `job_id_123` is submitted to `App_A`'s queue, some worker
+fetches that job, completes required work, and then marks the
+`(App_A, job_id_123)` pair as completed.
 
-The "Bubble Down" process happens when, just before `(Task_A,
-job_id_123)` is marked complete, we queue `(Task_B, f(job_id_123))`
-where `f()` is a magic function that translates `Task_A`'s `job_id` to
-the equivalent `job_id` for `Task_B`.
+The "Bubble Down" process happens when, just before `(App_A,
+job_id_123)` is marked complete, we queue `(App_B, f(job_id_123))`
+where `f()` is a magic function that translates `App_A`'s `job_id` to
+the equivalent `job_id` for `App_B`.
 
-In other words, the completion of `Task_A` work triggers the completion
-of `Task_B` work.  A more semantically correct version is the following:
-the completion of `(Task_A, job_id_123)` depends on both the successful
-execution of `Task_A` code and then successfully queuing some `Task_B` work.
+In other words, the completion of `App_A` work triggers the completion
+of `App_B` work.  A more semantically correct version is the following:
+the completion of `(App_A, job_id_123)` depends on both the successful
+execution of `App_A` code and then successfully queuing some `App_B` work.
 
 
 "Bubble Up"
@@ -267,19 +271,19 @@ execution of `Task_A` code and then successfully queuing some `Task_B` work.
 The "Bubble Up" approach is the concept of "pulling" work through a
 pipe.
 
-In contrast to "Bubble Down", where we executed `Task_A` first, "Bubble
-Up" executes `Task_B` first.  "Bubble Up" is a process of starting at
-some child (or descendant task), queuing the furthest uncompleted and
+In contrast to "Bubble Down", where we executed `App_A` first, "Bubble
+Up" executes `App_B` first.  "Bubble Up" is a process of starting at
+some child (or descendant job), queuing the furthest uncompleted and
 unqueued ancestor, and removing the child from the queue.  When
 ancestors complete, they will queue their children via "Bubble Down" and
-re-queue the original child task.
+re-queue the original child job.
 
-For instance, we can attempt to execute `(Task_B, job_id_B)` first.
-When `(Task_B, job_id_B)` runs, it checks to see if its parent,
-`(Task_A, g(job_id_B))` has completed.  Since `(Task_A, g(job_id_B))`
+For instance, we can attempt to execute `(App_B, job_id_B)` first.
+When `(App_B, job_id_B)` runs, it checks to see if its parent,
+`(App_A, g(job_id_B))` has completed.  Since `(App_A, g(job_id_B))`
 has not completed, it queues this job and then removes `job_id_B` from
-the `Task_B` queue.  Finally, `Task_A` executes and via "Bubble Down",
-`Task_B` also completes.
+the `App_B` queue.  Finally, `App_A` executes and via "Bubble Down",
+`App_B` also completes.
 
 
 Magic functions f() and g()
@@ -287,22 +291,22 @@ Magic functions f() and g()
 
 Note that `g()`, mentioned in the "Bubble Up" subsection, is the inverse
 of `f()`, mentioned in the "Bubble Down" subsection.  If `f()` is a magic
-function that translates `Task_A`'s `job_id` to `Task_B`'s `job_id`,
-then `g()` is a similar magic function that transforms a `TaskB` `job_id`
-to an equivalent one for `TaskA`.  In reality, `g()` and `f()` receive one
+function that translates `App_A`'s `job_id` to `App_B`'s `job_id`,
+then `g()` is a similar magic function that transforms a `App_B` `job_id`
+to an equivalent one for `App_A`.  In reality, `g()` and `f()` receive one
 `job_id` as input and return at least one `job_id` as output.
 
 These two functions can be quite complex:
 
-  - If the parent and child task have the same `job_id` template, then `f()
+  - If the parent and child app have the same `job_id` template, then `f()
     == g()`.  In other words, `f()` and `g()` return the same `job_id`.
   - If they have different templates, the functions will attempt to use
-    the metadata available from configuration metadata (in tasks.json)
+    the metadata available from configuration metadata (ie in TASKS_JSON)
   - If a parent has many children, `f(parent_job_id)` returns a `job_id`
     for each child and `g(child_id)` returns at least 1 `job_id` for
-    that parent task.  This may involve calculating the crossproduct of
+    that parent app.  This may involve calculating the crossproduct of
     `job_id` identifier metadata listed in dependency configuration for
-    that task.
+    that app.
     - If a child has many parents, `g` and `f` perform similar
       operations.
 
@@ -310,25 +314,23 @@ These two functions can be quite complex:
 Why perform a "Bubble Up" operation at all?
 --------------
 
-In a purely "Bubble Down" system, executing `Task_B` first means we
-would have to wait indefinitely until `Task_A` successfully completed
+In a purely "Bubble Down" system, executing `App_B` first means we
+would have to wait indefinitely until `App_A` successfully completed
 and submitted a `job_id` to the queue.  This can pose many problems: we
-don't know if `Task_A` will ever run, so we sit and wait; waiting
+don't know if `App_A` will ever run, so we sit and wait; waiting
 processes take up resources and become non-deterministic (we have no
 idea if the process will hang indefinitely); we can create locking
-scenarios where there aren't enough resources to execute `Task_A`;
-`Task_B`'s queue size can become excessively high; we suddenly need a
+scenarios where there aren't enough resources to execute `App_A`;
+`App_B`'s queue size can become excessively high; we suddenly need a
 queue prioritization scheme and other complex algorithms to manage
 scaling and resource contention.
 
 Secondly, if the system supports a "Bubble Up" approach, we can simply
-pick and run any task in a dependency graph and expect that it will
-execute as soon as possible to do so.
+pick and run any app in a dependency graph and expect that it will
+be queued to execute as soon as possible to do so.
 
-"Bubble up" should be always safe to perform as long as the system
-implementing the scheduler can ignore unwanted task queues, and as long
-as there is no risk of queueing particular subtasks that wouldn't
-otherwise be ignored.
+If Stolos is used properly, "Bubble up" will never queue particular jobs that
+would otherwise be ignored.
 
 
 Concept: Job State
@@ -337,32 +339,32 @@ Concept: Job State
 There are 4 recognized job states.  A job_id should be in any one of these
 states at any given time.
 
-- `completed`  --  When the scheduler has successfully completed the work
-    defined by a job_id, the job_id is marked as completed.
-- `pending`  --  A job_id is pending when it is queued for work or otherwise
-    recognized as a task but not executed
-- `failed`  --  Failed job_ids have failed more than the maximum allowed number
-    of times.  Children of failed jobs will never be executed.
-- `skipped`  --  A job_id is skipped if it does not pass valid_if_or criteria
-    defined for that task.  A skipped task is treated like a "failed" task.
+- `completed`  --  When a job has successfully completed the work defined by a
+  `job_id`, and children have been queued, the `job_id` is marked as completed.
+- `pending`  --  A `job_id` is pending when it is queued for work or otherwise
+    waiting to be queued on completion of a parent job.
+- `failed`  --  Failed `job_id`s have failed more than the maximum allowed
+  number of times.  Children of failed jobs will never be executed.
+- `skipped`  --  A `job_id` is skipped if it does not pass valid_if_or criteria
+    defined for that app.  A skipped job is treated like a "failed" job.
 
 
 Setup:
 ==============
 
-The first thing you'll want to do is install the scheduler:
+The first thing you'll want to do is install Stolos
 
-    pip install scheduler
+    pip install stolos
 
     # If you prefer a portable Python egg, clone the repo and then type:
     # python setup.py bdist_egg
 
-Next, you need to define environment vars that tell the scheduler how to
+Next, you need to define environment vars that tell Stolos how to
 run.  For more options, see [a more detailed environment
-conf](conf/scheduler-env.sh)
+conf](conf/stolos-env.sh)
 
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
-    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+    export JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
 
     # and assuming you use the default json configuration backend:
     export TASKS_JSON="/path/to/a/file/called/tasks.json"
@@ -371,32 +373,32 @@ conf](conf/scheduler-env.sh)
     export ZOOKEEPER_HOSTS="localhost:2181"
 
 
-The next steps may vary based on how you just configured the scheduler,
+The next steps may vary based on how you just configured Stolos,
 but you generally need to 1) define a `job_id_validations`module, and 2)
 finish setting up your configuration backend (which in the example above
 is a json file).
 
 - the `job_id_validations` python module should look like this:
-  
-    - See [example `job_id` validations file](scheduler/examples/job_id_validations.py)
-  
+
+    - See [example `job_id` validations file](stolos/examples/job_id_validations.py)
+
 - the configuration backend
-  
+
     - See section: [Setup: Configuration
       Backends](README.md#setup-configuration-backends)
-  
 
-After this initial setup, you may run your applications using the scheduler.
+
+After this initial setup, you may run your applications using Stolos.
 To do this, you need to follow a couple steps:
 
 1. Create some application that can be called through bash or initiated
    as a spark job
-1. Create an entry for it in the tasks config (ie the file pointed to by
+1. Create an entry for it in the app config (ie the file pointed to by
    `TASKS_JSON` if you use that)
-1. Submit a `job_id` for this task
-1. Run the task.
+1. Submit a `job_id` for this app
+1. Run the app using Stolos.
 
-**Take a look at some [example tasks](scheduler/examples/tasks/) for details
+**Take a look at some [examples](stolos/examples/tasks/) for details
   on how to perform these simple steps.**
 
 
@@ -404,77 +406,81 @@ Setup: Configuration Backends
 ==============
 
 The configuration backend identifies where you store the dependency graph.  By
-default, and in all examples, the scheduler expects to use a a simple json file
+default, and in all examples, Stolos expects to use a a simple json file
 to store the dependency graph.  However, you can choose to store this data in
 other formats or databases.  The choice of configuration backend defines how
-you store configuration.  Also, keep in mind that every time a scheduler app
+you store configuration.  Also, keep in mind that every time a Stolos app
 initializes, it queries the configuration.
 
 Currently, the only supported configuration backends are a JSON file or a Redis
-database.  However, it is also simple to extend the scheduler with your own
+database.  However, it is also simple to extend Stolos with your own
 configuration backend.  If you do implement your own configuration backend,
 please consider submitting a pull request to us!
 
 These are the steps you need to take to use a particular backend:
 
-1. First, let the scheduler know which backend to load.  You could also specify
+1. First, let Stolos know which backend to load.  You could also specify
    your own code here, if you are so inclined:
 
 ```
-export CONFIGURATION_BACKEND="scheduler.configuration_backend.json_config.JSONConfig"
+export CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
 ```
 
 OR
 
 ```
-export CONFIGURATION_BACKEND="scheduler.configuration_backend.redis_config.RedisConfig"
+export CONFIGURATION_BACKEND="stolos.configuration_backend.redis_config.RedisConfig"
 ```
 
 2. Second, each backend has its own options.
     - For the JSON backend, you must define:
 
-        export TASKS_JSON="$DIR/scheduler/examples/tasks.json"
+        export TASKS_JSON="$DIR/stolos/examples/tasks.json"
 
     - For the Redis backend, it is optional to overide these defaults:
 
-        export SCHEDULER_REDIS_DB=0  # which redis db is the scheduler using?
+        export SCHEDULER_REDIS_DB=0  # which redis db is Stolos using?
         export SCHEDULER_REDIS_PORT=6379
         export SCHEDULER_REDIS_HOST='localhost'
 
 
-For examples, see the file, [conf/scheduler-env.sh](conf/scheduler-env.sh)
+For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
 
 
 Usage:
 ==============
 
-This scheduler wraps your application code so it can track job state
-before and after the application runs.  Therefore, you should think of
-running an application hooked into the scheduler like running the
-application itself.
+Stolos wraps your application code so it can track job state just before and
+just after the application runs.  Therefore, you should think of running an
+application via Stolos like running the application itself.  This is
+fundamentally different than many projects because there is no centralized
+server or "master" node from you can launch tasks or control Stolos.  Stolos is
+simply a thin wrapper for your application.  It is ignorant of your
+infrastructure and network topology.  You can generally execute Stolos
+applications the same way you would treat your application without Stolos.
 
 
 In order to run a job, you have to queue it and then execute it.  You
-can read from the application's queue and execute code via:
+can get a job from the application's queue and execute code via:
 
 
-    scheduler --app_name test_scheduler/test_pyspark -h
+    stolos --app_name test_scheduler/test_pyspark -h
 
-    scheduler --app_name test_scheduler/test_bash -h
+    stolos --app_name test_scheduler/test_bash -h
 
 
 This is how you can manually queue a job:
 
 
-    scheduler-submit -h
+    stolos-submit -h
 
 
-We also provide a way to bypass the scheduler and execute a job
-directly.  This is useful if you are testing a task that may be
-dependent on scheduler a plugins, such as the pyspark plugin.
+We also provide a way to bypass Stolos and execute a job
+directly.  This is useful if you are testing an app that may be
+dependent on Stolos plugins, such as the pyspark plugin.
 
 
-    scheduler --bypass_scheduler -a my_task --job_id my_job_id
+    stolos --bypass_scheduler -a my_app --job_id my_job_id
 
 
 Configuration: Job IDs
@@ -482,71 +488,69 @@ Configuration: Job IDs
 
 This section explains what configuration for `job_id`s must exist.
 
-These environment variables must be available to scheduler code:
+These environment variables must be available to Stolos:
 
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
-    export JOB_ID_VALIDATIONS="tasks.job_id_validations"
+    export JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
 
 - `JOB_ID_VALIDATIONS` points to a python module containing code to
   verify that the identifiers in a `job_id` are correct.
   - See
-    [scheduler/examples/job_id_validations.py](scheduler/examples/job_id_validations.py)
+    [stolos/examples/job_id_validations.py](stolos/examples/job_id_validations.py)
     for the expected code structure
   - These validations specify exactly which identifiers can be used in
     job_id templates and what format they take (ie is `date` a datetime
     instance, an int or string?).
   - They are optional to implement, but you will see several warning
     messages for each unvalidated `job_id` identifier.
-- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for a task if
-  the `job_id` template isn't explicitly defined in the tasks config.  You
+- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for an app if
+  the `job_id` template isn't explicitly defined in the app's config.  You
   should have `job_id` validation code for each identifier in your default
   template.
 
-In addition to these defaults, each task in the tasks.json configuration may
-also contain a custom `job_id` template.  See section: [Configuration: Tasks,
-Dependencies,
-...](README.md#configuration-tasks-dependencies-and-the-tasksjson-file) for
-details.
+In addition to these defaults, each app in the app configuration may also
+contain a custom `job_id` template.  See section: [Configuration: Apps,
+Dependencies and Configuration
+](README.md#configuration-apps-dependencies-and-configuration) for details.
 
 
-Configuration: Tasks, Dependencies and the Task Configuration
+Configuration: Apps, Dependencies and Configuration
 ==============
 
-Task configuration defines the task dependency graph and metadata the
-scheduler needs to run a task.  Task configuration answers questions
+App configuration defines the app dependency graph and metadata
+Stolos needs to run a job.  App configuration answers questions
 like: "What are the parents or children for this (`app_name`, `job_id`)
 pair?" and "What general key:value configuration is defined for this
-task?".  It does not store the state of `job_id`s and it has nothing to
-do with the scheduler's queuing system.  This section will show
-available configuration options.
+app?".  It does not store the state of `job_id`s and it does not contain
+queuing logic.  This section will show available configuration options.
 
 Configuration can be defined using various different configuration backends:
 a json file, a key-value database, etc. For instructions on how to setup a
 different or custom configuration backends, see section
 "Setup: Configuration Backends."  The purpose of this section, however, is to
-expose how to define the tasks and their relationships with other tasks.
+expose how to define the apps and their relationships with other apps.
 
-There are a few different configuration options each task may define.  Here is
+There are a few different configuration options each app may define.  Here is
 a list of configuration options:
 
-- *`job_type`* - (required) Select which plugin this particular task uses
+- *`job_type`* - (required) Select which plugin this particular app uses
   to execute your code.  The `job_type` choice also adds other configuration
-  options based on how the respective scheduler plugin works.
-- *`depends_on`* - (optional) A designation that this task can only be queued
-  to run if certain parent `job_id`s have completed.
+  options based on how the respective Stolos plugin works.
+- *`depends_on`* - (optional) A designation that a (`app_name`, `job_id`)
+  can only be queued to run if certain parent `job_id`s have completed.
 - *`job_id`* - (optional) A template describing what identifiers compose
-  the `job_id`s for your task.  If not given, assumes the default `job_id`
+  the `job_id`s for your app.  If not given, assumes the default `job_id`
   template.  `job_id` templates determine how work changes through your
   pipeline
 - *`valid_if_or`* - (optional) Criteria that `job_id`s are matched against.
-  If a `job_id` for a task does not match the given
-  `valid_if_or` criteria, then the task is immediately marked as "skipped"
+  If a `job_id` for an app does not match the given
+  `valid_if_or` criteria, then the job is immediately marked as "skipped"
 
 
-Here is a minimum viable configuration for a task:
+Here is a minimum viable configuration for an app:
 
     {
-        "task_name": {
+        "app_name": {
             "job_type": "bash"
         }
     }
@@ -554,24 +558,24 @@ Here is a minimum viable configuration for a task:
 As you can see, there's not much to it.  You would need to define a
 command-line like "--bash echo 123" for this example to run properly.
 
-Here is an example of a simple TaskA_i` --> `TaskB_i` relationship.
+Here is an example of a simple App_Ai` --> `App_Bi` relationship.
 Also notice that the `bash_opts` performs string interpolation so
 applications can receive dynamically determined command-line parameters.
 
     {
-        "task1": {
+        "App1": {
             "job_type": "bash",
-            "bash_opts": "echo {app_name} is Running Task 1 with {job_id}"
+            "bash_opts": "echo {app_name} is Running App 1 with {job_id}"
         },
-        "task2": {
+        "App2": {
             "job_type": "bash",
-            "bash_opts": "echo Running Task 2. job_id contains date={date}"
-            "depends_on": {"app_name": ["task1"]}
+            "bash_opts": "echo Running App 2. job_id contains date={date}"
+            "depends_on": {"app_name": ["App1"]}
         }
     }
 
-A slightly more complex variant of a `TaskA_i` --> `TaskB_i` relationship.
-Notice that the `job_id` of the child task has changed, meaning a `preprocess`
+A slightly more complex variant of a `App_Ai` --> `App_Bi` relationship.
+Notice that the `job_id` of the child app has changed, meaning a `preprocess`
 job identified by `{date}_{client_id}` would kick off a `modelBuild` job
 identified by `{date}_{client_id}_purchaseRevenue`
 
@@ -590,7 +594,7 @@ identified by `{date}_{client_id}_purchaseRevenue`
         }
     }
 
-A dependency graph demonstrating how `TaskA` queues up multiple `TaskB_i`.  In
+A dependency graph demonstrating how `App_A` queues up multiple `App_Bi`.  In
 this example, the completion of a `preprocess` job identified by
 `20140101_1234` enqueues two `modelBuild` jobs:
 `20140101_1234_purchaseRevenue` and `20140101_1234_numberOfPageviews`
@@ -610,8 +614,8 @@ this example, the completion of a `preprocess` job identified by
         }
     }
 
-The below configuration demonstrates how multiple `TaskA_i` reduce to
-`TaskB_j`.  In other words, the `modelBuild` of `client1_purchaseRevenue`
+The below configuration demonstrates how multiple `App_Ai` reduce to
+`App_Bj`.  In other words, the `modelBuild` of `client1_purchaseRevenue`
 cannot run (or be queued to run) until `preprocess` has completed these
 `job_ids`: `20140601_client1`, `20140501_client1`, and `20140401_client1`.
 The same applies to job, `client1_numberOfPageviews`.  However, it does not
@@ -637,7 +641,7 @@ Functions](README.md#configuration-defining-dependencies-with-a-two-way-function
         }
     }
 
-We also enable boolean logic in dependency structures.  A task can
+We also enable boolean logic in dependency structures.  An app can
 depend on `dependency_group_1` OR another dependency group.  Within a
 dependency group, you can also specify that the dependencies come from one
 different set of `job_ids` AND another set.  The AND and OR logic can also be
@@ -681,13 +685,19 @@ the declaration of different dependency groups specifies OR logic.
 
 There are many structures that `depends_on` can take, and some are better than
 others.  We've given you enough building blocks to express almost any
-batch processing pipeline.
+deterministic batch processing pipeline.
 
 
 Configuration: Defining Dependencies with a Two-Way Functions
 ==============
 
- TODO  This isn't implemented yet.
+ TODO  This isn't implemented yet.  
+
+Two way functions allow users of Stolos to define arbitrarily complex
+dependency relationships between jobs.  The general idea of a two-way function
+is to define how the job, `App_Ai`, can spawn one or more children, `App_Bj`.
+Being "two-way", this function must be able to identify child and parent
+jobs.
 
    depends_on:
        {_func: "python.import.path.to.package.module.func", app_name: ...}
@@ -702,13 +712,17 @@ executed in its own shell), or should it be an Apache Spark (python) job
 that receives elements of a stream or a textFile instance?  The
 following table defines different `job_type` options available.  Each
 `job_type` has its own set of configuration options, and these are
-available at the commandline and (possibly) in the tasks.json file.
+available at the commandline and (possibly) in the app configuration.
+
+For most use-cases, we recommend "bash" job type.  However, if a plugin seems
+particularly useful, remember that running the application without Stolos may
+require some extra code on your part.
 
  - `job_type`="bash"
     - `bash_opts`
  - `job_type`="pyspark"
     - `pymodule` - a python import path to python application code.  ie.
-      `scheduler.examples.tasks.test_task`,
+      `stolos.examples.tasks.test_task`,
     - `spark_conf` - a dict of Spark config keys and values
     - `env` - a dict of environment variables and values
     - `env_from_os` - a list if os environment variables that should exist on
@@ -716,19 +730,19 @@ available at the commandline and (possibly) in the tasks.json file.
     - `uris` - a list of Spark files and pyFiles
 
 (Developer note) Different `job_type`s correspond to specific "plugins"
-recognized by the scheduler.  One can extend the scheduler to support
-custom `job_type`s.  You may wish to do this if tasks contain logic that
-requires knowledge of the runtime environment with which the scheduler
-was executed (this includes details like the tasks's `app_name`).  You
-may also with to do this if you do not wish to create a subprocess to
-run existing python code.  Refer to the developer documentation for
-writing custom plugins.
+recognized by Stolos.  One can extend Stolos to support custom `job_type`s.
+You may wish to do this if you determine that it is more convenient have
+similar apps re-use the same start-up and tear-down logic.  Keep in mind that
+plugins generally violate Stolos's rule that it is ignorant of your runtime
+environment, network topology, infrastructure, etc.  Therefore, in Stolos, a
+plugin should be completely isolated from the rest of the Stolos codebase.
+Refer to the developer documentation for writing custom plugins.
 
 
 Developer's Guide
 ===============
 
-Submitting a PR
+Submitting a Pull Request
 ---------------
 
 We love that you're interested in contributing to this project!  Hopefully,
@@ -737,12 +751,12 @@ this section will help you make a successful pull request to the project.
 If you'd like to make a change, you should:
 
 1. Create an issue and form a plan with maintainers on the issue tracker
-1. Fork this repo, clone it to you machine, make changes
-   and then submit a Pull Request.  Google "How to submit a pull request" or 
+1. Fork this repo, clone it to you machine, make changes in your fork,
+   and then submit a Pull Request.  Google "How to submit a pull request" or
    [follow this guide](https://help.github.com/articles/using-pull-requests).
   - Before submitting the PR, run tests to verify your code is clean:
 
-    ./bin/test_scheduler.sh  # run the tests
+    ./bin/test_stolos.sh  # run the tests
 
 1. Get code reviewed and iterate until PR is closed
 
@@ -750,13 +764,13 @@ If you'd like to make a change, you should:
 Creating a plugin
 ---------------
 
-Plugins hook arbitrary code into the scheduler.  By default, the scheduler
-supports executing bash tasks (which practically supports everything) and, for
-convenience, Spark (python) tasks.  If you wish to add another plugin, you
-should create a file in the scheduler/plugins directory named "xyz_plugin.py."
+Plugins hook arbitrary code into Stolos.  By default, Stolos
+supports executing bash applications and, for convenience, Spark (python)
+applications.  If you wish to add another plugin, you should create a file in
+the stolos/plugins directory named "xyz_plugin.py."
 
 
-    ./scheduler/plugins/xyz_plugin.py
+    ./stolos/plugins/xyz_plugin.py
 
 
 This plugin file must define exactly two things:
@@ -767,7 +781,7 @@ This plugin file must define exactly two things:
     `ns.app_name` and `ns.job_id` (and whatever other ns variables) to execute
     some specific piece of code that exists somewhere.
   - It must define a `build_arg_parser` object that will populate the `ns`.
-    Keep in mind that the scheduler code will also populate this ns and it is
+    Keep in mind that Stolos will also populate this ns and it is
     generally good practice to avoid naming conflicts in argument options.
     The `build_arg_parser` object uses the argparse_tools library, and is
     instantiated like this:
@@ -780,13 +794,12 @@ Roadmap:
 
 Here are some improvements we are considering in the future:
 
-- Support different configuration backends besides a tasks.json file.
+- Support additional configuration backends
   - Some of these backends may support a web UI for creating, viewing and
-    managing tasks config and dependencies
+    managing app config and dependencies
+  - We currently support storing configuration in json file xor in Redis.
 - Support different queue backends in addition to Zookeeper
-  - (scheduler should use backends through a shared api of some sort)
+  - (Stolos should use backends through a shared api of some sort)
 - A web UI showing various things like:
   - Interactive dependency graph
-  - Current task status
-  - ideally, the backend(s) can just support this so we don't have to.
-    - we should be able to visualize the dag graph, though
+  - Current job status
