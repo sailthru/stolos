@@ -32,6 +32,35 @@ def get_zkclient(zookeeper_hosts=None):
     return zk
 
 
+def get_qsize(app_name, zk, queued=True, taken=True):
+    """
+    Find the number of jobs in the given app's queue
+
+    `queued` - Include the entries in the queue that are not currently
+        being processed or otherwise locked
+    `taken` - Include the entries in the queue that are currently being
+        processed or are otherwise locked
+    """
+    pq = join(app_name, 'entries')
+    pt = join(app_name, 'taken')
+    if queued:
+        entries = len(zk.get_children(pq))
+        if taken:
+            return entries
+        else:
+            taken = len(zk.get_children(pt))
+            return entries - taken
+    else:
+        if taken:
+            taken = len(zk.get_children(pt))
+            return taken
+        else:
+            raise AttributeError(
+                "You asked for an impossible situation.  Queue items are"
+                " waiting for a lock xor taken.  You cannot have queue entries"
+                " that are both not locked and not waiting.")
+
+
 def _queue(app_name, job_id, zk, queue=True, priority=None):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
