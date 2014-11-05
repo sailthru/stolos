@@ -20,7 +20,7 @@ ZOOKEEPER_SKIPPED = 'skipped'
 
 
 @util.cached
-def get_client(zookeeper_hosts=None):
+def get_zkclient(zookeeper_hosts=None):
     if zookeeper_hosts is None:
         zookeeper_hosts = os.environ["ZOOKEEPER_HOSTS"]
     log.debug("Connecting to ZooKeeper: %s" % zookeeper_hosts)
@@ -155,7 +155,7 @@ def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
         Irrelevant if `queue` is False
     """
     if zk is None:
-        zk = get_client(zookeeper_hosts)
+        zk = get_zkclient(zookeeper_hosts)
     if zk.exists(_get_zookeeper_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice

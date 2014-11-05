@@ -25,7 +25,7 @@ def _make_key(func_name, app_name):
     return '%s__%s' % (func_name, app_name)
 
 
-def get_client():
+def get_redis_client():
     return redis.StrictRedis(db=int(os.environ.get('STOLOS_REDIS_DB', 0)))
 
 
@@ -33,7 +33,7 @@ def setup_func(func_name):
     raw = {_make_key(func_name, app_name): data
            for app_name, data in make_json().items()}
     td = RedisMapping()
-    cli = get_client()
+    cli = get_redis_client()
     for app_name, app_conf in raw.items():
         cli.hmset('%s%s' % (REDIS_PREFIX, app_name), app_conf)
     return [], dict(td=td, raw=raw, cli=cli, **{a: a2 for a, a2 in zip(
@@ -41,9 +41,9 @@ def setup_func(func_name):
 
 
 def teardown_func(raw):
-    assert get_client().delete(*('%s%s' % (REDIS_PREFIX, app_name)
-                                 for app_name in raw.keys())), (
-                                     "Oops did not clean up properly?")
+    assert get_redis_client().delete(
+        *('%s%s' % (REDIS_PREFIX, app_name)
+          for app_name in raw.keys())), ("Oops did not clean up properly?")
 
 
 def with_setup(func):

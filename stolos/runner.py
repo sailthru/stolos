@@ -28,7 +28,7 @@ def main(ns):
         return
 
     log.info("Beginning Stolos", extra=dict(**ns.__dict__))
-    zk = zookeeper_tools.get_client(ns.zookeeper_hosts)
+    zk = zookeeper_tools.get_zkclient(ns.zookeeper_hosts)
     q = zk.LockingQueue(ns.app_name)
     if ns.job_id:
         lock = _handle_manually_given_job_id(ns, zk)

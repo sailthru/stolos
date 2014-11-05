@@ -5,7 +5,7 @@ from stolos import log
 
 
 def main(ns):
-    zk = zkt.get_client(ns.zookeeper_hosts)
+    zk = zkt.get_zkclient(ns.zookeeper_hosts)
     if ns.readd:
         zkt.readd_subtask(ns.app_name, ns.job_id, zk=zk)
     else:

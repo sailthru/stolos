@@ -18,7 +18,7 @@ CMD = (
 TASKS_JSON = os.environ['TASKS_JSON']
 TASKS_JSON_TMPFILES = {}
 
-zk = zkt.get_client('localhost:2181')
+zk = zkt.get_zkclient('localhost:2181')
 job_id1 = '20140606_1111_profile'
 job_id2 = '20140606_2222_profile'
 job_id3 = '20140604_1111_profile'
