@@ -161,7 +161,7 @@ def test_no_tasks():
     """
     The script shouldn't fail if it doesn't find any queued tasks
     """
-    run_spark_code(app1)
+    run_code(app1)
     validate_zero_queued_task(app1)
     validate_zero_queued_task(app2)
 
@@ -253,7 +253,7 @@ def test_push_tasks():
     then we should end up with one A task completed and one queued B task
     """
     enqueue(app1, job_id1)
-    run_spark_code(app1)
+    run_code(app1)
     validate_one_completed_task(app1, job_id1)
     # check child
     validate_one_queued_task(app2, job_id1)
@@ -277,7 +277,7 @@ def test_rerun_pull_tasks():
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
     # run app 2.  the parent was previously completed
-    run_spark_code(app2)
+    run_code(app2)
     validate_one_completed_task(app1, job_id1)  # previously completed
     validate_one_completed_task(app2, job_id1)
 
@@ -465,18 +465,18 @@ def test_pull_tasks():
             we then run B and B becomes completed
     """
     enqueue(app2, job_id1)
-    run_spark_code(app2)
+    run_code(app2)
     validate_one_queued_task(app1, job_id1)
     validate_zero_queued_task(app2)
 
-    run_spark_code(app2)
+    run_code(app2)
     validate_one_queued_task(app1, job_id1)
     validate_zero_queued_task(app2)
 
-    run_spark_code(app1)
+    run_code(app1)
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
-    run_spark_code(app2)
+    run_code(app2)
     validate_one_completed_task(app2, job_id1)
 
 
@@ -536,7 +536,7 @@ def test_retry_failed_task():
     nose.tools.assert_equal(2, get_zk_status(app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(app1))
     # run job_id2 and have it fail
-    run_spark_code(app1, extra_opts='--fail')
+    run_code(app1, extra_opts='--bash "&& notacommand...fail" ')
     # ensure we still have both items in the queue
     nose.tools.assert_true(get_zk_status(app1, job_id1)['in_queue'])
     nose.tools.assert_true(get_zk_status(app1, job_id2)['in_queue'])
@@ -544,7 +544,7 @@ def test_retry_failed_task():
     nose.tools.assert_equal(2, get_zk_status(app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(app1))
     # run and fail n times, where n = max failures
-    run_spark_code(app1, extra_opts='--fail --max_retry 1')
+    run_code(app1, extra_opts='--max_retry 1 --bash "&& notacommand...fail"')
     # verify that job_id2 is removed from queue
     validate_one_queued_task(app1, job_id1)
     # verify that job_id2 state is 'failed' and job_id1 is still pending
@@ -604,20 +604,20 @@ def test_bash():
 
 @with_setup
 def test_app_has_command_line_params():
-    enqueue(app1, job_id1)
+    enqueue(bash1, job_id1)
     msg = 'output: %s'
     # Test passed in params exist
-    _, logoutput = run_spark_code(
-        app1, extra_opts='--read_fp newfakereadfp',
+    _, logoutput = run_code(
+        bash1, extra_opts='--redirect_to_stderr --bash echo newfakereadfp',
         capture=True, raise_on_err=True)
     nose.tools.assert_in(
         'newfakereadfp', logoutput, msg % logoutput)
 
 
 @with_setup
-def test_run_spark_given_specific_job_id():
+def test_run_given_specific_job_id():
     enqueue(app1, job_id1)
-    out, err = run_spark_code(
+    out, err = run_code(
         app1, '--job_id %s' % job_id1, raise_on_err=False, capture=True)
     nose.tools.assert_regexp_matches(err, (
         'UserWarning: Will not execute this task because it might be'
@@ -682,7 +682,7 @@ def test_race_condition_when_parent_queues_child():
     # should not complete child.  should de-queue child
     # should not queue parent.
     # should exit gracefully
-    run_spark_code(app2)
+    run_code(app2)
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
 
@@ -691,7 +691,7 @@ def test_race_condition_when_parent_queues_child():
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
-    run_spark_code(app2)
+    run_code(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
 
@@ -726,7 +726,7 @@ def test_run_failing_spark_given_specific_job_id():
     task should still get queued if --job_id is specified and the task fails
     """
     with nose.tools.assert_raises(Exception):
-        run_code(bash1, '--job_id %s --ajajaj' % job_id1)
+        run_code(bash1, '--pluginfail')
     validate_zero_queued_task(bash1)
     run_code(bash1, '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
     validate_one_queued_task(bash1, job_id1)
@@ -734,13 +734,17 @@ def test_run_failing_spark_given_specific_job_id():
 
 @with_setup
 def test_failing_task():
-    _, err = run_spark_code(
-        app1, ' --job_id 20101010_-1_profile --fail', capture=True)
+    _, err = run_code(
+        bash1, ' --job_id 20101010_-1_profile --bash notacommand...fail',
+        capture=True)
     nose.tools.assert_regexp_matches(
-        err, "Exception: You asked me to fail, so here I am!")
+        err, "Bash job failed")
+    nose.tools.assert_regexp_matches(
+        err, "Task retry count increased")
 
-    with nose.tools.assert_raises(Exception):
-        run_spark_code(app1, '--jaikahhaha')
+    _, err = run_code(bash1, '--max_retry 1 --bash jaikahhaha', capture=True)
+    nose.tools.assert_regexp_matches(
+        err, "Task retried too many times and is set as permanently failed")
 
 
 @with_setup
@@ -766,16 +770,12 @@ def enqueue(app_name, job_id, validate_queued=True):
         validate_one_queued_task(app_name, job_id)
 
 
-def run_spark_code(app_name, extra_opts='', **kwargs):
-    extra_opts = ' --disable_log %s' % extra_opts
-    return run_code(app_name, extra_opts, **kwargs)
-
-
-def run_code(app_name, extra_opts, capture=False, raise_on_err=True,
+def run_code(app_name, extra_opts='', capture=False, raise_on_err=True,
              async=False):
     """Execute a shell command that runs Stolos for a given app_name
 
     `async` - (bool) return Popen process instance.  other kwargs do not apply
+    `capture` - (bool) return (stdout, stderr)
     """
     cmd = CMD.format(app_name=app_name, extra_opts=extra_opts)
     log.debug('run code', extra=dict(cmd=cmd))

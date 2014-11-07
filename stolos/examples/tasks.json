@@ -1,13 +1,15 @@
 {
   "test_stolos/test_app": {
      "pymodule": "stolos.examples.tasks.test_task",
-     "job_type": "pyspark"
+     "job_type": "bash",
+     "bash_opts": "echo {app_name}"
  },
  "test_stolos/test_app2": {
      "pymodule": "stolos.examples.tasks.test_task",
      "depends_on": {"app_name": ["test_stolos/test_app"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
-     "job_type": "pyspark"
+     "job_type": "bash",
+     "bash_opts": "echo {app_name}"
  },
  "test_stolos/test_app3": {
      "job_type": "bash",
@@ -22,7 +24,7 @@
      }
  },
  "test_stolos/test_custom_job_id": {
-     "job_type": "pyspark",
+     "job_type": "bash",
      "job_id": "{date}_{client_id}_{unvalidated_field}"
  },
  "test_stolos/test_bash": {
@@ -34,9 +36,8 @@
      "bash_opts": "echo 123"
  },
 
- "test_stolos/test_pyspark": {
-     "job_type": "pyspark",
-     "pymodule": "stolos.examples.tasks.pyspark_example"
+ "test_stolos/test_depends_on2": {
+     "job_type": "bash",
  },
 
   "test_stolos/test_depends_on": {
@@ -54,7 +55,7 @@
          "testID": [1]
        }],
        "depgrp2": {
-         "app_name": ["test_stolos/test_pyspark"],
+         "app_name": ["test_stolos/test_depends_on2"],
          "collection_name": ["profile"],
          "date": [20140601],
          "client_id": [876, 1011, 9020],

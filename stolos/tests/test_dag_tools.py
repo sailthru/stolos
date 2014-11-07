@@ -7,6 +7,9 @@ from stolos.testing_tools import configure_logging
 log = configure_logging('stolos.tests.test_dag')
 
 
+nt.assert_equal.im_class.maxDiff = None
+
+
 def test_dag_is_valid():
     dag_tools.build_dag()  # validator raises its own asserts
 
@@ -51,7 +54,7 @@ def test_get_children():
 
     nt.assert_equal(
         list(dag_tools.get_children(
-            'test_stolos/test_pyspark', '20140601_876_profile')),
+            'test_stolos/test_depends_on2', '20140601_876_profile')),
         [(u'test_stolos/test_depends_on', u'20140601_2', u'depgrp2')]
     )
 
@@ -126,11 +129,11 @@ def test_get_parents():
         sorted(list(dag_tools.get_parents(
             'test_stolos/test_depends_on', '20140601_2', True))),
         sorted([
-            (u'test_stolos/test_pyspark',
+            (u'test_stolos/test_depends_on2',
              '20140601_1011_profile', u'depgrp2'),
-            (u'test_stolos/test_pyspark',
+            (u'test_stolos/test_depends_on2',
              '20140601_9020_profile', u'depgrp2'),
-            (u'test_stolos/test_pyspark',
+            (u'test_stolos/test_depends_on2',
              '20140601_876_profile', u'depgrp2')
         ])
     )
@@ -243,13 +246,15 @@ def test_fan_out_tasks():
 def test_topological_sort():
 
     nt.assert_equal(
-        list(dag_tools.topological_sort(dag_tools.get_parents(
-            'test_stolos/test_topological_sort', '20140601_1', True,))),
-        [(u'test_stolos/test_app', '20140601_101_profile', u'dep1'),
-         (u'test_stolos/test_app', '20140601_102_profile', u'dep1'),
-         (u'test_stolos/test_app2', '20140601_101_profile', u'dep1'),
-         (u'test_stolos/test_app2', '20140601_102_profile', u'dep1'),
-         (u'test_stolos/test_depends_on', u'20140601_1', u'dep1'),
-         (u'test_stolos/test_bash2', '20140601_101_profile', u'dep1'),
-         (u'test_stolos/test_bash2', '20140601_102_profile', u'dep1')]
+        sorted(list(dag_tools.topological_sort(dag_tools.get_parents(
+            'test_stolos/test_topological_sort', '20140601_1', True,)))),
+        sorted([
+            (u'test_stolos/test_app', '20140601_101_profile', u'dep1'),
+            (u'test_stolos/test_app', '20140601_102_profile', u'dep1'),
+            (u'test_stolos/test_app2', '20140601_101_profile', u'dep1'),
+            (u'test_stolos/test_app2', '20140601_102_profile', u'dep1'),
+            (u'test_stolos/test_depends_on', u'20140601_1', u'dep1'),
+            (u'test_stolos/test_bash2', '20140601_101_profile', u'dep1'),
+            (u'test_stolos/test_bash2', '20140601_102_profile', u'dep1')
+        ])
     )
