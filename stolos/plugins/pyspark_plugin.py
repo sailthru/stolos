@@ -27,6 +27,7 @@ def main(ns):
     conf, osenv, files, pyFiles = pyspark_context.get_spark_conf(ns.app_name)
     conf['spark.app.name'] = "%s__%s" % (conf['spark.app.name'], job_id)
     conf.update(ns.spark_conf)
+    osenv.update(ns.spark_env)
     sc = pyspark_context.get_spark_context(
         conf=conf, osenv=osenv, files=files, pyFiles=pyFiles)
     apply_data_transform(
@@ -129,6 +130,12 @@ _build_arg_parser = runner.build_plugin_arg_parser([at.group(
         help=("A list of key=value pairs that override"
               " the task's default settings. ie:"
               " spark.master=local[4] spark.ui.port=4046")),
+    at.add_argument(
+        '--spark_env', nargs='*',
+        type=lambda x: x.split('='), default=[],
+        help=("A list of key=value pairs to add to the spark executor's"
+              " environment.  ie:"
+              " --spark_env MYVAR=foo APP_CONFIG=bar")),
     at.add_argument(
         '--minPartitions', type=int,
         help=("2nd argument passed to textFile")),
