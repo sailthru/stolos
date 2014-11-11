@@ -42,6 +42,13 @@ def get_spark_context(conf={}, osenv={}, files=[], pyFiles=[], app_name=None):
         files - (list of str, optional) files to send to executors
         pyFiles - (list of str, optional) python files to send to executors
 
+    If you wish to combine `app_name` with other kwargs, here's what happens:
+        - the `osenv` is updated with env from app configuration if it exists
+        - `conf`, if a dict, is treated like osenv and otherwise uses the app
+        configuration data
+        - files and pyFiles are extended to include app configuration
+
+
     An example configuration:
         conf = {
             "spark.app.name": "myapp",
@@ -50,7 +57,21 @@ def get_spark_context(conf={}, osenv={}, files=[], pyFiles=[], app_name=None):
 
     """
     if app_name:
-        conf, osenv, files, pyFiles = get_spark_conf(app_name)
+        _conf, _osenv, _files, _pyFiles = get_spark_conf(app_name)
+        # some stupid merge rules to support `app_name` and the other kwargs
+        if isinstance(conf, dict):
+            conf = dict(conf)
+            conf.update(_conf)
+        else:
+            conf = _conf
+        osenv = dict(osenv)
+        osenv.update(_osenv)
+        files = set(files)
+        files.update(_files)
+        files = list(files)
+        pyFiles = set(pyFiles)
+        pyFiles.update(_pyFiles)
+        pyFiles = list(pyFiles)
 
     if not isinstance(conf, dict):
         assert isinstance(conf, SparkConf)
