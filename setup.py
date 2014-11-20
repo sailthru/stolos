@@ -38,17 +38,12 @@ setup(
         'argparse_tools>=1.0.0',
     ],
 
-    tests_require=[
-        'nose>=1.3.3',
-        'colorlog>=2.2.0',
-        'pyflakes>=0.8.1',
-        'pep8>=1.5.6',
-    ],
-    test_suite="nose.main",
-
     extras_require={
         'pyspark': ['pyspark'],
-        'redis': ['redis', 'hiredis']
+        'redis': ['redis', 'hiredis'],
+        'testing': [
+            'nose>=1.3.3', 'colorlog>=2.2.0', 'pyflakes>=0.8.1',
+            'pep8>=1.5.6'],
     },
 
     # include_package_data = True,
