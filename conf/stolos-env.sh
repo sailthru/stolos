@@ -15,6 +15,9 @@ unset CONFIGURATION_BACKEND
 # export CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
 export TASKS_JSON="$DIR/stolos/examples/tasks.json"
 
+# Zookeeper configuration backend
+export ZOOKEEPER_HOSTS="localhost:2181"
+
 
 # Redis configuration backend
 # export CONFIGURATION_BACKEND="stolos.configuration_backend.redis_config.RedisMapping"
