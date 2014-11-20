@@ -26,9 +26,10 @@ def configure_logging(logname):
     _formatter = ColoredJsonFormatter(
         "%(log_color)s%(levelname)-8s %(message)s %(reset)s %(cyan)s",
         reset=True)
-    _h = logging.StreamHandler()
-    _h.setFormatter(_formatter)
-    log.handlers = [_h]  # log.addHandler(_h)
+    if not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
+        _h = logging.StreamHandler()
+        _h.setFormatter(_formatter)
+        log.addHandler(_h)
     log.setLevel(logging.DEBUG)
     return logging.getLogger(logname)
 
