@@ -1,10 +1,12 @@
+
 Summary:
 ==============
 
-Stolos is a kind of scheduler that manages the order of execution of dependent
-apps where an app is some piece of work that may have many variations.  It is
-not aware of resources and does not implement the bin packing algorithm that
-most people think of when they deal with schedulers.
+Stolos is a really neat task dependency scheduler!  It manages the order of
+execution of interdependent applications, where an application is some piece of
+work that may have many variations.  It is not aware of resources or network
+topologies and does not implement the bin packing algorithm that most people
+think of when they typically think of schedulers.
 
 Stolos has the following features:
 
@@ -14,26 +16,37 @@ Stolos has the following features:
   - supports subtasks and dependencies on arbitrary subsets of tasks
   - decentralized and distributed, except that it centralizes work queues in
     ZooKeeper.
-  - excellent fault tolerance (via ZooKeeper)
-  - as scalable as ZooKeeper
-  - language agnostic (but written in Python)
+  - it does a couple things: manages job state, queues future work, and starts
+    your applications.
+  - excellent fault tolerance (via ZooKeeper) and as scalable as ZooKeeper
+  - language agnostic (but written in Python).
   - "at least once" semantics (a guarantee that a job will successfully
     complete or fail after n retries)
   - designed for apps of various sizes: from large hadoop jobs to
     jobs that take a second to complete
 
 What this is project not:
-  - not meant for "real-time" computation
   - not aware of machines, nodes, network topologies and infrastructure
   - does not (and should not) auto-scale workers
-  - by itself, it does no actual "work" other than managing job state,
-    queueing future work, and spawning a subprocess that may perform work.
+  - not (necessarily) meant for "real-time" computation
   - This is not a grid scheduler (ie this does not solve a bin packing problem)
   - not a crontab.  (in certain cases, this is not entirely true)
   - usually not meant to execute services, unless it makes
     sense to express the work those services do as batch jobs that
     depend on each other
   - requires that your dependency graph is completely deterministic.
+
+
+Similar tools out there:
+
+- These are or can be used as directed acyclic graph schedulers, but they
+  aren't designed to support variations of applications.  Stolos is
+  a directed acyclic _multi-_ graph scheduler.
+
+  - [Chronos](https://github.com/airbnb/chronos)
+  - [Dagobah](https://github.com/thieman/dagobah)
+  - [Quartz](http://quartz-scheduler.org/)
+  - [Cascading](http://www.cascading.org/documentation/)
 
 
 Requirements:
@@ -64,7 +77,7 @@ either case, we cannot return results without having previously identified data
 sets we need, transformed them, created some extra features on the data, and
 built the model or analysis.
 
-Since we have hundreds or thousands of instances of any particular app,
+Since we have hundreds or thousands of instances of any particular application,
 we cannot afford to manually verify that work gets completed. Therefore,
 we need a system to manage execution of applications.
 
@@ -359,9 +372,9 @@ The first thing you'll want to do is install Stolos
     # If you prefer a portable Python egg, clone the repo and then type:
     # python setup.py bdist_egg
 
-Next, you need to define environment vars that tell Stolos how to
-run.  For more options, see [a more detailed environment
-conf](conf/stolos-env.sh)
+
+Next, define environment vars that tell Stolos how to run.  For more options,
+see [a detailed environment configuration](conf/stolos-env.sh).
 
     export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
@@ -373,33 +386,25 @@ conf](conf/stolos-env.sh)
     export ZOOKEEPER_HOSTS="localhost:2181"
 
 
-The next steps may vary based on how you just configured Stolos,
-but you generally need to 1) define a `job_id_validations`module, and 2)
-finish setting up your configuration backend (which in the example above
-is a json file).
+Next, create a `job_id_validations` python module that should look like this:
 
-- the `job_id_validations` python module should look like this:
-
-    - See [example `job_id` validations file](stolos/examples/job_id_validations.py)
-
-- the configuration backend
-
-    - See section: [Setup: Configuration
-      Backends](README.md#setup-configuration-backends)
+- See [example `job_id` validations file](stolos/examples/job_id_validations.py)
 
 
-After this initial setup, you may run your applications using Stolos.
-To do this, you need to follow a couple steps:
+Last, tell Stolos how your applications depend on each other.  In the
+environment vars defined above, we assume you're using the default backend, a
+json file.  You may also change that if you wish.  See the links below:
 
-1. Create some application that can be called through bash or initiated
-   as a spark job
-1. Create an entry for it in the app config (ie the file pointed to by
-   `TASKS_JSON` if you use that)
-1. Submit a `job_id` for this app
-1. Run the app using Stolos.
 
-**Take a look at some [examples](stolos/examples/tasks/) for details
-  on how to perform these simple steps.**
+- Help me define app configuration: [Configuration: Apps, Dependencies and
+  Configuration ](README.md#configuration-apps-dependencies-and-configuration)
+
+- Help me use a non-default configuration backend: [Setup: Configuration
+  Backends](README.md#setup-configuration-backends)
+
+
+[Use Stolos to run my
+applications](README.md#usage)
 
 
 Setup: Configuration Backends
@@ -417,10 +422,10 @@ database.  However, it is also simple to extend Stolos with your own
 configuration backend.  If you do implement your own configuration backend,
 please consider submitting a pull request to us!
 
-These are the steps you need to take to use a particular backend:
+These are the steps you need to take to use a non-default backend:
 
-1. First, let Stolos know which backend to load.  You could also specify
-   your own code here, if you are so inclined:
+1. First, let Stolos know which backend to load.  (You could also specify
+   your own configuration backend, if you are so inclined).
 
 ```
 export CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
@@ -445,6 +450,44 @@ export CONFIGURATION_BACKEND="stolos.configuration_backend.redis_config.RedisCon
 
 
 For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
+
+
+Usage: Quick Start
+==============
+
+Great! You've installed and configured Stolos.  Let's run an application.
+
+1. Create some application that can be called through bash or initiated
+   as a spark job.  Let's use ```echo 123``` because it is a good test example.
+1. Create an entry for it in the app config (ie the file pointed to by
+   `TASKS_JSON` if you use that)
+
+```
+cat > $TASKS_JSON <<EOF
+{
+    "myapp": {
+        "job_type": "bash",
+        "job_id": "{num}",
+        "bash_opts": "echo 123"
+    }
+}
+EOF
+```
+
+
+1. Submit a `job_id` for this app
+
+```
+stolos-submit -a myapp --job_id 123
+```
+
+1. Run the app using Stolos (see below)
+
+```
+stolos -a myapp
+```
+
+**Take a look at some [examples](stolos/examples/tasks/) for examples**
 
 
 Usage:
