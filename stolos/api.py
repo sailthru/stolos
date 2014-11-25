@@ -16,3 +16,12 @@ from stolos.dag_tools import (
 get_tasks_config, build_dag, visualize_dag,
 create_job_id, parse_job_id,
 get_parents, get_children,
+
+from stolos.zookeeper_maintenance import (
+    delete,
+    requeue,
+    requeue_failed,
+    get_job_ids_by_status,
+    get_failed,
+)
+delete, requeue, requeue_failed, get_job_ids_by_status, get_failed
