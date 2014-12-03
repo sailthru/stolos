@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 from os.path import join, dirname
 import re
 import sys
+import kazoo.exceptions
 
 from stolos import zookeeper_tools as zkt, log
 
@@ -43,6 +44,7 @@ def delete(app_name, job_id, zk, confirm=True, delete_from_queue=True):
 def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
     """
     Return a list of job_ids that match a given state
+    If `app_name` does not exist, just log a warning and return nothing.
 
     `job_states` (kws) keys: pending|failed|completed|skipped|all
                        vals: True|False
@@ -50,7 +52,13 @@ def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
     """
     IDS = []
     path = zkt._get_zookeeper_path(app_name, '')
-    for job_id in zk.get_children(path):
+    try:
+        children = zk.get_children(path)
+    except kazoo.exceptions.NoNodeError:
+        log.warn("Unrecognized app_name", extra=dict(app_name=app_name))
+        return []
+
+    for job_id in children:
         if regexp and not re.search(regexp, job_id):
             continue
         if job_states.get('all'):  # basecase
