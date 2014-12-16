@@ -1,5 +1,5 @@
 from __future__ import unicode_literals
-from os.path import join, dirname
+from os.path import join
 import re
 import sys
 import kazoo.exceptions
@@ -12,9 +12,9 @@ def delete(app_name, job_id, zk, confirm=True,
     """Delete Zookeeper data for one or more specific jobs.
 
     In general, this operation is unsafe.  Deleting nodes that another process
-    is currently reading from or otherwise aware of has unknown effects.  If you
-    use this, you should to guarantee that no other processes are accessing the
-    jobs.
+    is currently reading from or otherwise aware of has unknown effects.  If
+    you use this, you should to guarantee that no other processes are accessing
+    the jobs.
 
     It's highly recommended that you don't use this for anything other than
     clearing out old zookeeper nodes.
@@ -24,7 +24,8 @@ def delete(app_name, job_id, zk, confirm=True,
         the node's state, including locks and retry count, from zookeeper.
     `delete_from_queue` (bool) In general, you should delete_from_queue if
         you are deleting a node's state, but you can set this to False if
-        you know ahead of time that the job(s) you are deleteing are not queued.
+        you know ahead of time that the job(s) you are deleteing are not
+        queued.
     `dryrun` (bool) don't actually delete nodes
 
     """
