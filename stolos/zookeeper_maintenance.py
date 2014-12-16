@@ -7,38 +7,66 @@ import kazoo.exceptions
 from stolos import zookeeper_tools as zkt, log
 
 
-def delete(app_name, job_id, zk, confirm=True, delete_from_queue=True):
-    """Delete Zookeeper data for a specific job.  In general, this operation is
-    unsafe.  Deleting nodes that another process is currently reading from or
-    otherwise aware of has unknown effects"""
-    path = zkt._get_zookeeper_path(app_name, job_id)
-    path2 = None
-    path2_job_id = None
+def delete(app_name, job_id, zk, confirm=True,
+           delete_from_queue=True, delete_job_state=True, dryrun=False):
+    """Delete Zookeeper data for one or more specific jobs.
+
+    In general, this operation is unsafe.  Deleting nodes that another process
+    is currently reading from or otherwise aware of has unknown effects.  If you
+    use this, you should to guarantee that no other processes are accessing the
+    jobs.
+
+    It's highly recommended that you don't use this for anything other than
+    clearing out old zookeeper nodes.
+
+    `job_id` (str) either a single job_id or a list of them.
+    `delete_job_state` (bool) if True, will attempt to remove knowledge of
+        the node's state, including locks and retry count, from zookeeper.
+    `delete_from_queue` (bool) In general, you should delete_from_queue if
+        you are deleting a node's state, but you can set this to False if
+        you know ahead of time that the job(s) you are deleteing are not queued.
+    `dryrun` (bool) don't actually delete nodes
+
+    """
+    if isinstance(job_id, (str, unicode)):
+        job_id = set([job_id])
+
+    if delete_job_state:  # delete path to each job_id
+        paths_to_delete = [zkt._get_zookeeper_path(app_name, j) for j in job_id
+                           if j]
+
     if delete_from_queue:
-        ddir = join(dirname(dirname(path)), 'entries')
-        queue = [
-            (zk.get(join(ddir, node))[0], node)
-            for node in zk.get_children(ddir)]
-        _path2 = [
-            (join(ddir, node), job_id2)
-            for job_id2, node in queue
-            if job_id2 == job_id]
-        assert len(_path2) <= 1
-        if _path2:
-            path2 = _path2[0][0]
-            path2_job_id = _path2[0][1]
+        # (unsafely) delete the job from queue if it's in there
+        _qpath = join(app_name, 'entries')
+        for key in zk.get_children(_qpath):
+            key_fullpath = join(_qpath, key)
+            queued_job_id = zk.get(key_fullpath)[0]
+            if queued_job_id and queued_job_id in job_id:
+                paths_to_delete.append(key_fullpath)
     if confirm:
-        promptconfirm(
-            "Permanently delete node?  \n%s\n%s --> %s\n\n"
-            "Are you sure you want to delete these nodes?" % (
-                path, path2, path2_job_id))
-    # Don't delete the root!
-    if path:
-        log.info("deleting node from zookeeper", extra=dict(node=path))
-        zk.delete(path, recursive=True)
-    if delete_from_queue and path2:
-        log.info("deleting node from zookeeper", extra=dict(node=path2))
-        zk.delete(path2, recursive=True)
+        if delete_from_queue:
+            log.warn(
+                "It is UNSAFE to delete_from_queue if anything is"
+                "currently reading from that queue")
+        log.info(
+            "About to delete n nodes from zookeeper", extra=dict(
+                n=len(paths_to_delete), first_100_nodes=paths_to_delete[:100]))
+        promptconfirm("Permanently delete nodes?")
+    rvs = {}
+    for path in paths_to_delete:
+        if dryrun:
+            log.info(
+                '(dryrun) delete node from zookeeper', extra=dict(node=path))
+        else:
+            log.info('delete node from zookeeper', extra=dict(node=path))
+            rv = zk.delete(path, recursive=True)
+            if rv is None:
+                rvs[path] = 'deleted'
+            elif rv is True:
+                rvs[path] = 'did not exist'
+            else:
+                rvs[path] = 'not deleted'
+    return rvs
 
 
 def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
