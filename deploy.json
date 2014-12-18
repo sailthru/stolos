@@ -1,5 +1,0 @@
-{
-  "cmd": "rm -rf *egg ; python setup.py bdist_egg -d . && mv *egg stolos.egg ",
-  "files": ["stolos.egg"]
-}
-
