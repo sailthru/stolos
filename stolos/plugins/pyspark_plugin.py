@@ -131,7 +131,7 @@ _build_arg_parser = runner.build_plugin_arg_parser([at.group(
               " the task's default settings. ie:"
               " spark.master=local[4] spark.ui.port=4046")),
     at.add_argument(
-        '--spark_env', nargs='*',
+        '--spark_env', nargs='+',
         type=lambda x: x.split('='), default=[],
         help=("A list of key=value pairs to add to the spark executor's"
               " environment.  ie:"
