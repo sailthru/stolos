@@ -214,8 +214,9 @@ def test_rerun_manual_task(zk, app1, job_id1):
     with nose.tools.assert_raises(exceptions.JobAlreadyQueued):
         zkt.readd_subtask(app1, job_id1, zk=zk)
 
-    # test2: re-add function can't add tasks if they've never been added
-    zk.delete('test_stolos', recursive=True)
+
+@with_setup
+def test_rerun_manual_task2(zk, app1, job_id1):
     zkt.readd_subtask(app1, job_id1, zk=zk)
     validate_one_queued_task(zk, app1, job_id1)
 
@@ -490,22 +491,35 @@ def test_valid_if_or(zk, app2):
 
 
 @with_setup
-def test_valid_if_or_func(zk, app3, job_id1, job_id2, job_id3):
+def test_valid_if_or_func1(zk, app3, job_id1, job_id2, job_id3):
     """Verify that the valid_if_or option supports the "_func" option
 
     app_name: {"valid_if_or": {"_func": "python.import.path.to.func"}}
     where the function definition looks like: func(**parsed_job_id)
     """
-    zk.delete('test_stolos', recursive=True)
     enqueue(app3, job_id2, zk, validate_queued=False)
     validate_one_skipped_task(zk, app3, job_id2)
 
-    zk.delete('test_stolos', recursive=True)
+
+@with_setup
+def test_valid_if_or_func2(zk, app3, job_id1, job_id2, job_id3):
+    """Verify that the valid_if_or option supports the "_func" option
+
+    app_name: {"valid_if_or": {"_func": "python.import.path.to.func"}}
+    where the function definition looks like: func(**parsed_job_id)
+    """
     enqueue(app3, job_id3, zk, validate_queued=False)
     validate_one_skipped_task(zk, app3, job_id3)
 
+
+@with_setup
+def test_valid_if_or_func3(zk, app3, job_id1, job_id2, job_id3):
+    """Verify that the valid_if_or option supports the "_func" option
+
+    app_name: {"valid_if_or": {"_func": "python.import.path.to.func"}}
+    where the function definition looks like: func(**parsed_job_id)
+    """
     # if the job_id matches the valid_if_or: {"_func": func...} criteria, then:
-    zk.delete('test_stolos', recursive=True)
     enqueue(app3, job_id1, zk, validate_queued=False)
     validate_one_queued_task(zk, app3, job_id1)
 

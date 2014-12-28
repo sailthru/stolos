@@ -301,7 +301,10 @@ def _get_zookeeper_path(app_name, job_id, *args):
 
 
 def _validate_state(pending, completed, failed, skipped):
-    assert pending + completed + failed + skipped == 1
+    if pending + completed + failed + skipped != 1:
+        raise UserWarning(
+            "you must request exactly one state of these options:"
+            " pending, completed, failed, skipped")
     if pending:
         state = ZOOKEEPER_PENDING
     elif completed:
