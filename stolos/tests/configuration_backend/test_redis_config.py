@@ -47,8 +47,7 @@ def teardown_func(raw):
 
 
 def with_setup(func):
-    return tt.with_setup(
-        lambda: setup_func(func.func_name), teardown_func, True)(func)
+    return tt.with_setup(func, setup_func, teardown_func)
 
 
 @with_setup

@@ -4,17 +4,18 @@ from stolos.configuration_backend.json_config import (
     JSONMapping, JSONSequence)
 
 
+def setup_func(func_name):
+    raw = {'a': 1, 'b': [1, 2, 3], 'c': {'aa': 1, 'bb': [1, 2, 3]}}
+    td = JSONMapping(raw)
+    return [], dict(td=td, raw=raw)
+
+
+def teardown_func():
+    pass
+
+
 def with_setup(func):
-
-    def setup_func():
-        raw = {'a': 1, 'b': [1, 2, 3], 'c': {'aa': 1, 'bb': [1, 2, 3]}}
-        td = JSONMapping(raw)
-        return [], dict(td=td, raw=raw)
-
-    def teardown_func():
-        pass
-
-    return tt.with_setup(setup_func, teardown_func, True)(func)
+    return tt.with_setup(func, setup_func, teardown_func)
 
 
 @with_setup
