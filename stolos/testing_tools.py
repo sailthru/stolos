@@ -291,6 +291,16 @@ def validate_one_skipped_task(zk, app_name, job_id):
     nt.assert_equal(status['state'], 'skipped')
 
 
+def validate_two_queued_task(zk, app_name, job_id1, job_id2):
+    for job_id in [job_id1, job_id2]:
+        status = get_zk_status(zk, app_name, job_id)
+        nt.assert_equal(status['num_execute_locks'], 0)
+        nt.assert_equal(status['num_add_locks'], 0)
+        nt.assert_equal(status['in_queue'], True)
+        nt.assert_equal(status['app_qsize'], 2)
+        nt.assert_equal(status['state'], 'pending')
+
+
 def cycle_queue(zk, app_name):
     """Get item from queue, put at back of queue and return item"""
     q = zk.LockingQueue(app_name)

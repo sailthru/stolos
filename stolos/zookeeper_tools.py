@@ -21,6 +21,7 @@ ZOOKEEPER_SKIPPED = 'skipped'
 
 @util.cached
 def get_zkclient(zookeeper_hosts=None):
+    """Start and return a connection to ZooKeeper"""
     if zookeeper_hosts is None:
         zookeeper_hosts = os.environ["ZOOKEEPER_HOSTS"]
     log.debug("Connecting to ZooKeeper: %s" % zookeeper_hosts)
