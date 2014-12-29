@@ -106,7 +106,7 @@ def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
     return IDS
 
 
-def requeue(app_name, zk, regexp=None, **job_states):
+def requeue(app_name, zk, regexp=None, confirm=True, **job_states):
     """
     Get and requeue jobs for app_name where given job_states are True
 
@@ -118,9 +118,12 @@ def requeue(app_name, zk, regexp=None, **job_states):
     log.info(
         "A list of some of the failed job_ids for %s: \n%s"
         % (app_name, IDS[:200]))
-    promptconfirm(
-        "Re-add %s jobs for %s with these states: %s. Ok?" %
-        (len(IDS), app_name, ' and '.join(job_states)))
+    msg = "Re-add %s jobs for %s with these states: %s." % (
+        len(IDS), app_name, ' and '.join(job_states))
+    if confirm:
+        promptconfirm("%s  Ok?" % msg)
+    else:
+        log.info(msg)
     for job_id in IDS:
         zkt.readd_subtask(app_name, job_id, zk=zk)
 

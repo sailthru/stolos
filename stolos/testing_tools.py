@@ -265,12 +265,7 @@ def validate_one_queued_executing_task(zk, app_name, job_id):
 
 
 def validate_one_queued_task(zk, app_name, job_id):
-    status = get_zk_status(zk, app_name, job_id)
-    nt.assert_equal(status['num_execute_locks'], 0)
-    nt.assert_equal(status['num_add_locks'], 0)
-    nt.assert_equal(status['in_queue'], True)
-    nt.assert_equal(status['app_qsize'], 1)
-    nt.assert_equal(status['state'], 'pending')
+    return validate_n_queued_task(zk, app_name, job_id)
 
 
 def validate_one_completed_task(zk, app_name, job_id):
@@ -291,14 +286,14 @@ def validate_one_skipped_task(zk, app_name, job_id):
     nt.assert_equal(status['state'], 'skipped')
 
 
-def validate_two_queued_task(zk, app_name, job_id1, job_id2):
-    for job_id in [job_id1, job_id2]:
+def validate_n_queued_task(zk, app_name, *job_ids):
+    for job_id in job_ids:
         status = get_zk_status(zk, app_name, job_id)
-        nt.assert_equal(status['num_execute_locks'], 0)
-        nt.assert_equal(status['num_add_locks'], 0)
-        nt.assert_equal(status['in_queue'], True)
-        nt.assert_equal(status['app_qsize'], 2)
-        nt.assert_equal(status['state'], 'pending')
+        nt.assert_equal(status['num_execute_locks'], 0, job_id)
+        nt.assert_equal(status['num_add_locks'], 0, job_id)
+        nt.assert_equal(status['in_queue'], True, job_id)
+        nt.assert_equal(status['app_qsize'], len(job_ids), job_id)
+        nt.assert_equal(status['state'], 'pending', job_id)
 
 
 def cycle_queue(zk, app_name):

@@ -10,11 +10,11 @@ get_zkclient
 
 from stolos.dag_tools import (
     get_tasks_config, build_dag, visualize_dag,
-    create_job_id, parse_job_id,
+    create_job_id, parse_job_id, get_job_id_template,
     get_parents, get_children,
 )
 get_tasks_config, build_dag, visualize_dag,
-create_job_id, parse_job_id,
+create_job_id, parse_job_id, get_job_id_template,
 get_parents, get_children,
 
 from stolos.zookeeper_maintenance import (

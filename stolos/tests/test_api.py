@@ -6,7 +6,7 @@ from networkx import MultiDiGraph
 from stolos import api
 from stolos import testing_tools as tt
 from stolos import zookeeper_tools as zkt
-from stolos.exceptions import JobAlreadyQueued
+from stolos.exceptions import JobAlreadyQueued, InvalidJobId
 from stolos.configuration_backend import TasksConfigBaseMapping
 log = tt.configure_logging('stolos.tests.test_dag')
 
@@ -83,7 +83,7 @@ def test_readd_subtask(app1, job_id1, job_id2, zk):
     tt.validate_one_queued_task(zk, app1, job_id1)
     # then queueing it.
     api.readd_subtask(app1, job_id2, zk)
-    tt.validate_two_queued_task(zk, app1, job_id1, job_id2)
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id2)
 
 
 @tt.with_setup
@@ -124,38 +124,104 @@ def test_build_dag():
 
 
 @tt.with_setup
-def test_visualize_dag():
-    pass
+def test_create_job_id(app1, job_id1):
+    with nt.assert_raises(KeyError):
+        api.create_job_id(app1, a=1)
+    with nt.assert_raises(InvalidJobId):
+        api.create_job_id(
+            app1, date=20141299, client_id=111, collection_name='profile')
+    with nt.assert_raises(InvalidJobId):
+        api.create_job_id(
+            app1, date=20141212, client_id=111, collection_name='Profile')
+
+    nt.assert_equal(
+        '20141212_111_profile',
+        api.create_job_id(
+            app1, date=20141212, client_id=111, collection_name='profile'))
 
 
 @tt.with_setup
-def test_create_job_id():
-    pass
-
-
-@tt.with_setup
-def test_parse_job_id():
-    pass
+def test_parse_job_id(app1, job_id1):
+    nt.assert_dict_equal(
+        {'date': 20140606, 'collection_name': 'profile', 'client_id': 1111},
+        api.parse_job_id(app1, job_id1))
+    nt.assert_equal(
+        job_id1,
+        api.create_job_id(app1, **api.parse_job_id(app1, job_id1))
+    )
 
 
 @tt.with_setup
 def test_get_parents():
-    pass
+    pass  # tested in dag_tools
 
 
 @tt.with_setup
 def test_get_children():
-    pass
+    pass  # tested in dag_tools
 
 
 @tt.with_setup
-def test_delete():
-    pass
+def test_delete(app1, job_id1, job_id2, zk):
+    api.maybe_add_subtask(app1, job_id1, zk)
+    api.maybe_add_subtask(app1, job_id2, zk)
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id2)
+
+    api.delete(app1, job_id2, zk, confirm=False)
+    tt.validate_one_queued_task(zk, app1, job_id1)
+
+    api.maybe_add_subtask(app1, job_id2, zk)
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id2)
+
+    api.delete(app1, [job_id1, job_id2], zk, confirm=False)
+    tt.validate_zero_queued_task(zk, app1)
 
 
 @tt.with_setup
-def test_requeue():
-    pass
+def test_requeue(app1, job_id1, job_id2, job_id3, zk):
+    zkt.set_state(app1, job_id1, zk=zk, failed=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, skipped=True)
+
+    tt.validate_zero_queued_task(zk, app1)
+    api.requeue(app1, zk, confirm=False, pending=True)
+    tt.validate_zero_queued_task(zk, app1)
+
+    api.requeue(app1, zk, confirm=False, completed=True)
+    tt.validate_one_queued_task(zk, app1, job_id2)
+
+    api.requeue(app1, zk, confirm=False, skipped=True, failed=True)
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id2, job_id3)
+
+
+@tt.with_setup
+def test_requeue2(app1, job_id1, job_id2, job_id3, zk):
+    zkt.set_state(app1, job_id1, zk=zk, failed=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, skipped=True)
+    api.requeue(app1, zk, confirm=False, all=True, regexp=r'.*_1211_.*')
+    tt.validate_zero_queued_task(zk, app1)
+
+    api.requeue(app1, zk, confirm=False, all=True, regexp=r'.*_1111_.*')
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id3)
+
+
+@tt.with_setup
+def test_requeue3(app1, job_id1, job_id2, job_id3, zk):
+    zkt.set_state(app1, job_id1, zk=zk, failed=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, skipped=True)
+    api.requeue(app1, zk, confirm=False, failed=True, regexp=r'.*_1111_.*')
+    tt.validate_n_queued_task(zk, app1, job_id1)
+
+
+@tt.with_setup
+def test_requeue4(app1, job_id1, job_id2, job_id3, zk):
+    zkt.set_state(app1, job_id1, zk=zk, failed=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, skipped=True)
+    api.requeue(app1, zk, confirm=False, all=True)
+    tt.validate_n_queued_task(zk, app1, job_id1, job_id2, job_id3)
 
 
 @tt.with_setup
