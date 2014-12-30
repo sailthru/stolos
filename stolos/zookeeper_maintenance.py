@@ -72,38 +72,39 @@ def delete(app_name, job_id, zk, confirm=True,
 
 def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
     """
-    Return a list of job_ids that match a given state
+    Return a list of job_ids that match a given state.
+
+    This will load all job_ids for a specific app_name, so you should consider
+    stolos.api.check_state(...) first if you have a list of specific
+    job_ids you care about.
+
     If `app_name` does not exist, just log a warning and return nothing.
 
     `job_states` (kws) keys: pending|failed|completed|skipped|all
                        vals: True|False
+        If no job states are defined, assume all=True
         ie.  get_job_ids_by_status(app_name, zk, pending=True, failed=True)
     """
-    IDS = []
+    if not job_states:
+        job_states = dict(all=True)  # assume all job states
     path = zkt._get_zookeeper_path(app_name, '')
     try:
         children = zk.get_children(path)
     except kazoo.exceptions.NoNodeError:
         log.warn("Unrecognized app_name", extra=dict(app_name=app_name))
         return []
-
+    job_ids = []
     for job_id in children:
         if regexp and not re.search(regexp, job_id):
             continue
-        if job_states.get('all'):  # basecase
-            IDS.append(job_id)
-            continue
+        job_ids.append(job_id)
 
-        state = zkt.check_state(app_name, job_id, zk=zk, _get=True)
-        if job_states.get('failed') and state == zkt.ZOOKEEPER_FAILED:
-            IDS.append(job_id)
-        if job_states.get('pending') and state == zkt.ZOOKEEPER_PENDING:
-            IDS.append(job_id)
-        if job_states.get('completed') and state == zkt.ZOOKEEPER_COMPLETED:
-            IDS.append(job_id)
-        if job_states.get('skipped') and state == zkt.ZOOKEEPER_SKIPPED:
-            IDS.append(job_id)
-    return IDS
+    if not job_ids:
+        log.warn('no job_ids found matching regex and app_name', extra=dict(
+            app_name=app_name, regexp=regexp))
+
+    gen = zip(job_ids, zkt.check_state(app_name, job_ids, zk=zk, **job_states))
+    return [job_id for job_id, inset in gen if inset is True]
 
 
 def requeue(app_name, zk, regexp=None, confirm=True, **job_states):
@@ -126,32 +127,6 @@ def requeue(app_name, zk, regexp=None, confirm=True, **job_states):
         log.info(msg)
     for job_id in IDS:
         zkt.readd_subtask(app_name, job_id, zk=zk)
-
-
-def requeue_failed(app_name, zk):
-    """Requeue failed jobs for given app"""
-    return requeue(app_name, zk, failed=True)
-
-
-def get_state(app_name, zk):
-    """Get the state of a job from Zookeeper.  This implies that you understand
-    how Zookeeper states are named.
-
-    It's a much better idea to call something like
-        check_state(..., pending=True)
-    """
-    path = zkt._get_zookeeper_path(app_name, '')
-    return {
-        job_id: zkt.check_state(app_name, job_id, zk=zk, _get=True)
-        for job_id in zk.get_children(path)}
-
-
-def get_failed(app_name, zk):
-    """Return a list of job_ids with status == failed"""
-    path = zkt._get_zookeeper_path(app_name, '')
-    return [
-        job_id for job_id in zk.get_children(path)
-        if zkt.check_state(app_name, job_id, zk=zk, failed=True)]
 
 
 def promptconfirm(msg):

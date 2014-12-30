@@ -20,8 +20,6 @@ get_parents, get_children,
 from stolos.zookeeper_maintenance import (
     delete,
     requeue,
-    requeue_failed,
     get_job_ids_by_status,
-    get_failed,
 )
-delete, requeue, requeue_failed, get_job_ids_by_status, get_failed
+delete, requeue, get_job_ids_by_status

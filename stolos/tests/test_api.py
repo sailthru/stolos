@@ -12,20 +12,42 @@ log = tt.configure_logging('stolos.tests.test_dag')
 
 
 @tt.with_setup
-def test_check_state(zk, app1, job_id1):
+def test_check_state(zk, app1, job_id1, job_id2):
 
     nt.assert_false(api.check_state(app1, job_id1, zk))
     with nt.assert_raises(NoNodeError):
         api.check_state(app1, job_id1, zk, raise_if_not_exists=True)
 
     zkt.set_state(app1, job_id1, zk=zk, pending=True)
+    # also: create an invalid state (one that stolos does not recognize)
+    zk.create(zkt._get_zookeeper_path(app1, job_id2), None, makepath=True)
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1, zk)
-    with nt.assert_raises(UserWarning):
-        api.check_state(app1, job_id1, zk, pending=True, completed=True)
-    nt.assert_true(api.check_state(app1, job_id1, zk, pending=True))
+    nt.assert_true(
+        api.check_state(app1, job_id1, zk, pending=True))
+    nt.assert_true(
+        api.check_state(app1, job_id1, zk, pending=True, completed=True))
     nt.assert_false(api.check_state(app1, job_id1, zk, completed=True))
+    nt.assert_true(api.check_state(app1, job_id1, zk, all=True))
+    # the invalid job:
+    nt.assert_false(api.check_state(app1, job_id2, zk, all=True))
+
+
+@tt.with_setup
+def test_check_state2(zk, app1, job_id1, job_id2, job_id3):
+    """Does check_state support multiple job_ids?"""
+    zkt.set_state(app1, job_id1, zk=zk, pending=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, failed=True)
+    nt.assert_list_equal(
+        [True, True],
+        api.check_state(
+            app1, [job_id1, job_id2], zk=zk, pending=True, completed=True))
+    nt.assert_list_equal(
+        [True, True],
+        api.check_state(
+            app1, [job_id1, job_id2], zk=zk, all=True))
 
 
 @tt.with_setup
@@ -225,15 +247,34 @@ def test_requeue4(app1, job_id1, job_id2, job_id3, zk):
 
 
 @tt.with_setup
-def test_requeue_failed():
-    pass
-
-
-@tt.with_setup
-def test_get_job_ids_by_status():
-    pass
-
-
-@tt.with_setup
-def test_get_failed():
-    pass
+def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3, zk):
+    zkt.set_state(app1, job_id1, zk=zk, failed=True)
+    zkt.set_state(app1, job_id2, zk=zk, completed=True)
+    zkt.set_state(app1, job_id3, zk=zk, skipped=True)
+    nt.assert_list_equal(
+        [],
+        api.get_job_ids_by_status(app1, zk, regexp=r'.*_1211_.*'))
+    nt.assert_list_equal(
+        [u'20140606_1111_profile', u'20140604_1111_profile'],
+        api.get_job_ids_by_status(app1, zk, regexp=r'.*_1111_.*'))
+    nt.assert_list_equal(
+        [u'20140606_2222_profile'],
+        api.get_job_ids_by_status(app1, zk, regexp=r'.*_2222_.*'))
+    nt.assert_list_equal(
+        [u'20140606_1111_profile', u'20140604_1111_profile',
+         u'20140606_2222_profile'],
+        api.get_job_ids_by_status(app1, zk, all=True))
+    nt.assert_list_equal(
+        api.get_job_ids_by_status(app1, zk, all=True),
+        api.get_job_ids_by_status(app1, zk))
+    nt.assert_list_equal(
+        api.get_job_ids_by_status(app1, zk, all=True),
+        api.get_job_ids_by_status(
+            app1, zk, failed=True, completed=True, skipped=True))
+    nt.assert_list_equal(
+        [u'20140606_1111_profile', u'20140606_2222_profile'],
+        api.get_job_ids_by_status(app1, zk, completed=True, failed=True))
+    nt.assert_list_equal(
+        [u'20140606_1111_profile'],
+        api.get_job_ids_by_status(
+            app1, zk, completed=True, failed=True, regexp=r'.*_1111_.*'))

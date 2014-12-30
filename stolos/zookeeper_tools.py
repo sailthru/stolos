@@ -301,20 +301,32 @@ def _get_zookeeper_path(app_name, job_id, *args):
     return join(app_name, 'all_subtasks', job_id, *args)
 
 
-def _validate_state(pending, completed, failed, skipped):
-    if pending + completed + failed + skipped != 1:
-        raise UserWarning(
-            "you must request exactly one state of these options:"
-            " pending, completed, failed, skipped")
-    if pending:
-        state = ZOOKEEPER_PENDING
-    elif completed:
-        state = ZOOKEEPER_COMPLETED
-    elif failed:
-        state = ZOOKEEPER_FAILED
-    elif skipped:
-        state = ZOOKEEPER_SKIPPED
-    return state
+def _validate_state(pending, completed, failed, skipped,
+                    all=False, multi=False):
+    cnt = pending + completed + failed + skipped
+    if multi:
+        if cnt < 1 and not all:
+            raise UserWarning(
+                "you must request at least one of these states:"
+                " pending, completed, failed, skipped")
+    else:
+        if cnt != 1:
+            raise UserWarning(
+                "you must request exactly one of these states:"
+                " pending, completed, failed, skipped")
+    rv = []
+    if all or pending:
+        rv.append(ZOOKEEPER_PENDING)
+    if all or completed:
+        rv.append(ZOOKEEPER_COMPLETED)
+    if all or failed:
+        rv.append(ZOOKEEPER_FAILED)
+    if all or skipped:
+        rv.append(ZOOKEEPER_SKIPPED)
+    if multi:
+        return rv
+    else:
+        return rv[0]
 
 
 def _maybe_queue_children(parent_app_name, parent_job_id, zk):
@@ -496,25 +508,46 @@ _set_state_unsafe = set_state.func_closure[0].cell_contents
 
 def check_state(app_name, job_id, zk, raise_if_not_exists=False,
                 pending=False, completed=False, failed=False, skipped=False,
-                _get=False):
-    """Determine whether a specific task has been completed yet.
+                all=False, _get=False):
+    """Determine whether a specific job is in one or more specific state(s)
+
+    If job_id is a string, return a single value.
+    If multiple job_ids are given, return a list of values
 
     `app_name` is a task identifier
-    `job_id` is a subtask identifier
+    `job_id` (str or list of str) is a subtask identifier or a list of them
     `zk` is a KazooClient instance
+    `all` (bool) if True, return True if the job_id is in a recognizable state
     `_get` (bool) if True, just return the string value of the state and
                   ignore the (pending, completed, xor failed) choice
     """
-    zookeeper_path = _get_zookeeper_path(app_name, job_id)
-    try:
-        gotstate = zk.get(zookeeper_path)[0]
-    except kazoo.exceptions.NoNodeError:
-        if raise_if_not_exists:
-            raise
-        else:
-            return False
-    if _get:
-        return gotstate
+    if isinstance(job_id, (str, unicode)):
+        job_ids = [job_id]
+        rvaslist = False
     else:
-        expected_state = _validate_state(pending, completed, failed, skipped)
-        return gotstate == expected_state
+        job_ids = job_id
+        rvaslist = True
+
+    rv = []
+    for job_id in job_ids:
+        zookeeper_path = _get_zookeeper_path(app_name, job_id)
+        try:
+            gotstate = zk.get(zookeeper_path)[0]
+        except kazoo.exceptions.NoNodeError:
+            if raise_if_not_exists:
+                raise
+            else:
+                rv.append(False)
+                continue
+        if _get:
+            rv.append(gotstate)
+            continue
+        else:
+            accepted_states = _validate_state(
+                pending, completed, failed, skipped, all=all, multi=True)
+            rv.append(gotstate in accepted_states)
+            continue
+    if rvaslist:
+        return rv
+    else:
+        return rv[0]
