@@ -6,6 +6,9 @@ from . import (
     _ensure_type)
 
 
+TASKS_JSON = os.environ['TASKS_JSON']
+
+
 class _JSONMappingBase(object):
     def __getitem__(self, key):
         return _ensure_type(
@@ -23,7 +26,7 @@ class JSONMapping(_JSONMappingBase, TasksConfigBaseMapping):
     def __init__(self, data=None):
         if data is None:
             try:
-                fp = os.environ['TASKS_JSON']
+                fp = TASKS_JSON
             except KeyError:
                 log.error((
                     "You must define TASKS_JSON if you use the %s"

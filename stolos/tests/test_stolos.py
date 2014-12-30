@@ -10,12 +10,13 @@ from stolos.testing_tools import (
     validate_one_queued_task, validate_one_completed_task,
     validate_one_skipped_task
 )
+import stolos.configuration_backend.json_config as jc
 
 log = configure_logging('stolos.tests.test_stolos')
 
 CMD = (
-    'python -m stolos.runner --zookeeper_hosts localhost:2181'
-    ' -a {app_name} {extra_opts}'
+    'TASKS_JSON={tasks_json} python -m stolos.runner '
+    ' --zookeeper_hosts localhost:2181 -a {app_name} {extra_opts}'
 )
 
 
@@ -26,7 +27,10 @@ def run_code(app_name, extra_opts='', capture=False, raise_on_err=True,
     `async` - (bool) return Popen process instance.  other kwargs do not apply
     `capture` - (bool) return (stdout, stderr)
     """
-    cmd = CMD.format(app_name=app_name, extra_opts=extra_opts)
+    cmd = CMD.format(
+        app_name=app_name,
+        tasks_json=jc.TASKS_JSON,
+        extra_opts=extra_opts)
     log.debug('run code', extra=dict(cmd=cmd))
     p = subprocess.Popen(
         cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -91,7 +95,8 @@ def test_no_tasks(zk, app1, app2):
 
 
 @with_setup
-def test_create_child_task_after_one_parent_completed(zk, app1, app2, job_id1):
+def test_create_child_task_after_one_parent_completed(
+        zk, app1, app2, app3, job_id1):
     # if you modify the tasks.json file in the middle of processing the dag
     # modifications to the json file should be recognized
 
@@ -101,7 +106,7 @@ def test_create_child_task_after_one_parent_completed(zk, app1, app2, job_id1):
     zkt.set_state(app1, job_id1, zk=zk, completed=True)
     validate_one_completed_task(zk, app1, job_id1)
 
-    injected_app = 'test_stolos/test_module_ch'
+    injected_app = app3
     dct = {
         injected_app: {
             "job_type": "bash",
@@ -121,7 +126,7 @@ def test_create_child_task_after_one_parent_completed(zk, app1, app2, job_id1):
 
 
 @with_setup
-def test_create_parent_task_after_child_completed(zk, app1, job_id1):
+def test_create_parent_task_after_child_completed(zk, app1, app3, job_id1):
     # if you modify the tasks.json file in the middle of processing the dag
     # modifications to the json file should be recognized appropriately
 
@@ -130,7 +135,7 @@ def test_create_parent_task_after_child_completed(zk, app1, job_id1):
     zkt.set_state(app1, job_id1, zk=zk, completed=True)
     validate_one_completed_task(zk, app1, job_id1)
 
-    injected_app = 'test_stolos/test_module_ch'
+    injected_app = app3
     child_injapp = 'test_stolos/testX'
     dct = {
         injected_app: {

@@ -9,12 +9,8 @@ import ujson
 import nose.tools as nt
 
 from stolos import dag_tools as dt
-from stolos.configuration_backend.json_config import JSONMapping
+import stolos.configuration_backend.json_config as jc
 from stolos import zookeeper_tools as zkt
-
-
-TASKS_JSON = os.environ['TASKS_JSON']
-TASKS_JSON_TMPFILES = {}
 
 
 def configure_logging(logname):
@@ -147,7 +143,11 @@ def _create_tasks_json(fname_suffix='', inject={}, rename=False):
     with open(f, 'w') as fout:
         fout.write(frv)
 
-    os.environ['TASKS_JSON'] = f
+    # HACK: set the tasks_json env var.
+    # this makes tests that modify this var NOT thread safe!
+    jc.TASKS_JSON = f
+
+    # clear the dag graph cache so it can be rebuilt with the appropriate data
     try:
         dt.build_dag_cached.cache.clear()
     except AttributeError:
@@ -163,8 +163,8 @@ def _setup_func(func_name):
 
     rv = dict(
         zk=zk,
-        oapp1='test_stolos/test_app',
-        oapp2='test_stolos/test_app2',
+        app1='test_stolos/test_app__%s' % func_name,
+        app2='test_stolos/test_app2__%s' % func_name,
         app3='test_stolos/test_app3__%s' % func_name,
         app4='test_stolos/test_app4__%s' % func_name,
         job_id1='20140606_1111_profile',
@@ -173,21 +173,21 @@ def _setup_func(func_name):
         depends_on1='test_stolos/test_depends_on__%s' % func_name,
         bash1='test_stolos/test_bash__%s' % func_name,
         func_name=func_name,
-    )
-    rv.update(
-        app1='%s__%s' % (rv['oapp1'], func_name),
-        app2='%s__%s' % (rv['oapp2'], func_name),
+        tasks_json_tmpfile=_create_tasks_json(
+            fname_suffix=func_name, rename=True),
     )
 
-    f = _create_tasks_json(fname_suffix=func_name, rename=True)
-    TASKS_JSON_TMPFILES[func_name] = f
     return ((), rv)
 
 
-def _teardown_func(func_name):
+def _teardown_func(func_name, tasks_json_tmpfile):
     """Code that runs just after each test"""
-    os.environ['TASKS_JSON'] = TASKS_JSON
-    os.remove(TASKS_JSON_TMPFILES[func_name])
+    jc.TASKS_JSON = os.environ['TASKS_JSON']
+    os.remove(tasks_json_tmpfile)
+    try:
+        dt.build_dag_cached.cache.clear()
+    except AttributeError:
+        pass
 
 
 def with_setup(func, setup_func=_setup_func, teardown_func=_teardown_func):
@@ -208,11 +208,11 @@ def inject_into_dag(new_task_dct):
     Assumes that the config we're using is the JSONMapping
     """
     f = _create_tasks_json(inject=new_task_dct)
-    new_task_dct = JSONMapping(new_task_dct)
+    new_task_dct = jc.JSONMapping(new_task_dct)
 
     # verify injection worked
     dg = dt.get_tasks_config()
-    assert isinstance(dg, JSONMapping)
+    assert isinstance(dg, jc.JSONMapping)
     dag = dt.build_dag_cached()
     for k, v in new_task_dct.items():
         assert dg[k] == v, (
@@ -220,9 +220,11 @@ def inject_into_dag(new_task_dct):
         assert dag.node[k] == dict(v), (
             "test code: inject_into_dag didn't reset the dag graph")
 
-    yield
+    try:
+        yield
+    finally:
+        dt.build_dag_cached.cache.clear()
     os.remove(f)
-    dt.build_dag_cached.cache.clear()
 
 
 def enqueue(app_name, job_id, zk, validate_queued=True):
