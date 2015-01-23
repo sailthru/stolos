@@ -3,7 +3,11 @@ Some hardcoded values and functions specific to our use of the tool
 """
 import os
 import importlib
+from stolos import argparse_shared as at
 
+
+build_arg_parser = at.build_arg_parser([at.group(
+    "Options that specify how your apps are defined in the dependency graph",
 
 DEPENDENCY_GROUP_DEFAULT_NAME = 'default'
 JOB_ID_DEFAULT_TEMPLATE = os.environ['JOB_ID_DEFAULT_TEMPLATE']

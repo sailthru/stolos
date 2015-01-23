@@ -228,22 +228,24 @@ def build_plugin_arg_parser(*args, **kwargs):
 
 
 _build_arg_parser = at.build_arg_parser([
-    at.app_name(required=True, choices=dag_tools.get_task_names()),
+    at.app_name(choices=dag_tools.get_task_names()),
     at.zookeeper_hosts,
 
     at.add_argument(
-        '--bypass_scheduler', action='store_true',
-        help=(
+        '--bypass_scheduler', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        type=bool, help=(
             "Run a task directly. Do not schedule it."
             "  Do not obtain a lock on this job.  Requires passing --job_id")),
     at.add_argument(
-        '--timeout', default=2, type=int,
+        '--timeout', action=at.DefaultFromEnv, env_prefix='STOLOS_', type=int,
+        default=2,
         help='time to wait for task to appear in queue before dying'),
     at.add_argument(
-        '--max_retry', type=int, default=5,
+        '--max_retry', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        type=int, default=5,
         help='Maximum number of times to retry a failed task.'),
     at.add_argument(
-        '--job_id', help=(
+        '--job_id', action=at.DefaultFromEnv, env_prefix='STOLOS_', help=(
             'run a specific job_id. If a job is already queued,'
             ' it will run twice')),
 ],

@@ -1,22 +1,42 @@
 """
 Fetch Stolos configuration from redis rather than from a json file.
 """
-import os
 import redis
 
 from stolos.exceptions import _log_raise_if
 from . import TasksConfigBaseMapping, _ensure_type, log
 from .json_config import JSONMapping, JSONSequence
 
+from stolos import argparse_shared as at
 
-REDIS_PREFIX = 'stolos/'
+
+build_arg_parser = at.build_arg_parser([at.group(
+    "Options specific to the Redis Configuration Backend",
+    at.add_argument(
+        '--redis_key_prefix', default='stolos/',
+        action=at.DefaultFromEnv, env_prefix='STOLOS_', help=(
+            "All redis keys stolos creates are prefixed by this value")),
+    at.add_argument(
+        '--redis_db', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        default=0, type=int,
+        help="Number of the DB that redis connects to"),
+    at.add_argument(
+        '--redis_host', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        default='localhost', help="Host address to redis server"),
+    at.add_argument(
+        '--redis_port', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        default=6379, type=int, help="Port to connect to redis server at"),
+    at.add_argument(
+        '--redis_connection_opts', type=lambda x: x.split('='), help=(
+            "Additional arguments to pass to redis.StrictRedis")),
+)])
 
 
 class _RedisConfig(object):
     def __getitem__(self, key):
         if key not in self.cache:
             try:
-                val = self.cli.hgetall('%s%s' % (REDIS_PREFIX, key))
+                val = self.cli.hgetall('%s%s' % (self.redis_key_prefix, key))
             except:
                 log.error((
                     "Redis failed to fetch app config data."
@@ -46,14 +66,10 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
         app_name: {python dict of app config stored as a k:v hashmap in redis)
 
     """
-    def __init__(self, data=None,
-                 db=int(os.environ.get('STOLOS_REDIS_DB', 0)),
-                 host=os.environ.get('STOLOS_REDIS_HOST', 'localhost'),
-                 port=int(os.environ.get('STOLOS_REDIS_PORT', 6379)),
-                 **strictredis_connection_kwargs):
-        self.db = db
-        self.cli = redis.StrictRedis(
-            db=db, host=host, port=port, **strictredis_connection_kwargs)
+    def __init__(self, ns, data=None):
+        self.db = ns.db
+        self.redis_key_prefix = ns.redis_key_prefix
+        self.cli = redis.StrictRedis(db=ns.db, port=ns.port, host=ns.host)
         if data is None:
             self.cache = {}
         elif isinstance(data, self.__class__):
@@ -66,17 +82,20 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
 
     def __iter__(self):
         return iter(
-            app_name for app_name in self.cli.keys('%s*' % REDIS_PREFIX))
+            app_name for app_name in self.cli.keys(
+                '%s*' % self.redis_key_prefix))
 
 
-def set_config(app_name, app_conf, cli, delete_first=False):
+def set_config(app_name, app_conf, cli,
+               delete_first=False, redis_key_prefix=""):
     """
     A simple function to help you create redis config from a python dict.
     It intelligently stores string keys as strings and int keys as ints so
     that they can be eval'd on read.
     This mostly just serves as an example.
 
-    If `delete_first` is True, remove the app config first
+    `delete_first` (bool) if True, remove the app config first
+    `redis_key_prefix` if redis keys used by Stolos have a prefix, specify it
 
         >> app_name = 'myapp1'
         >> app_conf = {"job_type": "bash"}
@@ -87,7 +106,7 @@ def set_config(app_name, app_conf, cli, delete_first=False):
         {"'job_type'": "'bash'"}
 
     """
-    key = '%s%s' % (REDIS_PREFIX, app_name)
+    key = '%s%s' % (redis_key_prefix, app_name)
     with cli.pipeline(transaction=True) as pipe:
         if delete_first:
             pipe.delete(key)

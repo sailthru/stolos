@@ -103,17 +103,20 @@ def main(ns):
 build_arg_parser = runner.build_plugin_arg_parser([at.group(
     'Bash Job Options',
     at.add_argument(
-        '--bash', nargs=at.argparse.REMAINDER, help=(
+        '--bash', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        nargs=at.argparse.REMAINDER, help=(
             "All remaining args are passed to the bash script. ie: "
             " myscript.sh arg1 --arg2 -c=4"
         )),
     at.add_argument(
-        '--watch', type=int, default=-1, help=(
+        '--watch', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        type=int, default=-1, help=(
             "Initiate a watchdog that will kill the process"
             " after a given seconds"
         )),
     at.add_argument(
-        '--redirect_to_stderr', action='store_true', help=(
+        '--redirect_to_stderr', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        type=bool, help=(
             "Rather than capturing output and logging it,"
             " send output directly to sys.stderr")),
 )])

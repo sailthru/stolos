@@ -34,7 +34,7 @@ setup(
         'networkx>=1.8.1',
         'ujson>=1.33',
         'argparse>=1.1',
-        'argparse_tools>=1.0.0',
+        'argparse_tools>=1.0.4',
     ],
 
     extras_require={

@@ -115,30 +115,34 @@ _build_arg_parser = runner.build_plugin_arg_parser([at.group(
     at.group(
         "Preprocess data",
         at.add_argument(
-            '--mapjson', action='store_true', help=(
+            '--mapjson', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+            type=bool, help=(
                 'convert each element in the textFile to json before doing'
                 ' anything with it.')),
         at.add_argument(
-            '--sample', type=_validate_sample_size,
+            '--sample', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+            type=_validate_sample_size,
             help="Sample n percent of the data without replacement"),
     ),
-    at.add_argument('--read_fp'),
-    at.add_argument('--write_fp'),
     at.add_argument(
-        '--spark_conf', nargs='*',
-        type=lambda x: x.split('='), default=[],
+        '--read_fp', action=at.DefaultFromEnv, env_prefix='STOLOS_'),
+    at.add_argument(
+        '--write_fp', action=at.DefaultFromEnv, env_prefix='STOLOS_'),
+    at.add_argument(
+        '--spark_conf', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        nargs='*', type=lambda x: x.split('='), default=[],
         help=("A list of key=value pairs that override"
               " the task's default settings. ie:"
               " spark.master=local[4] spark.ui.port=4046")),
     at.add_argument(
-        '--spark_env', nargs='+',
-        type=lambda x: x.split('='), default=[],
+        '--spark_env', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        nargs='+', type=lambda x: x.split('='), default=[],
         help=("A list of key=value pairs to add to the spark executor's"
               " environment.  ie:"
               " --spark_env MYVAR=foo APP_CONFIG=bar")),
     at.add_argument(
-        '--minPartitions', type=int,
-        help=("2nd argument passed to textFile")),
+        '--minPartitions', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        type=int, help=("2nd argument passed to textFile")),
 )], add_help=False,
 )
 

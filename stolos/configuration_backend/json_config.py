@@ -1,12 +1,19 @@
-import os
 import ujson
 
 from . import (
     TasksConfigBaseMapping, TasksConfigBaseSequence, log,
     _ensure_type)
 
+from stolos import argparse_shared as at
 
-TASKS_JSON = os.environ['TASKS_JSON']
+
+build_arg_parser = at.build_arg_parser([at.group(
+    "Options specific to the JSON Configuration Backend",
+    at.add_argument(
+        '--tasks_json', action=at.DefaultFromEnv, env_prefix='STOLOS_',
+        required=True, help=(
+            "Filepath to a json file defining Stolos application config")),
+)])
 
 
 class _JSONMappingBase(object):
@@ -21,15 +28,15 @@ class _JSONMappingBase(object):
 class JSONMapping(_JSONMappingBase, TasksConfigBaseMapping):
     """
     A read-only dictionary loaded with data from a file identified by
-    the environment variable, TASKS_JSON
+    the --tasks_json option
     """
-    def __init__(self, data=None):
+    def __init__(self, ns, data=None):
         if data is None:
             try:
-                fp = TASKS_JSON
+                fp = ns.tasks_json
             except KeyError:
                 log.error((
-                    "You must define TASKS_JSON if you use the %s"
+                    "You must define --tasks_json if you use the %s"
                     " configuration backend") % self.__class__.__name__)
                 raise
             try:
