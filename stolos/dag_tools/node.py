@@ -70,7 +70,7 @@ def _validate_job_id_identifiers(
         # validate the job_id
         try:
             val = validations[key](_val)
-            assert val, "Failed validation!"
+            assert val is not None, "Failed validation!"
         except KeyError:
             val = _val
             log.warn(
