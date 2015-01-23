@@ -10,8 +10,7 @@ from stolos import argparse_shared as at
 build_arg_parser = at.build_arg_parser([at.group(
     "Options specific to the JSON Configuration Backend",
     at.add_argument(
-        '--tasks_json', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        required=True, help=(
+        '--tasks_json', required=True, help=(
             "Filepath to a json file defining Stolos application config")),
 )])
 

@@ -232,27 +232,27 @@ _build_arg_parser = at.build_arg_parser([
     at.zookeeper_hosts,
 
     at.add_argument(
-        '--bypass_scheduler', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        type=bool, help=(
+        '--bypass_scheduler', type=bool, help=(
             "Run a task directly. Do not schedule it."
             "  Do not obtain a lock on this job.  Requires passing --job_id")),
     at.add_argument(
-        '--timeout', action=at.DefaultFromEnv, env_prefix='STOLOS_', type=int,
-        default=2,
+        '--timeout', type=int, default=2,
         help='time to wait for task to appear in queue before dying'),
     at.add_argument(
-        '--max_retry', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        type=int, default=5,
+        '--max_retry', type=int, default=5,
         help='Maximum number of times to retry a failed task.'),
     at.add_argument(
-        '--job_id', action=at.DefaultFromEnv, env_prefix='STOLOS_', help=(
+        '--job_id', help=(
             'run a specific job_id. If a job is already queued,'
             ' it will run twice')),
 ],
     description=(
-        "A wrapper script that fetches tasks from a particular application's"
-        " queue, executes the task and then dies.  Jobs are managed in a DAG"
-        " with ZooKeeper"),
+        "This script intelligently executes your application's jobs."
+        " Specifically, an instance of this script fetches exactly 1 job"
+        " from your application's queue, decides how to perform those jobs,"
+        " and then dies.  Because jobs are managed in a DAG, Stolos may choose"
+        " to delay execution of a job until dependencies have been met."
+        " It may also queue child or parent jobs depending on their status."),
     add_help=False  # this parser option is overridden by child parsers
 )
 

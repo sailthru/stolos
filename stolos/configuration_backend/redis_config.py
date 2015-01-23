@@ -11,21 +11,20 @@ from stolos import argparse_shared as at
 
 
 build_arg_parser = at.build_arg_parser([at.group(
-    "Options specific to the Redis Configuration Backend",
+    ("Options specific to the Redis Configuration Backend."
+     "  By default, assume the Redis DB is available locally"),
     at.add_argument(
-        '--redis_key_prefix', default='stolos/',
-        action=at.DefaultFromEnv, env_prefix='STOLOS_', help=(
+        '--redis_key_prefix', default='stolos/', help=(
             "All redis keys stolos creates are prefixed by this value")),
     at.add_argument(
-        '--redis_db', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        default=0, type=int,
+        '--redis_db', default=0, type=int,
         help="Number of the DB that redis connects to"),
     at.add_argument(
-        '--redis_host', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        default='localhost', help="Host address to redis server"),
+        '--redis_host', default='localhost',
+        help="Host address to redis server"),
     at.add_argument(
-        '--redis_port', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        default=6379, type=int, help="Port to connect to redis server at"),
+        '--redis_port', default=6379, type=int,
+        help="Port to connect to redis server at"),
     at.add_argument(
         '--redis_connection_opts', type=lambda x: x.split('='), help=(
             "Additional arguments to pass to redis.StrictRedis")),

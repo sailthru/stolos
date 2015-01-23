@@ -12,7 +12,7 @@ export STOLOS_JOB_ID_VALIDATIONS="stolos.examples.job_id_validations"
 unset STOLOS_CONFIGURATION_BACKEND
 
 # JSON configuration backend
-# export CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
+# export STOLOS_CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
 export STOLOS_TASKS_JSON="$DIR/stolos/examples/tasks.json"
 
 # Zookeeper configuration backend
