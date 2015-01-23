@@ -208,25 +208,6 @@ def _handle_success(ns, zk, q, lock):
         extra=dict(app_name=ns.app_name, job_id=ns.job_id, completed=True))
 
 
-def log_and_raise(err, log_details):
-    """A helper function that logs the given exception
-    and then raises a generic CodeError.  This is useful to guarantee
-    that failing jobs are properly handled
-    """
-    log.exception(err, extra=log_details)
-    raise exceptions.CodeError(
-        'Task failed.  This message should never appear in logs.')
-
-
-def build_plugin_arg_parser(*args, **kwargs):
-    return at.build_arg_parser(
-        *args,
-        parents=kwargs.pop('parents', [_build_arg_parser()]),
-        conflict_handler='resolve',
-        add_help=kwargs.pop('add_help', True),
-        **kwargs)
-
-
 _build_arg_parser = at.build_arg_parser([
     at.app_name(choices=dag_tools.get_task_names()),
     at.zookeeper_hosts,

@@ -1,10 +1,10 @@
 import functools
 import ujson
+import importlib
 
-from stolos import argparse_shared as at
-from stolos import dag_tools, runner
+from stolos.plugins import at, log_and_raise, build_plugin_arg_parser, api, log
+
 from . import pyspark_context
-from . import log
 
 
 def main(ns):
@@ -17,9 +17,9 @@ def main(ns):
     Assume code is written in Python.  For Scala or R code, use another option.
     """
     job_id = ns.job_id
-    module = dag_tools.get_pymodule(ns.app_name)
+    module = get_pymodule(ns.app_name)
 
-    pjob_id = dag_tools.parse_job_id(ns.app_name, job_id)
+    pjob_id = api.parse_job_id(ns.app_name, job_id)
     log_details = dict(
         module_name=module.__name__,
         app_name=ns.app_name, job_id=job_id)
@@ -33,6 +33,12 @@ def main(ns):
     apply_data_transform(
         ns=ns, sc=sc, log_details=log_details, pjob_id=pjob_id, module=module)
     sc.stop()
+
+
+def get_pymodule(app_name):
+    dg = api.get_tasks_config()
+    module_name = dg[app_name]['pymodule']
+    return importlib.import_module(module_name)
 
 
 def pre_process_data(ns, tf, log_details):
@@ -64,7 +70,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
         try:
             module.main(sc=sc, ns=ns, **pjob_id)
         except Exception as err:
-            runner.log_and_raise(
+            log_and_raise(
                 "Job failed with error: %s" % err, log_details)
     else:
         read_fp = format_fp(ns.read_fp, ns, pjob_id)
@@ -78,7 +84,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
             try:
                 module.main(textFile=tf, ns=ns, **pjob_id)
             except Exception as err:
-                runner.log_and_raise(
+                log_and_raise(
                     "Job failed with error: %s" % err, log_details)
 
         else:
@@ -94,7 +100,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
                     .saveAsTextFile(write_fp)
                 )
             except Exception as err:
-                runner.log_and_raise(err, log_details)
+                log_and_raise(err, log_details)
 
 
 def format_fp(fp, ns, pjob_id):
@@ -110,39 +116,32 @@ def _validate_sample_size(str_i):
     return i
 
 
-_build_arg_parser = runner.build_plugin_arg_parser([at.group(
+_build_arg_parser = build_plugin_arg_parser([at.group(
     'Spark Job Options: How should given module.main process data?',
     at.group(
         "Preprocess data",
         at.add_argument(
-            '--mapjson', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-            type=bool, help=(
+            '--mapjson', type=bool, help=(
                 'convert each element in the textFile to json before doing'
                 ' anything with it.')),
         at.add_argument(
-            '--sample', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-            type=_validate_sample_size,
+            '--sample', type=_validate_sample_size,
             help="Sample n percent of the data without replacement"),
     ),
+    at.add_argument('--read_fp'),
+    at.add_argument('--write_fp'),
     at.add_argument(
-        '--read_fp', action=at.DefaultFromEnv, env_prefix='STOLOS_'),
-    at.add_argument(
-        '--write_fp', action=at.DefaultFromEnv, env_prefix='STOLOS_'),
-    at.add_argument(
-        '--spark_conf', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        nargs='*', type=lambda x: x.split('='), default=[],
+        '--spark_conf', nargs='*', type=lambda x: x.split('='), default=[],
         help=("A list of key=value pairs that override"
               " the task's default settings. ie:"
               " spark.master=local[4] spark.ui.port=4046")),
     at.add_argument(
-        '--spark_env', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        nargs='+', type=lambda x: x.split('='), default=[],
+        '--spark_env', nargs='+', type=lambda x: x.split('='), default=[],
         help=("A list of key=value pairs to add to the spark executor's"
               " environment.  ie:"
               " --spark_env MYVAR=foo APP_CONFIG=bar")),
     at.add_argument(
-        '--minPartitions', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        type=int, help=("2nd argument passed to textFile")),
+        '--minPartitions', type=int, help=("2nd argument passed to textFile")),
 )], add_help=False,
 )
 
@@ -159,7 +158,7 @@ def build_arg_parser():
     parents = [_build_arg_parser()]
 
     _ns, _ = parents[0].parse_known_args()
-    _app = dag_tools.get_pymodule(_ns.app_name)
+    _app = get_pymodule(_ns.app_name)
     if hasattr(_app, 'build_arg_parser'):
         parents.append(
             _app.build_arg_parser()

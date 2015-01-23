@@ -2,7 +2,6 @@
 A collections of functions for extracting information from nodes in the graph
 Assume a node == info about a task
 """
-import importlib
 import re
 
 from stolos.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
@@ -134,12 +133,6 @@ def passes_filter(app_name, job_id):
     return False
 
 
-def get_pymodule(app_name):
-    dg = get_tasks_config()
-    module_name = dg[app_name]['pymodule']
-    return importlib.import_module(module_name)
-
-
 def get_job_id_template(app_name, template=JOB_ID_DEFAULT_TEMPLATE):
     dg = get_tasks_config()
     template = dg[app_name].get('job_id', template)
@@ -157,18 +150,3 @@ def get_task_names():
     """Lookup the tasks in the tasks graph"""
     dg = get_tasks_config()
     return dg.keys()
-
-
-def get_bash_opts(app_name):
-    """Lookup the bash command-line options for a bash task
-    If they don't exist, return empty string"""
-    dg = get_tasks_config()
-    meta = dg[app_name]
-    job_type = meta['job_type']
-    try:
-        assert job_type == 'bash'
-    except AssertionError:
-        log.error(
-            "App is not a bash job", extra=dict(
-                app_name=app_name, job_type=job_type))
-    return meta.get('bash_opts', '')

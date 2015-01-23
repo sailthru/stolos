@@ -1,13 +1,9 @@
-from stolos import argparse_shared as at
-from stolos import runner
-from stolos import dag_tools
-
 from os import kill
 from signal import alarm, signal, SIGALRM, SIGKILL
 from subprocess import PIPE, Popen
 import sys
 
-from . import log
+from stolos.plugins import at, api, log_and_raise, build_plugin_arg_parser, log
 
 
 def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None,
@@ -57,6 +53,21 @@ def get_process_children(pid):
     return [int(sp) for sp in stdout.split()]
 
 
+def get_bash_opts(app_name):
+    """Lookup the bash command-line options for a bash task
+    If they don't exist, return empty string"""
+    dg = api.get_tasks_config()
+    meta = dg[app_name]
+    job_type = meta['job_type']
+    try:
+        assert job_type == 'bash'
+    except AssertionError:
+        log.error(
+            "App is not a bash job", extra=dict(
+                app_name=app_name, job_type=job_type))
+    return meta.get('bash_opts', '')
+
+
 def main(ns):
     """
     A generic plugin that schedules arbitrary bash jobs using Stolos
@@ -67,7 +78,7 @@ def main(ns):
     ld = dict(**ns.__dict__)
     ld.update(job_id=job_id)
     log.info('Running bash job', extra=dict(**ld))
-    cmd = dag_tools.get_bash_opts(ns.app_name)
+    cmd = get_bash_opts(ns.app_name)  # TODO
     if ns.bash:
         cmd += ' '.join(ns.bash)
         log.debug(
@@ -79,7 +90,7 @@ def main(ns):
             " options")
 
     _cmdargs = dict(**ns.__dict__)
-    _cmdargs.update(dag_tools.parse_job_id(ns.app_name, job_id))
+    _cmdargs.update(api.parse_job_id(ns.app_name, job_id))
     cmd = cmd.format(**_cmdargs)
 
     if ns.redirect_to_stderr:
@@ -92,15 +103,15 @@ def main(ns):
         cmd, shell=True, timeout=ns.watch, stdout=_std, stderr=_std)
     ld = dict(bash_returncode=returncode, stdout=stdout, stderr=stderr, **ld)
     if returncode == -9:
-        runner.log_and_raise("Bash job timed out", ld)
+        log_and_raise("Bash job timed out", ld)
     elif returncode != 0:
         # this raises an error and logs output:
-        runner.log_and_raise("Bash job failed", ld)
+        log_and_raise("Bash job failed", ld)
     else:
         log.info("Bash job succeeded", extra=ld)
 
 
-build_arg_parser = runner.build_plugin_arg_parser([at.group(
+build_arg_parser = build_plugin_arg_parser([at.group(
     'Bash Job Options',
     at.add_argument(
         '--bash', action=at.DefaultFromEnv, env_prefix='STOLOS_',
