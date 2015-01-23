@@ -235,100 +235,6 @@ def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
         exception_kls=DAGMisconfigured)
 
 
-def validate_bash_opts(app_name1, metadata, dg, tasks_conf, ld):
-    # bash_opts  -  Is job_type specified if has bash_opts?
-    if 'bash_opts' not in metadata:
-        return
-
-    _log_raise_if(
-        metadata.get('job_type') != 'bash',
-        ('If you specify bash_opts in task config, you must also set'
-         ' job_type="bash"'), extra=dict(**ld), exception_kls=DAGMisconfigured)
-
-    _log_raise_if(
-        not isinstance(metadata['bash_opts'], (str, unicode)),
-        ('bash_opts must be a string'),
-        extra=dict(**ld), exception_kls=DAGMisconfigured)
-
-
-def validate_spark_conf(app_name, metadata, dg, tasks_conf, ld):
-    if 'spark_conf' not in metadata:
-        return
-
-    # spark_conf - Is it a dict of str: str pairs?
-    _log_raise_if(
-        not isinstance(metadata["spark_conf"], TasksConfigBaseMapping),
-        "spark_conf, if supplied, must be a key:value mapping.",
-        extra=dict(**ld),
-        exception_kls=DAGMisconfigured)
-
-    for k, v in metadata["spark_conf"].items():
-        _log_raise_if(
-            not isinstance(k, (unicode, str)),
-            "Key in spark_conf must be a string",
-            extra=dict(key=k, key_type=type(k), **ld),
-            exception_kls=DAGMisconfigured)
-        _log_raise_if(
-            isinstance(v, (TasksConfigBaseSequence, TasksConfigBaseMapping,
-                           list, dict, tuple)),
-            "Value for given key in spark_conf must be an int, string or bool",
-            extra=dict(key=k, value_type=type(v), **ld),
-            exception_kls=DAGMisconfigured)
-
-
-def validate_env(app_name, metadata, dg, tasks_conf, ld):
-    if 'env' not in metadata:
-        return
-
-    _log_raise_if(
-        not isinstance(metadata["env"], TasksConfigBaseMapping),
-        "env, if supplied, must be a key: value mapping",
-        extra=dict(**ld),
-        exception_kls=DAGMisconfigured
-    )
-    for k, v in metadata['env'].items():
-        _log_raise_if(
-            not isinstance(k, (str, unicode)),
-            "invalid key.  expected string", extra=dict(key=k, **ld),
-            exception_kls=DAGMisconfigured)
-        _log_raise_if(
-            not isinstance(k, (str, unicode)),
-            "invalid value.  expected string", extra=dict(value=v, **ld),
-            exception_kls=DAGMisconfigured)
-
-
-def validate_env_from_os(app_name, metadata, dg, tasks_conf, ld):
-    if 'env_from_os' not in metadata:
-        return
-
-    _log_raise_if(
-        not isinstance(metadata["env_from_os"], TasksConfigBaseSequence),
-        "env_from_os, if supplied, must be sequence of environment variables",
-        extra=dict(**ld),
-        exception_kls=DAGMisconfigured
-    )
-    for key in metadata["env_from_os"]:
-        _log_raise_if(
-            not os.environ.get(key),
-            "key not in os environment but expected it to be there",
-            extra=dict(key=key, **ld),
-            exception_kls=DAGMisconfigured)
-
-
-def validate_uris(app_name, metadata, dg, tasks_conf, ld):
-    key = "uris"
-    if key not in metadata:
-        return
-    msg = ("%s, if supplied, must be a list of hadoop-compatible filepaths"
-           % key)
-    _log_raise_if(
-        not isinstance(metadata[key], TasksConfigBaseSequence),
-        msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
-    _log_raise_if(
-        not all(isinstance(x, (unicode, str)) for x in metadata[key]),
-        msg, extra=dict(**ld), exception_kls=DAGMisconfigured)
-
-
 def validate_dag(dg, tasks_conf):
     assert nx.algorithms.dag.is_directed_acyclic_graph(dg)
 
@@ -337,11 +243,6 @@ def validate_dag(dg, tasks_conf):
         validate_depends_on(app_name1, metadata, dg, tasks_conf, ld)
         validate_if_or(app_name1, metadata, dg, tasks_conf, ld)
         validate_job_type(app_name1, metadata, dg, tasks_conf, ld)
-        validate_bash_opts(app_name1, metadata, dg, tasks_conf, ld)
-        validate_spark_conf(app_name1, metadata, dg, tasks_conf, ld)
-        validate_env(app_name1, metadata, dg, tasks_conf, ld)
-        validate_env_from_os(app_name1, metadata, dg, tasks_conf, ld)
-        validate_uris(app_name1, metadata, dg, tasks_conf, ld)
 
 
 def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):

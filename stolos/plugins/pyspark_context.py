@@ -120,10 +120,65 @@ def get_spark_conf(app_name):
     """Query Stolos's dag graph for all information necessary to
     create a pyspark.SparkContext"""
     dg = api.get_tasks_config()
-    conf = dict(**dg[app_name].get('spark_conf', {}))
+    conf = dg[app_name].get('spark_conf', {})
+    validate_spark_conf(app_name, conf)
+    conf = dict(**_conf)
     conf['spark.app.name'] = app_name
     osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
-    osenv.update(dg[app_name].get('env', {}))
+    _env = dg[app_name].get('env', {})
+    validate_env(app_name, _env)
+    osenv.update(_env)
     pyFiles = dg[app_name].get('uris', [])
+    validate_uris(app_name, pyFiles)
     files = []  # for now, we're ignoring files.
     return conf, osenv, files, pyFiles
+
+
+def validate_env(app_name, env)
+    if not hasattr(env, 'items'):
+        log_and_raise(
+            ("pyspark app misconfigured:"
+             " env, if supplied, must be a key: value mapping"),
+            dict(app_name=app_name))
+    for k, v in env.items():
+        if not isinstance(k, (str, unicode)):
+            log_and_raise(
+                ("pyspark app misconfigured:"
+                 "invalid key.  expected string"),
+                dict(app_name=app_name, key=k))
+        if not isinstance(v, (str, unicode)):
+            log_and_raise(
+                ("pyspark app misconfigured:"
+                 "invalid value.  expected string"),
+                dict(app_name=app_name, value=v))
+
+
+def validate_uris(app_name, uris):
+    key = 'uris'
+    msg = ("pyspark app misconfigured:"
+           " %s, if supplied, must be a list of hadoop-compatible filepaths"
+           ) % key
+    if not all(isinstance(x, (unicode, str)) for x in uris):
+        log_and_raise(msg, extra=dict(app_name=app_name))
+
+
+def validate_spark_conf(app_name, conf):
+    # spark_conf - Is it a dict of str: str pairs?
+    if hasattr(conf, 'items'):
+        log_and_raise(
+            ("pyspark app improperly configured:"
+             " spark_conf must be a key:value mapping."),
+            dict(app_name=app_name))
+
+    for k, v in conf.items():
+        if not isinstance(k, (unicode, str)):
+            log_and_raise(
+                "pyspark app improperly configured:"
+                " Key in spark_conf must be a string",
+                dict(app_name=app_name, key=k, key_type=type(k)))
+        if not isinstance(v, (str, unicode, int, bool, float, long)):
+            log_and_raise(
+                ("pyspark app improperly configured:"
+                 "Value for given key in spark_conf must be an"
+                 " int, string or bool"),
+                dict(key=k, value_type=type(v), app_name=app_name))

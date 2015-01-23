@@ -65,7 +65,12 @@ def get_bash_opts(app_name):
         log.error(
             "App is not a bash job", extra=dict(
                 app_name=app_name, job_type=job_type))
-    return meta.get('bash_opts', '')
+    rv = meta.get('bash_opts', '')
+    if not isinstance(rv, (str, unicode)):
+        log_and_raise(
+            "App config for bash plugin is misconfigured:"
+            " bash_opts is not a string", dict(app_name=app_name))
+    return rv
 
 
 def main(ns):
