@@ -47,7 +47,7 @@ def _ensure_type(value, mapping_kls, seq_kls):
 
 def get_tasks_config(ns):
     # TODO: docstring
-    # TODO: CONFIGURATION_BACKEND
+    # TODO: how to initialize this?
     try:
         cb = _load_obj_from_path(
             ns.configuration_backend,
