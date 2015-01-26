@@ -70,7 +70,8 @@ def _validate_job_id_identifiers(
         # validate the job_id
         try:
             val = validations[key](_val)
-            assert val is not None, "Failed validation!"
+            assert val is not None, "validation func returned None"
+            assert val is not False, "validation func returned False"
         except KeyError:
             val = _val
             log.warn(
@@ -78,9 +79,10 @@ def _validate_job_id_identifiers(
                 extra=dict(job_id_key=key, **ld))
         except Exception as err:
             val = _val
-            msg = "Given job_id is improperly formatted."
+            msg = "An identifier in a job_id failed validation"
             log.exception(msg, extra=dict(
-                expected_key=key, invalid_val=_val, error_details=err, **ld))
+                job_id_identifier=key, bad_value=_val, error_details=err,
+                **ld))
             raise InvalidJobId("%s err: %s" % (msg, err))
         rv[key] = val
     return rv
