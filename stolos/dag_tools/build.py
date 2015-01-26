@@ -4,8 +4,7 @@ import tempfile
 
 from stolos import util
 from stolos.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
-from stolos.configuration_backend import (
-    TasksConfigBaseMapping, TasksConfigBaseSequence)
+from stolos import configuration_backend as cb
 
 from .constants import (DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_VALIDATIONS)
 from . import node
@@ -16,13 +15,13 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
     Test that a dependency group correctly defined.
 
     `dep_grp` (obj) - Configuration data for a dependency group.  It is an
-        instance that inherits from TasksConfigBaseMapping.
+        instance that inherits from cb.TasksConfigBaseMapping.
         Visualized as a dict or json, a dep_grp might look like:
             dep_grp = {"app_name": ["app2", "app3"]}
     `ld` (dict) - helpful info for error logs.  It also contains
         the app_name this dep_grp belongs to.
     `tasks_conf` (obj) - The configuration for all tasks. It is an instance
-        that inherits from TasksConfigBaseMapping
+        that inherits from cb.TasksConfigBaseMapping
     `dep_name` (str) - The name for this dependency group.
 
     """
@@ -76,10 +75,10 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
 def _validate_dependency_groups_part2(dep_name, dep_grp, ld, tasks_conf):
     _log_raise_if(
         ("app_name" not in dep_grp
-         or not isinstance(dep_grp["app_name"], TasksConfigBaseSequence)),
+         or not isinstance(dep_grp["app_name"], cb.TasksConfigBaseSequence)),
         ("Each dependency group the task depends on must specify"
          " an app_name key whose value is a sequence of items"
-         " (ie a TasksConfigBaseSequence)"),
+         " (ie a cb.TasksConfigBaseSequence)"),
         extra=dict(
             key="depends_on", invalid_dependency_group=dep_name,
             dep_grp=str(dict(dep_grp)), **ld),
@@ -131,7 +130,7 @@ def _validate_dependency_groups(tasks_conf, metadata, ld):
                 **ld),
             exception_kls=DAGMisconfigured)
         # validate scenario where the dep_grp is made up of subgrpA AND subgrpB
-        if isinstance(dep_grp, TasksConfigBaseSequence):
+        if isinstance(dep_grp, cb.TasksConfigBaseSequence):
             for _dep_grp in dep_grp:
                 _validate_dependency_groups_part2(
                     dep_name, _dep_grp, ld, tasks_conf)
@@ -163,9 +162,9 @@ def validate_depends_on(app_name1, metadata, dg, tasks_conf, ld):
         return
 
     _log_raise_if(
-        not isinstance(metadata["depends_on"], TasksConfigBaseMapping),
+        not isinstance(metadata["depends_on"], cb.TasksConfigBaseMapping),
         ("Configuration Error: Task's value at the depends_on key"
-         " must subclass TasksConfigBaseMapping"),
+         " must subclass cb.TasksConfigBaseMapping"),
         extra=dict(key="depends_on",
                    received_value_type=type(metadata["depends_on"]),
                    **ld),
@@ -198,7 +197,7 @@ def validate_if_or(app_name1, metadata, dg, tasks_conf, ld):
             continue
         location = "%s.valid_if_or.%s" % (app_name1, k)
         _log_raise_if(
-            not isinstance(v, TasksConfigBaseSequence),
+            not isinstance(v, cb.TasksConfigBaseSequence),
             "Task is misconfigured.  Wrong value type. Expected a sequence",
             extra=dict(wrong_value_type=type(v), key=location, **ld),
             exception_kls=DAGMisconfigured)
@@ -268,7 +267,7 @@ def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
 
 def _add_nodes(tasks_conf, dg):
     """Add nodes to a networkx graph
-    `tasks_conf` a subclass of TasksConfigBaseMapping
+    `tasks_conf` a subclass of cb.TasksConfigBaseMapping
     `dg` a networkx.MultiDiGraph instance (or something compatible)
     """
     for app_name, _attr_conf in tasks_conf.items():
@@ -286,7 +285,7 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
         multiple edges between two nodes
     `dep_name` (str) - the name of a dependency group
     `dep_grp` (obj) - dependency group data.  Subclass of
-        TasksConfigBaseMapping.  An example of what this may look like is:
+        cb.TasksConfigBaseMapping.  An example of what this may look like is:
             dep_grp = {
                 "app_name": ["test_app"],
                 "date": [20140601],
@@ -297,7 +296,7 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
     parent = dep_grp['app_name']
     if isinstance(parent, (unicode, str)):
         dg.add_edge(parent, app_name, key=dep_name, label=dep_name)
-    elif isinstance(parent, TasksConfigBaseSequence):
+    elif isinstance(parent, cb.TasksConfigBaseSequence):
         for _parent in parent:
             dg.add_edge(_parent, app_name, key=dep_name, label=dep_name)
     else:
@@ -318,7 +317,7 @@ def _build_dict_deps(dg, app_name, deps):
     `dg` (nx.MultiDiGraph instance) - the Tasks configuration as a graph
     `app_name` (str) - the name of a scheduled application
     `deps` (obj) - the dependencies for given `app_name`.  Should be a subclass
-        of TasksConfigBaseMapping
+        of cb.TasksConfigBaseMapping
     """
     log_details = dict(app_name=app_name, key='depends_on', deps=dict(deps))
     if "app_name" in deps:
@@ -327,11 +326,11 @@ def _build_dict_deps(dg, app_name, deps):
             dep_grp=deps, log_details=log_details)
     else:
         for dep_name, dep_grp in deps.items():
-            if isinstance(dep_grp, TasksConfigBaseMapping):
+            if isinstance(dep_grp, cb.TasksConfigBaseMapping):
                 _add_edges(
                     dg=dg, app_name=app_name, dep_name=dep_name,
                     dep_grp=dep_grp, log_details=log_details)
-            elif isinstance(dep_grp, TasksConfigBaseSequence):
+            elif isinstance(dep_grp, cb.TasksConfigBaseSequence):
                 for _dep_grp in dep_grp:
                     _add_edges(
                         dg=dg, app_name=app_name, dep_name=dep_name,
@@ -354,7 +353,7 @@ def build_dag(tasks_conf=None, validate=True):
 
 def _build_dag(tasks_conf, validate):
     if tasks_conf is None:
-        tasks_conf = node.get_tasks_config()
+        tasks_conf = cb.get_tasks_config()
     dg = nx.MultiDiGraph()
     for app_name, deps in _add_nodes(tasks_conf, dg):
         _build_dict_deps(

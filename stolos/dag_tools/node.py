@@ -6,21 +6,11 @@ import re
 
 from stolos.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
 from stolos.util import load_obj_from_path
+from stolos import configuration_backend as cb
 
 from .constants import (
-    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER,
-    CONFIGURATION_BACKEND)
+    JOB_ID_DEFAULT_TEMPLATE, JOB_ID_VALIDATIONS, JOB_ID_DELIMITER)
 from . import log
-
-
-def get_tasks_config():
-    try:
-        cb = load_obj_from_path(
-            CONFIGURATION_BACKEND, dict(key='CONFIGURATION_BACKEND'))()
-    except:
-        log.error("Could not load configuration backend")
-        raise
-    return cb
 
 
 def create_job_id(app_name, **job_id_identifiers):
@@ -100,7 +90,7 @@ def passes_filter(app_name, job_id):
 
     # does this job matches criteria that makes it executable? if so, we can't
     # autocomplete it
-    dg = get_tasks_config()
+    dg = cb.get_tasks_config()
     meta = dg[app_name]
     ld = dict(app_name=app_name, job_id=job_id)
     try:
@@ -134,7 +124,7 @@ def passes_filter(app_name, job_id):
 
 
 def get_job_id_template(app_name, template=JOB_ID_DEFAULT_TEMPLATE):
-    dg = get_tasks_config()
+    dg = cb.get_tasks_config()
     template = dg[app_name].get('job_id', template)
     parsed_template = re.findall(r'{(.*?)}', template)
     return (template, parsed_template)
@@ -142,11 +132,11 @@ def get_job_id_template(app_name, template=JOB_ID_DEFAULT_TEMPLATE):
 
 def get_job_type(app_name):
     """Lookup the job_type in tasks graph"""
-    dg = get_tasks_config()
+    dg = cb.get_tasks_config()
     return dg[app_name]['job_type']
 
 
 def get_task_names():
     """Lookup the tasks in the tasks graph"""
-    dg = get_tasks_config()
+    dg = cb.get_tasks_config()
     return dg.keys()

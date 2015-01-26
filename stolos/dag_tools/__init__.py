@@ -28,12 +28,6 @@ build_arg_parser = at.build_arg_parser([at.group(
             ' You can also configure Stolos logging here.'
             ' See conf/stolos-env.sh for an example')),
     at.add_argument(
-        '--configuration_backend', required=True,
-        default='stolos.configuration_backend.json_config.JSONMapping', help=(
-            'Specify how application dependency configuration is defined.'
-            ' Stolos supports a couple options.'
-            ' See conf/stolos-env.sh for an example')),
-    at.add_argument(
         '--job_id_delimiter', default='_', help=(
             'The identifying components of a job_id (as defined in'
             ' the job_id_template) are separated by a character sequence.'
@@ -54,7 +48,6 @@ from .build import (
 )
 from .node import (
     create_job_id,
-    get_tasks_config,
     parse_job_id,
     passes_filter,
     get_pymodule,

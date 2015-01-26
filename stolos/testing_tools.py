@@ -8,8 +8,8 @@ import tempfile
 import simplejson
 import nose.tools as nt
 
-from stolos import dag_tools as dt
-import stolos.configuration_backend.json_config as jc
+from stolos import configuration_backend as cb, dag_tools as dt
+import stolos.configuration_backend.json_config as jc  # TODO: remove this?
 from stolos import zookeeper_tools as zkt
 
 
@@ -130,7 +130,7 @@ def _create_tasks_json(fname_suffix='', inject={}, rename=False):
     `rename` - if True, change the name all tasks to include the fname_suffix
 
     """
-    tasks_config = dt.get_tasks_config().cache
+    tasks_config = cb.get_tasks_config().cache
     tasks_config.update(inject)  # assume we're using a json config
 
     f = tempfile.mkstemp(prefix='tasks_json', suffix=fname_suffix)[1]
@@ -211,7 +211,7 @@ def inject_into_dag(new_task_dct):
     new_task_dct = jc.JSONMapping(new_task_dct)
 
     # verify injection worked
-    dg = dt.get_tasks_config()
+    dg = cb.get_tasks_config()
     assert isinstance(dg, jc.JSONMapping)
     dag = dt.build_dag_cached()
     for k, v in new_task_dct.items():

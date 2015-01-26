@@ -6,11 +6,11 @@ from stolos.util import crossproduct, flatmap_with_kwargs
 from stolos.exceptions import (
     _log_raise, _log_raise_if, DAGMisconfigured, InvalidJobId)
 
-from stolos.configuration_backend import TasksConfigBaseSequence
+from stolos import configuration_backend as cb
 
 from .build import build_dag_cached
 from .constants import DEPENDENCY_GROUP_DEFAULT_NAME
-from .node import (get_tasks_config, parse_job_id, get_job_id_template)
+from .node import (parse_job_id, get_job_id_template)
 from . import log
 
 
@@ -62,7 +62,7 @@ def get_parents(app_name, job_id, include_dependency_group=False,
             group_name=group_name, app_name=app_name, job_id=job_id, ld=ld,
             include_dependency_group=include_dependency_group
         )
-        if isinstance(dep_group, TasksConfigBaseSequence):
+        if isinstance(dep_group, cb.TasksConfigBaseSequence):
             gen = _get_parents_handle_subgroups(
                 group_name, dep_group, _filter_parents, ld, kwargs)
             for rv in gen:
@@ -82,7 +82,7 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id):
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
-    if isinstance(dep_group, TasksConfigBaseSequence):  # recursive AND
+    if isinstance(dep_group, cb.TasksConfigBaseSequence):  # recursive AND
         return all(dep_group_and_job_id_compatible(dg, pjob_id)
                    for dg in dep_group)
 
@@ -128,7 +128,7 @@ def _get_grps(app_name, filter_deps, ld):
     Return an iterator that yields (dependency_group_name, group_metadata)
     tuples
     """
-    td = get_tasks_config()
+    td = cb.get_tasks_config()
     try:
         depends_on = td[app_name]['depends_on']
     except KeyError:
