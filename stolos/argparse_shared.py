@@ -5,11 +5,9 @@ the command-line.  This file contains argparse options that may be shared.
 from argparse_tools import (
     build_arg_parser, group, mutually_exclusive, lazy_kwargs,
     DefaultFromEnv, add_argument as _add_argument)
-import argparse
 
 
 # This code block exists for linting
-argparse
 build_arg_parser
 group
 mutually_exclusive
