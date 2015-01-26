@@ -78,13 +78,13 @@ def set_config(app_name, app_conf, cli, delete_first=False):
 
     If `delete_first` is True, remove the app config first
 
-        >>> app_name = 'myapp1'
-        >>> app_conf = {"job_type": "bash"}
-        >>> cli = redis.StrictRedis()
-        >>> set_config(app_name, app_conf, cli)
-        True
-        >>> cli.hgetall("%s%s" % (REDIS_PREFIX, app_name))
-        {'job_type': 'bash'}
+        >> app_name = 'myapp1'
+        >> app_conf = {"job_type": "bash"}
+        >> cli = redis.StrictRedis()
+        >> set_config(app_name, app_conf, cli)
+        [True]
+        >> cli.hgetall("%s%s" % (REDIS_PREFIX, app_name))
+        {"'job_type'": "'bash'"}
 
     """
     key = '%s%s' % (REDIS_PREFIX, app_name)
@@ -97,3 +97,4 @@ def set_config(app_name, app_conf, cli, delete_first=False):
         raise Exception(
             "Failed to set app config data",
             extra=dict(app_name=app_name, app_config=app_conf))
+    return rv

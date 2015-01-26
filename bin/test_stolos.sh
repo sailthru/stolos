@@ -23,9 +23,4 @@ fi
 
 python $DIR/bin/code_linter.py || exit 1
 
-nosetests \
-`python -c '
-from os.path import dirname ;
-import stolos ;
-print(dirname(stolos.__file__))'
-`/tests $@
+nosetests $@
