@@ -4,7 +4,7 @@ from pyspark import SparkConf, SparkContext
 import sys
 import os
 
-from stolos.plugins import api
+from stolos.plugins import api, log_and_raise
 from . import log
 
 
@@ -120,8 +120,8 @@ def get_spark_conf(app_name):
     """Query Stolos's dag graph for all information necessary to
     create a pyspark.SparkContext"""
     dg = api.get_tasks_config()
-    conf = dg[app_name].get('spark_conf', {})
-    validate_spark_conf(app_name, conf)
+    _conf = dg[app_name].get('spark_conf', {})
+    validate_spark_conf(app_name, _conf)
     conf = dict(**_conf)
     conf['spark.app.name'] = app_name
     osenv = {k: os.environ[k] for k in dg[app_name].get('env_from_os', [])}
@@ -134,7 +134,7 @@ def get_spark_conf(app_name):
     return conf, osenv, files, pyFiles
 
 
-def validate_env(app_name, env)
+def validate_env(app_name, env):
     if not hasattr(env, 'items'):
         log_and_raise(
             ("pyspark app misconfigured:"
