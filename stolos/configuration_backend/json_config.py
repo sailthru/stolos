@@ -1,4 +1,4 @@
-import ujson
+import simplejson
 
 from . import (
     TasksConfigBaseMapping, TasksConfigBaseSequence, log,
@@ -39,7 +39,7 @@ class JSONMapping(_JSONMappingBase, TasksConfigBaseMapping):
                     " configuration backend") % self.__class__.__name__)
                 raise
             try:
-                self.cache = ujson.load(open(fp))
+                self.cache = simplejson.load(open(fp))
             except:
                 log.error("Failed to read json file.", extra={'fp': fp})
                 raise

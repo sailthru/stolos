@@ -32,9 +32,9 @@ setup(
     install_requires = [
         'kazoo>=1.3.1',
         'networkx>=1.8.1',
-        'ujson>=1.33',
         'argparse>=1.1',
         'argparse_tools>=1.0.4',
+        'simplejson>=3.4.1',
     ],
 
     extras_require={

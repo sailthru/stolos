@@ -1,5 +1,5 @@
 import functools
-import ujson
+import simplejson
 import importlib
 
 from stolos.plugins import at, log_and_raise, build_plugin_arg_parser, api, log
@@ -52,7 +52,7 @@ def pre_process_data(ns, tf, log_details):
         tf = tf.sample(False, ns.sample, 0)
     if ns.mapjson:
         log.info('converting all elements in data stream to json')
-        tf = tf.map(ujson.loads)
+        tf = tf.map(simplejson.loads)
     return tf
 
 

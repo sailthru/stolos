@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import os
 from os.path import join
 import tempfile
-import ujson
+import simplejson
 import nose.tools as nt
 
 from stolos import dag_tools as dt
@@ -134,12 +134,12 @@ def _create_tasks_json(fname_suffix='', inject={}, rename=False):
     tasks_config.update(inject)  # assume we're using a json config
 
     f = tempfile.mkstemp(prefix='tasks_json', suffix=fname_suffix)[1]
-    frv = ujson.dumps(tasks_config)
+    frv = simplejson.dumps(tasks_config)
     if rename:
         renames = [(k, "%s__%s" % (k, fname_suffix))
                    for k in tasks_config]
         for k, new_k in renames:
-            frv = frv.replace(ujson.dumps(k), ujson.dumps(new_k))
+            frv = frv.replace(simplejson.dumps(k), simplejson.dumps(new_k))
     with open(f, 'w') as fout:
         fout.write(frv)
 
