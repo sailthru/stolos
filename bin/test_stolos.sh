@@ -8,7 +8,7 @@ echo $JOB_ID_VALIDATIONS
 echo $CONFIGURATION_BACKEND
 
 echo -n Is a local Zookeeper Server running and available?
-ans=`pgrep -f '-Dzookeeper' >/dev/null && echo yes || echo no`
+ans=`pgrep -f '\-Dzookeeper' >/dev/null && echo yes || echo no`
 echo ...$ans
 echo -n Is a local Redis Server running and available?
 ans2=`pgrep -f 'redis-server' && echo yes || echo no`
