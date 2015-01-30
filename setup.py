@@ -34,7 +34,6 @@ setup(
         'networkx>=1.8.1',
         'ujson>=1.33',
         'argparse>=1.1',
-        'pygraphviz>=1.2',
         'argparse_tools>=1.0.0',
     ],
 
@@ -44,6 +43,7 @@ setup(
         'testing': [
             'nose>=1.3.3', 'colorlog>=2.2.0', 'pyflakes>=0.8.1',
             'pep8>=1.5.6'],
+        'ui': ['pygraphviz>=1.2'],
     },
 
     # include_package_data = True,
