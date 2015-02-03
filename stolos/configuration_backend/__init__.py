@@ -9,6 +9,7 @@ the data is stored.
 import logging
 log = logging.getLogger('stolos.configuration_backend')
 
+import stolos
 from stolos import argparse_shared as at
 from stolos.util import load_obj_from_path as _load_obj_from_path
 
@@ -19,12 +20,16 @@ from .tasks_config_base import TasksConfigBaseMapping, TasksConfigBaseSequence
 build_arg_parser = at.build_arg_parser([
     # TODO: inherit from the configuration backend choice somehow?
     at.add_argument(
-        '--configuration_backend', required=True,
+        '--configuration_backend',
         default='stolos.configuration_backend.json_config.JSONMapping', help=(
             'Specify how application dependency configuration is defined.'
             ' Stolos supports a couple options.'
             ' See conf/stolos-env.sh for an example')),
-])
+], description="Configuration Backend options define where you store the DAG",
+add_help=False)
+
+
+NS = stolos.Uninitialized()  # modified by initializer
 
 
 def _ensure_type(value, mapping_kls, seq_kls):
@@ -45,14 +50,16 @@ def _ensure_type(value, mapping_kls, seq_kls):
         return value
 
 
-def get_tasks_config(ns):
-    # TODO: docstring
-    # TODO: how to initialize this?
+def get_tasks_config():
+    """
+    Returns object to read Stolos application config from your chosen
+    configuration backend
+    """
     try:
         cb = _load_obj_from_path(
-            ns.configuration_backend,
+            NS.configuration_backend,
             dict(key='configuration_backend',
-                 configuration_backend=ns.configuration_backend)
+                 configuration_backend=NS.configuration_backend)
         )(ns)
     except:
         log.error("Could not load configuration backend")

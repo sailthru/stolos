@@ -6,7 +6,7 @@ from stolos import util
 from stolos.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
 from stolos import configuration_backend as cb
 
-from .constants import (DEPENDENCY_GROUP_DEFAULT_NAME, JOB_ID_VALIDATIONS)
+from . import NS
 from . import node
 
 
@@ -92,7 +92,7 @@ def _validate_dep_grp_with_job_id_validations(dep_grp, ld):
     """Do the user defined job_id validations, if they exist,
     apply to each individual value of the relevant key in the dep group?"""
     for k, v in dep_grp.items():
-        func = JOB_ID_VALIDATIONS.get(k)
+        func = NS.job_id_validations.get(k)
         if not func:
             continue
         for vv in v:
@@ -174,7 +174,7 @@ def validate_depends_on(app_name1, metadata, dg, tasks_conf, ld):
         _validate_dep_grp_metadata(
             dep_grp=metadata['depends_on'],
             ld=ld, tasks_conf=tasks_conf,
-            dep_name=DEPENDENCY_GROUP_DEFAULT_NAME)
+            dep_name=NS.dependency_group_default_name)
     # depends_on  - are we specifying specific dependency_groups?
     else:
         _validate_dependency_groups(tasks_conf, metadata, ld)
@@ -208,7 +208,7 @@ def validate_if_or(app_name1, metadata, dg, tasks_conf, ld):
             extra=dict(key=k, job_id_template=templ, **ld),
             exception_kls=DAGMisconfigured)
         try:
-            validation_func = JOB_ID_VALIDATIONS[k]
+            validation_func = NS.job_id_validations[k]
         except KeyError:
             continue
         for vv in v:
@@ -322,7 +322,7 @@ def _build_dict_deps(dg, app_name, deps):
     log_details = dict(app_name=app_name, key='depends_on', deps=dict(deps))
     if "app_name" in deps:
         _add_edges(
-            dg, app_name=app_name, dep_name=DEPENDENCY_GROUP_DEFAULT_NAME,
+            dg, app_name=app_name, dep_name=NS.dependency_group_default_name,
             dep_grp=deps, log_details=log_details)
     else:
         for dep_name, dep_grp in deps.items():

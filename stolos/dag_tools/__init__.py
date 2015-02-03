@@ -7,6 +7,7 @@ use this sub-package.  External projects should refer directly to Stolos.api.
 """
 import importlib
 from stolos import argparse_shared as at
+import stolos
 
 import logging
 log = logging.getLogger('stolos.dag_tools')
@@ -24,20 +25,23 @@ build_arg_parser = at.build_arg_parser([at.group(
         type=lambda pth: importlib.import_module(pth).JOB_ID_VALIDATIONS,
         help=(
             'A python import path to a python module where Stolos can expect'
-            ' to find the validations for job_id components.'
+            ' to find the a dict named `JOB_ID_VALIDATIONS`.  This dict'
+            ' contains validation functions for job_id components.'
             ' You can also configure Stolos logging here.'
             ' See conf/stolos-env.sh for an example')),
     at.add_argument(
         '--job_id_delimiter', default='_', help=(
             'The identifying components of a job_id (as defined in'
             ' the job_id_template) are separated by a character sequence.'
-            ' The default for this is an underscore: "_"'
-        )),
+            ' The default for this is an underscore: "_"')),
     at.add_argument(
-        "--dependency_group_default_name", help=(
+        "--dependency_group_default_name", default='default', help=(
             'A very low-level option that specifies how unnamed dependency'
             " groups are identified. Don't bother changing this")),
-)])
+)], add_help=False)
+
+
+NS = stolos.Uninitialized()  # modified by initializer
 
 
 # Expose various functions to the rest of Stolos internals
@@ -50,11 +54,9 @@ from .node import (
     create_job_id,
     parse_job_id,
     passes_filter,
-    get_pymodule,
     get_job_id_template,
     get_job_type,
     get_task_names,
-    get_bash_opts,
 )
 
 from .traversal import (

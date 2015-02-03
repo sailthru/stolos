@@ -36,13 +36,8 @@ def add_argument(*args, **kwargs):
                 "  Stolos applies a custom action to get defaults from"
                 " the environment.  You cannot specify action=%s for the"
                 " argument identified by: %s" % (val, str(args[:2])))
-    _add_argument(*args, action=DefaultFromEnv, env_prefix='STOLOS_', **kwargs)
-
-
-def zookeeper_hosts(parser):
-    add_argument(
-        '--zookeeper_hosts', help="The address to your Zookeeper cluster"
-    )(parser)
+    return _add_argument(
+        *args, action=DefaultFromEnv, env_prefix='STOLOS_', **kwargs)
 
 
 @lazy_kwargs
