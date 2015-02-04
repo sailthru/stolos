@@ -8,10 +8,18 @@ __version__ = _pkg_resources.get_distribution(
 
 
 class Uninitialized(Exception):
+    msg = (
+        "Before you use Stolos, please let it initialize by calling"
+        " stolos.api.initialize()")
+
     def __getattr__(self, *args, **kwargs):
-        raise Uninitialized(
-            "Before you use Stolos, please let it initialize by calling"
-            " stolos.api.initialize()")
+        raise Uninitialized(Uninitialized.msg)
+
+    def __repr__(self):
+        return "Stolos Not Initialized.  %s" % Uninitialized.msg
+
+    def __str__(self):
+        return repr(self)
 
 __all__ = ['api']
 from stolos import api

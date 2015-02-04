@@ -7,6 +7,8 @@ import importlib
 from stolos import argparse_shared as at
 from stolos import log
 from stolos import dag_tools, exceptions, zookeeper_tools
+from stolos import configuration_backend
+from stolos.initializer import initialize
 
 
 def main(ns):
@@ -18,6 +20,7 @@ def main(ns):
     parent queues and remove the job from its own queue.
     If the job fails, either requeue it or mark it as permanently failed
     """
+    assert ns.app_name in dag_tools.get_task_names()
     if ns.bypass_scheduler:
         log.info(
             "Running a task without scheduling anything"
@@ -208,50 +211,53 @@ def _handle_success(ns, zk, q, lock):
         extra=dict(app_name=ns.app_name, job_id=ns.job_id, completed=True))
 
 
-_build_arg_parser = at.build_arg_parser([
-    at.app_name(choices=dag_tools.get_task_names()),
-    at.zookeeper_hosts,
-
-    at.add_argument(
-        '--bypass_scheduler', type=bool, help=(
-            "Run a task directly. Do not schedule it."
-            "  Do not obtain a lock on this job.  Requires passing --job_id")),
-    at.add_argument(
-        '--timeout', type=int, default=2,
-        help='time to wait for task to appear in queue before dying'),
-    at.add_argument(
-        '--max_retry', type=int, default=5,
-        help='Maximum number of times to retry a failed task.'),
-    at.add_argument(
-        '--job_id', help=(
-            'run a specific job_id. If a job is already queued,'
-            ' it will run twice')),
-],
-    description=(
-        "This script intelligently executes your application's jobs."
-        " Specifically, an instance of this script fetches exactly 1 job"
-        " from your application's queue, decides how to perform those jobs,"
-        " and then dies.  Because jobs are managed in a DAG, Stolos may choose"
-        " to delay execution of a job until dependencies have been met."
-        " It may also queue child or parent jobs depending on their status."),
-    add_help=False  # this parser option is overridden by child parsers
-)
-
-
 def build_arg_parser():
-    """
-    Get an argparse.Namespace from sys.argv,
-    Lazily import the appropriate plugin module based on the given app name
-    And recreate the namespace with arguments specific to that plugin module
-    """
-    ns, _ = _build_arg_parser().parse_known_args()
+    # """
+    # Get an argparse.Namespace from sys.argv,
+    # Lazily import the appropriate plugin module based on the given app name
+    # And recreate the namespace with arguments specific to that plugin module
+    # """
+
+    parser = at.build_arg_parser([at.group(
+        "Runtime options",
+        at.app_name,
+        at.add_argument(
+            '--bypass_scheduler', type=bool, help=(
+                "Run a task directly. Do not schedule it."
+                "  Do not obtain a lock on this job.  Requires passing --job_id")),
+        at.add_argument(
+            '--timeout', type=int, default=2,
+            help='time to wait for task to appear in queue before dying'),
+        at.add_argument(
+            '--max_retry', type=int, default=5,
+            help='Maximum number of times to retry a failed task.'),
+        at.add_argument(
+            '--job_id', help=(
+                'run a specific job_id. If a job is already queued,'
+                ' it will run twice')),
+    )],
+        description=(
+            "This script intelligently executes your application's jobs."
+            " Specifically, an instance of this script fetches exactly 1 job"
+            " from your application's queue, decides how to perform those jobs,"
+            " and then dies.  Because jobs are managed in a DAG, Stolos may choose"
+            " to delay execution of a job until dependencies have been met."
+            " It may also queue child or parent jobs depending on their status."),
+    )
+    parser, ns = initialize(
+        [parser(), dag_tools, configuration_backend], add_help=False)
+
+    # get plugin parser
     plugin = importlib.import_module(
         'stolos.plugins.%s_plugin' % dag_tools.get_job_type(ns.app_name))
-    ns = plugin.build_arg_parser().parse_args()
+    ns = at.build_arg_parser(
+        parents=[plugin.build_arg_parser(), parser],
+        add_help=True
+    ).parse_args()
     ns.job_type_func = plugin.main
     return ns
 
 
 if __name__ == '__main__':
-    NS = build_arg_parser()
+    NS = build_arg_parser().parse_args()
     main(NS)

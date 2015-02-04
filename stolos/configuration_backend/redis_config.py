@@ -6,6 +6,7 @@ import redis
 from stolos.exceptions import _log_raise_if
 from . import TasksConfigBaseMapping, _ensure_type, log
 from .json_config import JSONMapping, JSONSequence
+from stolos import configuration_backend as cb
 
 from stolos import argparse_shared as at
 
@@ -65,10 +66,11 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
         app_name: {python dict of app config stored as a k:v hashmap in redis)
 
     """
-    def __init__(self, ns, data=None):
-        self.db = ns.db
-        self.redis_key_prefix = ns.redis_key_prefix
-        self.cli = redis.StrictRedis(db=ns.db, port=ns.port, host=ns.host)
+    def __init__(self, data=None):
+        self.db = cb.NS.db
+        self.redis_key_prefix = cb.NS.redis_key_prefix
+        self.cli = redis.StrictRedis(
+            db=cb.NS.db, port=cb.NS.port, host=cb.NS.host)
         if data is None:
             self.cache = {}
         elif isinstance(data, self.__class__):

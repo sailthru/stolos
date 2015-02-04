@@ -1,9 +1,10 @@
+from argparse import REMAINDER
 from os import kill
 from signal import alarm, signal, SIGALRM, SIGKILL
 from subprocess import PIPE, Popen
 import sys
 
-from stolos.plugins import at, api, log_and_raise, build_plugin_arg_parser, log
+from stolos.plugins import at, api, log_and_raise, log
 
 
 def run(args, cwd=None, shell=False, kill_tree=True, timeout=-1, env=None,
@@ -116,23 +117,20 @@ def main(ns):
         log.info("Bash job succeeded", extra=ld)
 
 
-build_arg_parser = build_plugin_arg_parser([at.group(
+build_arg_parser = at.build_arg_parser([at.group(
     'Bash Job Options',
     at.add_argument(
-        '--bash', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        nargs=at.argparse.REMAINDER, help=(
+        '--bash', nargs=REMAINDER, help=(
             "All remaining args are passed to the bash script. ie: "
             " myscript.sh arg1 --arg2 -c=4"
         )),
     at.add_argument(
-        '--watch', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        type=int, default=-1, help=(
+        '--watch', type=int, default=-1, help=(
             "Initiate a watchdog that will kill the process"
             " after a given seconds"
         )),
     at.add_argument(
-        '--redirect_to_stderr', action=at.DefaultFromEnv, env_prefix='STOLOS_',
-        type=bool, help=(
+        '--redirect_to_stderr', type=bool, help=(
             "Rather than capturing output and logging it,"
             " send output directly to sys.stderr")),
 )])

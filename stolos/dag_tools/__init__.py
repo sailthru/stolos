@@ -15,7 +15,8 @@ log = logging.getLogger('stolos.dag_tools')
 
 # define configuration dependencies for dag_tools to be usable
 build_arg_parser = at.build_arg_parser([at.group(
-    "Options that specify how your apps are defined in the dependency graph",
+    # "DAG: Details relating to how your app dependencies are defined",
+    "Application Dependency Configuration",
     at.add_argument(
         '--job_id_default_template', required=True, help=(
             "Defines the default way to identify `job_id`s for all"
@@ -38,7 +39,7 @@ build_arg_parser = at.build_arg_parser([at.group(
         "--dependency_group_default_name", default='default', help=(
             'A very low-level option that specifies how unnamed dependency'
             " groups are identified. Don't bother changing this")),
-)], add_help=False)
+)])
 
 
 NS = stolos.Uninitialized()  # modified by initializer

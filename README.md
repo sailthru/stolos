@@ -824,12 +824,19 @@ This plugin file must define exactly two things:
     `ns.app_name` and `ns.job_id` (and whatever other ns variables) to execute
     some specific piece of code that exists somewhere.
   - It must define a `build_arg_parser` object that will populate the `ns`.
-    Keep in mind that Stolos will also populate this ns and it is
-    generally good practice to avoid naming conflicts in argument options.
-    The `build_arg_parser` object uses the argparse_tools library, and is
-    instantiated like this:
+    Keep in mind that Stolos will also populate this ns and it will force you
+    to avoid naming conflicts in argument options.
 
-    build_arg_parser = runner.build_plugin_arg_parser([...])
+Boilerplate for a Stolos plugin is this:
+
+```
+from stolos.plugins import at, api
+
+def main(ns):
+    pass
+
+build_arg_parser = at.build_arg_parser([...])
+```
 
 
 Roadmap:

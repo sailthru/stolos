@@ -17,16 +17,18 @@ from stolos.util import load_obj_from_path as _load_obj_from_path
 from .tasks_config_base import TasksConfigBaseMapping, TasksConfigBaseSequence
 
 
-build_arg_parser = at.build_arg_parser([
+build_arg_parser = at.build_arg_parser([at.group(
     # TODO: inherit from the configuration backend choice somehow?
+    "Application Dependency Configuration",
     at.add_argument(
         '--configuration_backend',
         default='stolos.configuration_backend.json_config.JSONMapping', help=(
-            'Specify how application dependency configuration is defined.'
+            "Where do you store the application dependency data?"
+            ' This options defines which backend to use to access'
+            ' application dependency configuration.'
             ' Stolos supports a couple options.'
             ' See conf/stolos-env.sh for an example')),
-], description="Configuration Backend options define where you store the DAG",
-add_help=False)
+)])
 
 
 NS = stolos.Uninitialized()  # modified by initializer
@@ -53,15 +55,15 @@ def _ensure_type(value, mapping_kls, seq_kls):
 def get_tasks_config():
     """
     Returns object to read Stolos application config from your chosen
-    configuration backend
+    configuration backend.
     """
     try:
         cb = _load_obj_from_path(
             NS.configuration_backend,
             dict(key='configuration_backend',
                  configuration_backend=NS.configuration_backend)
-        )(ns)
+        )
     except:
         log.error("Could not load configuration backend")
         raise
-    return cb
+    return cb()

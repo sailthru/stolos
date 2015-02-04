@@ -3,16 +3,26 @@ We leverage argparse_tools to manage how arguments are passed in from
 the command-line.  This file contains argparse options that may be shared.
 """
 from argparse_tools import (
-    build_arg_parser, group, mutually_exclusive, lazy_kwargs,
-    DefaultFromEnv, add_argument as _add_argument)
+    build_arg_parser as _build_arg_parser,
+    group, mutually_exclusive, lazy_kwargs,
+    DefaultFromEnv,
+    add_argument as _add_argument)
 
 
 # This code block exists for linting
-build_arg_parser
 group
 mutually_exclusive
 lazy_kwargs
 DefaultFromEnv
+
+
+def build_arg_parser(*args, **kwargs):
+    """Wraps at.build_arg_parser to set some defaults
+
+    disable --help by default"""
+    if 'add_help' not in kwargs:
+        kwargs['add_help'] = False
+    return _build_arg_parser(*args, **kwargs)
 
 
 def add_argument(*args, **kwargs):

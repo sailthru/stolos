@@ -2,7 +2,7 @@ import functools
 import simplejson
 import importlib
 
-from stolos.plugins import at, log_and_raise, build_plugin_arg_parser, api, log
+from stolos.plugins import at, log_and_raise, api, log
 
 from . import pyspark_context
 
@@ -116,7 +116,7 @@ def _validate_sample_size(str_i):
     return i
 
 
-_build_arg_parser = build_plugin_arg_parser([at.group(
+_build_arg_parser = at.build_arg_parser([at.group(
     'Spark Job Options: How should given module.main process data?',
     at.group(
         "Preprocess data",
@@ -142,8 +142,7 @@ _build_arg_parser = build_plugin_arg_parser([at.group(
               " --spark_env MYVAR=foo APP_CONFIG=bar")),
     at.add_argument(
         '--minPartitions', type=int, help=("2nd argument passed to textFile")),
-)], add_help=False,
-)
+)])
 
 
 def build_arg_parser():
@@ -163,6 +162,4 @@ def build_arg_parser():
         parents.append(
             _app.build_arg_parser()
         )
-
-    return at.build_arg_parser(
-        [], parents=parents, conflict_handler='resolve')()
+    return at.build_arg_parser(parents=parents)

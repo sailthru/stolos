@@ -37,46 +37,45 @@
  },
 
  "test_stolos/test_depends_on2": {
-     "job_type": "bash",
+     "job_type": "bash"
  },
-
   "test_stolos/test_depends_on": {
-     "job_id": "{date}_{testID}",
-     "depends_on": {
-       "depgrp1": [{
-         "app_name": ["test_stolos/test_app2", "test_stolos/test_app"],
-         "collection_name": ["profile", "purchase"],
-         "date": [20140601],
-         "client_id": [876, 1011, 9020],
-         "testID": [1]
-         }, {
-         "app_name": ["test_stolos/test_app"],
-         "job_id": ["20140601_999_purchase"],
-         "testID": [1]
-       }],
-       "depgrp2": {
-         "app_name": ["test_stolos/test_depends_on2"],
-         "collection_name": ["profile"],
-         "date": [20140601],
-         "client_id": [876, 1011, 9020],
-         "testID": [2]
-       },
-       "depgrp3": {
-         "app_name": ["test_stolos/test_app"],
-         "collection_name": ["profile"],
-         "date": [20140601],
-         "client_id": [876],
-         "testID": [3]
-       },
-       "depgrp4": {
-         "app_name": ["test_stolos/test_app"],
-         "collection_name": ["profile"],
-         "date": [20140601],
-         "client_id": [444],
-         "testID": [3]
-       }
-     },
-     "job_type": "bash",
+    "job_id": "{date}_{testID}",
+    "job_type": "bash",
+    "depends_on": {
+      "depgrp1": [{
+        "app_name": ["test_stolos/test_app2", "test_stolos/test_app"],
+        "collection_name": ["profile", "purchase"],
+        "date": [20140601],
+        "client_id": [876, 1011, 9020],
+        "testID": [1]
+        }, {
+        "app_name": ["test_stolos/test_app"],
+        "job_id": ["20140601_999_purchase"],
+        "testID": [1]
+      }],
+      "depgrp2": {
+        "app_name": ["test_stolos/test_depends_on2"],
+        "collection_name": ["profile"],
+        "date": [20140601],
+        "client_id": [876, 1011, 9020],
+        "testID": [2]
+      },
+      "depgrp3": {
+        "app_name": ["test_stolos/test_app"],
+        "collection_name": ["profile"],
+        "date": [20140601],
+        "client_id": [876],
+        "testID": [3]
+      },
+      "depgrp4": {
+        "app_name": ["test_stolos/test_app"],
+        "collection_name": ["profile"],
+        "date": [20140601],
+        "client_id": [444],
+        "testID": [3]
+      }
+    }
   },
   "test_stolos/test_fanout": {
     "job_type": "bash",
