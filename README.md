@@ -807,17 +807,17 @@ If you'd like to make a change, you should:
 Creating a plugin
 ---------------
 
-Plugins hook arbitrary code into Stolos.  By default, Stolos
-supports executing bash applications and, for convenience, Spark (python)
-applications.  If you wish to add another plugin, you should create a file in
-the stolos/plugins directory named "xyz_plugin.py."
+Plugins define how Stolos should execute an Application's jobs.  By default,
+Stolos supports executing bash applications and Python Spark (pyspark)
+applications.  In general, just using the bash plugin is fine for most
+scenarios.  However, we expose a plugin api so that you may more tightly couple
+your running application to Stolos's runtime environment.  It might make sense
+to do this if you want your application to share the same process as Stolos, or
+perhaps you wish to standardize the way different applications are initialized.
 
-
-    ./stolos/plugins/xyz_plugin.py
-
-
-This plugin file must define exactly two things:
-
+If you wish to add another plugin to Stolos or use your own, please follow
+these instructions.  If you wish to create a custom plugin, create a
+python file that defines exactly two things:
 
   - It must define a `main(ns)` function.  `ns` is an `argparse.Namespace`
     instance.  This function should use the values defined by variables
@@ -837,6 +837,9 @@ def main(ns):
 
 build_arg_parser = at.build_arg_parser([...])
 ```
+
+To use your custom plugin, in your application's configuration, set the
+`job_type` to `python.import.path.to.your.module`.
 
 
 Roadmap:
