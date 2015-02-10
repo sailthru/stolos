@@ -7,7 +7,7 @@ from stolos.exceptions import (
     _log_raise, _log_raise_if, DAGMisconfigured, InvalidJobId)
 
 from stolos import configuration_backend as cb
-from . import NS
+from stolos import get_NS
 
 from .build import build_dag_cached
 from .node import (parse_job_id, get_job_id_template)
@@ -134,9 +134,9 @@ def _get_grps(app_name, filter_deps, ld):
     except KeyError:
         return []  # this task has no dependencies
     if "app_name" in depends_on:
-        grps = [(NS.dependency_group_default_name, depends_on)]
+        grps = [(get_NS().dependency_group_default_name, depends_on)]
         _get_parents_validate_group_names(
-            [NS.dependency_group_default_name], filter_deps, ld)
+            [get_NS().dependency_group_default_name], filter_deps, ld)
     elif filter_deps:
         _get_parents_validate_group_names(
             depends_on, filter_deps, ld)
@@ -290,7 +290,7 @@ def get_children(node, job_id, include_dependency_group=True):
     child_apps = list(child_apps)
     for child, group_name in child_apps:
         grp = dg.node[child]['depends_on']
-        if group_name != NS.dependency_group_default_name:
+        if group_name != get_NS().dependency_group_default_name:
             grp = grp[group_name]
         kwargs = dict(
             func=_generate_job_ids, kwarg_name='grp', list_or_value=grp,

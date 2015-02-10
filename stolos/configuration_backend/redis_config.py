@@ -3,10 +3,10 @@ Fetch Stolos configuration from redis rather than from a json file.
 """
 import redis
 
+from stolos import get_NS
 from stolos.exceptions import _log_raise_if
 from . import TasksConfigBaseMapping, _ensure_type, log
 from .json_config import JSONMapping, JSONSequence
-from stolos import configuration_backend as cb
 
 from stolos import argparse_shared as at
 
@@ -67,10 +67,11 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
 
     """
     def __init__(self, data=None):
-        self.db = cb.NS.db
-        self.redis_key_prefix = cb.NS.redis_key_prefix
+        NS = get_NS()
+        self.db = NS.db
+        self.redis_key_prefix = NS.redis_key_prefix
         self.cli = redis.StrictRedis(
-            db=cb.NS.db, port=cb.NS.port, host=cb.NS.host)
+            db=NS.db, port=NS.port, host=NS.host)
         if data is None:
             self.cache = {}
         elif isinstance(data, self.__class__):

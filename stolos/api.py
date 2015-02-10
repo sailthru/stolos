@@ -26,3 +26,16 @@ from stolos.zookeeper_maintenance import (
     get_job_ids_by_status,
 )
 delete, requeue, get_job_ids_by_status,
+
+
+def initialize():
+    """
+    Initialize Stolos.  This function must be called before Stolos's api is
+    usable.  It fetches all required configuration variables to use stolos's
+    library.  Will not load namespace options required by Stolos plugins.
+    """
+    from stolos.initializer import initialize as _initialize
+    from stolos import dag_tools as _dt
+    from stolos import configuration_backend as _cb
+    from stolos import queue_backend as _qb
+    _initialize([_dt, _cb, _qb])

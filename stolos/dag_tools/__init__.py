@@ -42,9 +42,6 @@ build_arg_parser = at.build_arg_parser([at.group(
 )])
 
 
-NS = stolos.Uninitialized()  # modified by initializer
-
-
 # Expose various functions to the rest of Stolos internals
 from .build import (
     build_dag,

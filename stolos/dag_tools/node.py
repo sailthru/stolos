@@ -8,7 +8,7 @@ from stolos.exceptions import _log_raise, DAGMisconfigured, InvalidJobId
 from stolos.util import load_obj_from_path
 from stolos import configuration_backend as cb
 
-from . import NS
+from stolos import get_NS
 from . import log
 
 
@@ -38,7 +38,7 @@ def parse_job_id(app_name, job_id, delimiter=None):
 
     """
     if delimiter is None:
-        delimiter = NS.job_id_delimiter
+        delimiter = get_NS().job_id_delimiter
     template, ptemplate = get_job_id_template(app_name)
     vals = job_id.split(delimiter, len(ptemplate) - 1)
     ld = dict(job_id=job_id, app_name=app_name, job_id_template=template)
@@ -53,7 +53,7 @@ def parse_job_id(app_name, job_id, delimiter=None):
 def _validate_job_id_identifiers(
         app_name, vals, validations=None, **_log_details):
     if validations is None:
-        validations = NS.job_id_validations
+        validations = get_NS().job_id_validations
     _, template = get_job_id_template(app_name)
     ld = dict(app_name=app_name, job_id_template=template)
     ld.update(_log_details)
@@ -120,7 +120,7 @@ def passes_filter(app_name, job_id):
                 "valid_if_or contains a key that's not in the job_id",
                 extra=dict(valid_if_or_key=k, **ld),
                 exception_kls=DAGMisconfigured)
-        vals = [NS.job_id_validations[k](x) for x in v]
+        vals = [get_NS().job_id_validations[k](x) for x in v]
         if kk in vals:
             return True
     return False
@@ -128,7 +128,7 @@ def passes_filter(app_name, job_id):
 
 def get_job_id_template(app_name, template=None):
     if template is None:
-        template = NS.job_id_default_template
+        template = get_NS().job_id_default_template
     dg = cb.get_tasks_config()
     template = dg[app_name].get('job_id', template)
     parsed_template = re.findall(r'{(.*?)}', template)

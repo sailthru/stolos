@@ -55,9 +55,11 @@ def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
     Initialize Stolos such that we ensure all required configuration settings
     are unified in one central place before we do anything with Stolos.
 
+    All internal stolos libraries should call to stolos.get_NS() when they need
+    to access configuration.
+
     `objects` - is a list of build_arg_parser functions or objects
         (ie Stolos modules) containing a callable build_arg_parser function.
-        The initializer will set `object.NS` on the given objects.
         Raises error if any parsers define conflicting argument options.
     `args` - if supplied, is passed to the parse_args(...) function of an
         argparse.ArgumentParser.  This should default to sys.argv.
@@ -71,7 +73,7 @@ def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
     # partially initialize a parser to get selected configuration backend
     parser = at.build_arg_parser(
         description="Initialize Stolos, whether running it or calling its api",
-        parents=_get_parent_parsers(objects),
+        parents=list(_get_parent_parsers(objects)),
         **argument_parser_kwargs)
     if args is not None:
         ns, _ = parser.parse_known_args(args)
@@ -85,8 +87,13 @@ def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
         ns = parser.parse_args()
     else:
         ns, _ = parser.parse_known_args()
-    for m in objects:
-        if not isinstance(m, argparse.ArgumentParser):
-            setattr(m, 'NS', ns)
-    del stolos.Uninitialized
+    stolos.NS = ns
+    try:
+        del stolos.Uninitialized
+    except AttributeError:
+        log.warn(
+            "Stolos was re-initialized.  You may have imported the api and"
+            " then done something weird like re-import it or manually"
+            " call Stolos's initializer."
+        )
     return parser, ns

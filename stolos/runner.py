@@ -7,6 +7,7 @@ import importlib
 from stolos import argparse_shared as at
 from stolos import log
 from stolos import dag_tools, exceptions, zookeeper_tools
+from stolos import queue_backend
 from stolos import configuration_backend
 from stolos.initializer import initialize
 
@@ -211,7 +212,7 @@ def _handle_success(ns, zk, q, lock):
         extra=dict(app_name=ns.app_name, job_id=ns.job_id, completed=True))
 
 
-def build_arg_parser():
+def build_arg_parser_and_parse_args():
     # """
     # Get an argparse.Namespace from sys.argv,
     # Lazily import the appropriate plugin module based on the given app name
@@ -245,13 +246,14 @@ def build_arg_parser():
             " It may also queue child or parent jobs depending on their status."),
     )
     parser, ns = initialize(
-        [parser(), dag_tools, configuration_backend], add_help=False)
+        [parser(), dag_tools, configuration_backend, queue_backend],
+        add_help=False)
 
     # get plugin parser
     plugin = importlib.import_module(
         'stolos.plugins.%s_plugin' % dag_tools.get_job_type(ns.app_name))
     ns = at.build_arg_parser(
-        parents=[plugin.build_arg_parser(), parser],
+        parents=[parser, plugin.build_arg_parser()],
         add_help=True
     ).parse_args()
     ns.job_type_func = plugin.main
@@ -259,5 +261,5 @@ def build_arg_parser():
 
 
 if __name__ == '__main__':
-    NS = build_arg_parser().parse_args()
+    NS = build_arg_parser_and_parse_args()
     main(NS)

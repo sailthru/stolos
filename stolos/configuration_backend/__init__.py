@@ -31,9 +31,6 @@ build_arg_parser = at.build_arg_parser([at.group(
 )])
 
 
-NS = stolos.Uninitialized()  # modified by initializer
-
-
 def _ensure_type(value, mapping_kls, seq_kls):
     """
     Code that backends can use to ensure dict and list values they may
@@ -57,11 +54,12 @@ def get_tasks_config():
     Returns object to read Stolos application config from your chosen
     configuration backend.
     """
+    ns = stolos.get_NS()
     try:
         cb = _load_obj_from_path(
-            NS.configuration_backend,
+            ns.configuration_backend,
             dict(key='configuration_backend',
-                 configuration_backend=NS.configuration_backend)
+                 configuration_backend=ns.configuration_backend)
         )
     except:
         log.error("Could not load configuration backend")

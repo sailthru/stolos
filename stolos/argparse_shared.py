@@ -55,4 +55,4 @@ def app_name(parser,
              help='The name of a task whose status is tracked with ZooKeeper',
              required=True, **kwargs):
     add_argument(
-        '-a', '--app_name', help=help, required=required, **kwargs)(parser)
+        '-a', '--app_name', help=help, required=True, **kwargs)(parser)

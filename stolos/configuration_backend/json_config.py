@@ -3,9 +3,9 @@ import simplejson
 from . import (
     TasksConfigBaseMapping, TasksConfigBaseSequence, log,
     _ensure_type)
-from stolos import configuration_backend as cb
 
 from stolos import argparse_shared as at
+from stolos import get_NS
 
 
 build_arg_parser = at.build_arg_parser([at.group(
@@ -33,7 +33,7 @@ class JSONMapping(_JSONMappingBase, TasksConfigBaseMapping):
     def __init__(self, data=None):
         if data is None:
             try:
-                fp = cb.NS.tasks_json
+                fp = get_NS().tasks_json
             except KeyError:
                 log.error((
                     "You must define --tasks_json if you use the %s"

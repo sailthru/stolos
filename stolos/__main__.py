@@ -1,11 +1,11 @@
 """
 Convert a directory into an executable
 """
-from runner import build_arg_parser, main
+from runner import build_arg_parser_and_parse_args, main
 
 
 def go():
-    NS = build_arg_parser()
+    NS = build_arg_parser_and_parse_args()
     main(NS)
 
 if __name__ == '__main__':
