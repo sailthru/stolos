@@ -68,10 +68,10 @@ class RedisMapping(_RedisConfig, TasksConfigBaseMapping):
     """
     def __init__(self, data=None):
         NS = get_NS()
-        self.db = NS.db
+        self.db = NS.redis_db
         self.redis_key_prefix = NS.redis_key_prefix
         self.cli = redis.StrictRedis(
-            db=NS.db, port=NS.port, host=NS.host)
+            db=NS.redis_db, port=NS.redis_port, host=NS.redis_host)
         if data is None:
             self.cache = {}
         elif isinstance(data, self.__class__):

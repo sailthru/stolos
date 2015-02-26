@@ -38,14 +38,12 @@ def _get_parent_parsers(objects):
         yield p
 
 
-def initialize_configuration_backend(choice, parser, add_help):
+def initialize_configuration_backend(cbackend, parser, add_help):
     """
     get options for the chosen configuration_backend.
     ensure they don't conflict with previously defined ones
     """
-    cb = importlib.import_module(
-        util.load_obj_from_path(choice).__module__)\
-        .build_arg_parser()
+    cb = importlib.import_module(cbackend.__module__).build_arg_parser()
     newparser = at.build_arg_parser(parents=[parser, cb], add_help=add_help)
     return newparser
 

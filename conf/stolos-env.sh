@@ -8,19 +8,20 @@ if [ -z "$DIR" ] ; then DIR='.' ; fi
 export STOLOS_JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
 export STOLOS_JOB_ID_VALIDATIONS="stolos.examples.job_id_validations"
 
-# you can specify a different configuration backend.  the default is json
-unset STOLOS_CONFIGURATION_BACKEND
-
-# JSON configuration backend
-# export STOLOS_CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
-export STOLOS_TASKS_JSON="$DIR/stolos/examples/tasks.json"
-
-# Zookeeper configuration backend
+# Queue Backend:
 export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"
 
+# Configuration backend.  the default is json
+
+# JSON configuration backend
+# export STOLOS_CONFIGURATION_BACKEND="json"  # enabled by default
+export STOLOS_TASKS_JSON="$DIR/stolos/examples/tasks.json"
 
 # Redis configuration backend
-# export STOLOS_CONFIGURATION_BACKEND="stolos.configuration_backend.redis_config.RedisMapping"
+# export STOLOS_CONFIGURATION_BACKEND="redis"
 # export STOLOS_REDIS_DB=3
 # export STOLOS_REDIS_PORT=6379
 # export STOLOS_REDIS_HOST='localhost'
+
+# You can define your own custom configuration backend
+# export STOLOS_CONFIGURATION_BACKEND="mymodule.myconfiguration_backend"
