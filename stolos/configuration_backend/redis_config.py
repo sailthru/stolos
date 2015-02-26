@@ -12,7 +12,7 @@ from stolos import argparse_shared as at
 
 
 build_arg_parser = at.build_arg_parser([at.group(
-    ("Options specific to the Redis Configuration Backend."
+    ("Configuration Backend Options: Redis"
      "  By default, assume the Redis DB is available locally"),
     at.add_argument(
         '--redis_key_prefix', default='stolos/', help=(

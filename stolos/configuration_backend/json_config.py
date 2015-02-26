@@ -9,7 +9,7 @@ from stolos import get_NS
 
 
 build_arg_parser = at.build_arg_parser([at.group(
-    "Options specific to the JSON Configuration Backend",
+    "Configuration Backend Options: JSON",
     at.add_argument(
         '--tasks_json', required=True, help=(
             "Filepath to a json file defining Stolos application config")),
