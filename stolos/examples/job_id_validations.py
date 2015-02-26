@@ -1,6 +1,11 @@
 import logging
 import datetime as dt
 
+# configure logging for tests
+from stolos.api import configure_logging
+log = configure_logging(add_handler=True, colorize=True)
+log.setLevel(logging.INFO)
+
 
 JOB_ID_VALIDATIONS = {
     'date': lambda date: bool(
@@ -12,7 +17,3 @@ JOB_ID_VALIDATIONS = {
         and collection_name),
     'testID': lambda test_id: int(test_id)
 }
-
-# configure logging for tests
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)

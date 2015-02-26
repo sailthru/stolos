@@ -14,7 +14,7 @@ from . import log
 from .exceptions import _log_raise
 
 
-def configure_logging(add_handler, log=log):
+def configure_logging(add_handler, log=log, colorize=True):
     """
     Configure log records.  If adding a handler, make the formatter print all
     passed in key:value data.
@@ -25,6 +25,8 @@ def configure_logging(add_handler, log=log):
         if True, add a logging.StreamHandler() instance
         if False, do not add any handlers.
         if given a handler instance, add that the the logger
+    `colorize` - (True|False) only relevant if add_handler=True.
+        Option to use colorized logging output or not
     """
     _ignore_log_keys = set(logging.makeLogRecord({}).__dict__)
 
@@ -36,19 +38,28 @@ def configure_logging(add_handler, log=log):
             record.msg = "%s    %s" % (record.msg, extras)
         return record
 
-    class ColoredJsonFormatter(colorlog.ColoredFormatter):
+    if colorize:
+        parent = colorlog.ColoredFormatter
+    else:
+        parent = logging.Formatter
+
+    class JsonFormatter(parent):
         def format(self, record):
             record = _json_format(record)
-            return super(ColoredJsonFormatter, self).format(record)
+            return super(JsonFormatter, self).format(record)
     if isinstance(add_handler, logging.Handler):
         log.addHandler(add_handler)
     elif add_handler is True:
         if not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
             _h = logging.StreamHandler()
-            _h.setFormatter(ColoredJsonFormatter(
-                "%(log_color)s%(levelname)-8s %(message)s %(reset)s %(cyan)s",
-                reset=True
-            ))
+            if colorize:
+                _h.setFormatter(JsonFormatter(
+                    ("%(log_color)s%(levelname)-8s %(message)s"
+                    " %(reset)s %(cyan)s"),
+                    reset=True
+                ))
+            else:
+                _h.setFormatter(JsonFormatter("%(levelname)-8s %(message)s",))
             log.addHandler(_h)
     elif not log.handlers:
         log.addHandler(logging.NullHandler())
