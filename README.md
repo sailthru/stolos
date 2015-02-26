@@ -428,13 +428,19 @@ These are the steps you need to take to use a non-default backend:
    your own configuration backend, if you are so inclined).
 
 ```
-export CONFIGURATION_BACKEND="stolos.configuration_backend.json_config.JSONConfig"
+export CONFIGURATION_BACKEND="json"
 ```
 
 OR
 
 ```
-export CONFIGURATION_BACKEND="stolos.configuration_backend.redis_config.RedisConfig"
+export CONFIGURATION_BACKEND="redis"
+```
+
+OR
+
+```
+export CONFIGURATION_BACKEND="mymodule.mybackend.MyMapping"
 ```
 
 2. Second, each backend has its own options.
