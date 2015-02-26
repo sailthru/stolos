@@ -31,7 +31,7 @@ setup(
 
     install_requires = [
         'argparse>=1.1',
-        'argparse_tools>=1.0.4',
+        'argparse_tools>=1.0.5',
         'colorlog>=2.2.0',
         'kazoo>=1.3.1',
         'networkx>=1.8.1',
