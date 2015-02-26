@@ -30,19 +30,18 @@ setup(
     ],
 
     install_requires = [
-        'kazoo>=1.3.1',
-        'networkx>=1.8.1',
         'argparse>=1.1',
         'argparse_tools>=1.0.4',
+        'colorlog>=2.2.0',
+        'kazoo>=1.3.1',
+        'networkx>=1.8.1',
         'simplejson>=3.4.1',
     ],
 
     extras_require={
         'pyspark': ['pyspark'],
         'redis': ['redis', 'hiredis'],
-        'testing': [
-            'nose>=1.3.3', 'colorlog>=2.2.0', 'pyflakes>=0.8.1',
-            'pep8>=1.5.6'],
+        'testing': ['nose>=1.3.3', 'pep8>=1.5.6', 'pyflakes>=0.8.1'],
         'ui': ['pygraphviz>=1.2'],
     },
 

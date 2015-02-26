@@ -28,6 +28,10 @@ from stolos.zookeeper_maintenance import (
 delete, requeue, get_job_ids_by_status,
 
 
+from stolos.util import configure_logging
+configure_logging  # can be used to modify how stolos logs things.
+
+
 def initialize():
     """
     Initialize Stolos.  This function must be called before Stolos's api is

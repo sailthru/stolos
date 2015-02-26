@@ -2,14 +2,59 @@
 Fairly generic utility functions that have no knowledge of Stolos and
 could just as well be in a third party library
 """
+import argparse
+import colorlog
 import collections
 import functools
 import inspect
 import importlib
-import argparse
+import logging
 
 from . import log
-from .exceptions import _log_raise, DAGMisconfigured
+from .exceptions import _log_raise
+
+
+def configure_logging(add_handler, log=log):
+    """
+    Configure log records.  If adding a handler, make the formatter print all
+    passed in key:value data.
+        ie log.extra('msg', extra=dict(a=1))
+        generates  'msg  a=1'
+
+    `add_handler` (True, False, None, or Handler instance)
+        if True, add a logging.StreamHandler() instance
+        if False, do not add any handlers.
+        if given a handler instance, add that the the logger
+    """
+    _ignore_log_keys = set(logging.makeLogRecord({}).__dict__)
+
+    def _json_format(record):
+        extras = ' '.join(
+            "%s=%s" % (k, record.__dict__[k])
+            for k in set(record.__dict__).difference(_ignore_log_keys))
+        if extras:
+            record.msg = "%s    %s" % (record.msg, extras)
+        return record
+
+    class ColoredJsonFormatter(colorlog.ColoredFormatter):
+        def format(self, record):
+            record = _json_format(record)
+            return super(ColoredJsonFormatter, self).format(record)
+    if isinstance(add_handler, logging.Handler):
+        log.addHandler(add_handler)
+    elif add_handler is True:
+        if not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
+            _h = logging.StreamHandler()
+            _h.setFormatter(ColoredJsonFormatter(
+                "%(log_color)s%(levelname)-8s %(message)s %(reset)s %(cyan)s",
+                reset=True
+            ))
+            log.addHandler(_h)
+    elif not log.handlers:
+        log.addHandler(logging.NullHandler())
+    log.setLevel(logging.DEBUG)
+    log.propagate = False
+    return log
 
 
 def cached(_func=None, ignore_kwargs=(), memoize=1):
@@ -167,7 +212,7 @@ def load_obj_from_path(import_path, ld=dict()):
             ("import path needs at least 1 period in your import path."
              " An example import path is something like: module.obj"),
             extra=dict(import_path=import_path, **ld),
-            exception_kls=DAGMisconfigured)
+            exception_kls=ImportWarning)
     mod = importlib.import_module(path)
     try:
         obj = getattr(mod, obj_name)
@@ -177,5 +222,5 @@ def load_obj_from_path(import_path, ld=dict()):
              " Your import path is not"
              " properly defined because the given `obj_name` does not exist"),
             extra=dict(import_path=import_path, obj_name=obj_name, **ld),
-            exception_kls=DAGMisconfigured)
+            exception_kls=ImportWarning)
     return obj

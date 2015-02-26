@@ -8,6 +8,7 @@ from stolos import configuration_backend as cb
 
 from stolos import get_NS
 from . import node
+from . import log
 
 
 def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
