@@ -278,3 +278,24 @@ def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3, zk):
         [u'20140606_1111_profile'],
         api.get_job_ids_by_status(
             app1, zk, completed=True, failed=True, regexp=r'.*_1111_.*'))
+
+
+@tt.with_setup
+def test_initialize():
+    raise NotImplemented
+
+
+@tt.with_setup
+def test_configure_logging():
+    raise NotImplemented
+
+
+@tt.with_setup
+def test_visualize_dag():
+    raise NotImplemented
+
+
+@tt.with_setup
+def test_get_job_id_template():
+    raise NotImplemented
+# TODO: what am I missing?
