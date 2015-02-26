@@ -54,16 +54,16 @@ def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
     """
     Initialize Stolos such that we ensure all required configuration settings
     are unified in one central place before we do anything with Stolos.
+    Raises error if any parsers define conflicting argument options.
 
     All internal stolos libraries should call to stolos.get_NS() when they need
     to access configuration.
 
     `objects` - is a list of build_arg_parser functions or objects
         (ie Stolos modules) containing a callable build_arg_parser function.
-        Raises error if any parsers define conflicting argument options.
     `args` - if supplied, is passed to the parse_args(...) function of an
-        argparse.ArgumentParser.  This should default to sys.argv.
-        To guarantee no arguments are read from sys.argv, set args=[]
+        argparse.ArgumentParser.  Default to sys.argv.
+        To guarantee NO arguments are read from sys.argv, set args=[]
         Otherwise, you can set args=['--option1', 'val', ...]
     `add_help` - if False, assumes you will post-process the argument parser
         and add a --help option later.  This also causes the option parser to
