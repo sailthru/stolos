@@ -1,4 +1,5 @@
 import functools
+import shlex
 import ujson
 
 from stolos import argparse_shared as at
@@ -131,11 +132,12 @@ _build_arg_parser = runner.build_plugin_arg_parser([at.group(
               " the task's default settings. ie:"
               " spark.master=local[4] spark.ui.port=4046")),
     at.add_argument(
-        '--spark_env', nargs='+',
-        type=lambda x: x.split('='), default=[],
-        help=("A list of key=value pairs to add to the spark executor's"
+        '--spark_env',
+        type=lambda x: [y.split('=') for y in shlex.split(x)], default=[],
+        help=("In the following argument (enclosed in quotes), pass"
+              " a list of key=value pairs to add to the spark executor's"
               " environment.  ie:"
-              " --spark_env MYVAR=foo APP_CONFIG=bar")),
+              " --spark_env 'MYVAR=foo APP_CONFIG=bar WHITE_SPACE=a b c'")),
     at.add_argument(
         '--minPartitions', type=int,
         help=("2nd argument passed to textFile")),
