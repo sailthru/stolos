@@ -236,18 +236,17 @@ def build_arg_parser_and_parse_args():
             '--job_id', help=(
                 'run a specific job_id. If a job is already queued,'
                 ' it will run twice')),
-    )],
-        description=(
-            "This script intelligently executes your application's jobs."
-            " Specifically, an instance of this script fetches exactly 1 job"
-            " from your application's queue, decides how to perform those jobs,"
-            " and then dies.  Because jobs are managed in a DAG, Stolos may choose"
-            " to delay execution of a job until dependencies have been met."
-            " It may also queue child or parent jobs depending on their status."),
+    )], description=(
+        "This script intelligently executes your application's jobs."
+        " Specifically, an instance of this script fetches exactly 1 job"
+        " from your application's queue, decides how to perform those jobs,"
+        " and then dies.  Because jobs are managed in a DAG, Stolos may choose"
+        " to delay execution of a job until dependencies have been met."
+        " It may also queue child or parent jobs depending on their status."),
     )
     parser, ns = initialize(
         [parser(), dag_tools, configuration_backend, queue_backend],
-        add_help=False)
+        parse_known_args=True)
 
     # get plugin parser
     plugin = importlib.import_module(

@@ -48,25 +48,33 @@ def initialize_configuration_backend(cbackend, parser, add_help):
     return newparser
 
 
-def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
+def initialize(objects, args=None, parse_known_args=False,
+               **argument_parser_kwargs):
     """
     Initialize Stolos such that we ensure all required configuration settings
     are unified in one central place before we do anything with Stolos.
     Raises error if any parsers define conflicting argument options.
 
+    This function is called by user-facing or application-level code.
     All internal stolos libraries should call to stolos.get_NS() when they need
-    to access configuration.
+    to access configuration.  Internal libraries should not call this function.
+
+    Returns (argparse.ArgumentParser(...), argparse.Namespace(...))
 
     `objects` - is a list of build_arg_parser functions or objects
-        (ie Stolos modules) containing a callable build_arg_parser function.
-    `args` - if supplied, is passed to the parse_args(...) function of an
-        argparse.ArgumentParser.  Default to sys.argv.
+        (ie Stolos modules) containing a callable build_arg_parser attribute.
+    `args` - (optional).  Define command-line arguments to use.
+        Default to sys.argv (which is what argparse does).
+        Explicitly pass args=[] to not read command-line arguments, and instead
+        expect that all arguments are passed in as environment variables.
         To guarantee NO arguments are read from sys.argv, set args=[]
-        Otherwise, you can set args=['--option1', 'val', ...]
-    `add_help` - if False, assumes you will post-process the argument parser
-        and add a --help option later.  This also causes the option parser to
-        parse_known_args and ignore arguments it doesn't recognize (ie "-h").
-    `argument_parser_kwargs` - if any, passed to the ArgumentParser
+        Example:  args=['--option1', 'val', ...]
+    `parse_known_args` - if True, parse only known commandline arguments and
+        do not add_help (ie don't recognize '-h').  Assume you will
+        post-process the argument parser and add a --help option later.
+        If False, add_help (ie recognize '-h') and fail if anything on
+        command-line is not recognized by the argument parser
+    `argument_parser_kwargs` - (optional) passed to the ArgumentParser(...)
     """
     # partially initialize a parser to get selected configuration backend
     parser = at.build_arg_parser(
@@ -79,10 +87,10 @@ def initialize(objects, args=None, add_help=True, **argument_parser_kwargs):
         ns, _ = parser.parse_known_args()
     # get a new parser updated with options for chosen configuration backend
     parser = initialize_configuration_backend(
-        ns.configuration_backend, parser, add_help)
+        ns.configuration_backend, parser, add_help=not bool(parse_known_args))
 
-    if add_help:
-        ns = parser.parse_args()
+    if not parse_known_args:
+        ns = parser.parse_args(args)
     else:
         ns, _ = parser.parse_known_args()
     stolos.NS = ns

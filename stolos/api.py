@@ -32,14 +32,21 @@ from stolos.util import configure_logging
 configure_logging  # can be used to modify how stolos logs things.
 
 
-def initialize():
+def initialize(args=None):
     """
     Initialize Stolos.  This function must be called before Stolos's api is
     usable.  It fetches all required configuration variables to use stolos's
     library.  Will not load namespace options required by Stolos plugins.
+
+    `args` - (optional).  Define command-line arguments to use.
+        Default to sys.argv (which is what argparse does).
+        Explicitly pass args=[] to not read command-line arguments, and instead
+        expect that all arguments are passed in as environment variables.
+        To guarantee NO arguments are read from sys.argv, set args=[]
+        Example:  args=['--option1', 'val', ...]
     """
     from stolos.initializer import initialize as _initialize
     from stolos import dag_tools as _dt
     from stolos import configuration_backend as _cb
     from stolos import queue_backend as _qb
-    _initialize([_dt, _cb, _qb])
+    _initialize([_dt, _cb, _qb], args=args)
