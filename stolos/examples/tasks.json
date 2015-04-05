@@ -1,75 +1,75 @@
 {
-  "test_stolos/test_app": {
+  "app1": {
      "pymodule": "stolos.examples.tasks.test_task",
      "job_type": "bash",
      "bash_opts": "echo {app_name}"
  },
- "test_stolos/test_app2": {
+ "app2": {
      "pymodule": "stolos.examples.tasks.test_task",
-     "depends_on": {"app_name": ["test_stolos/test_app"]},
+     "depends_on": {"app_name": ["app1"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
      "job_type": "bash",
      "bash_opts": "echo {app_name}"
  },
- "test_stolos/test_app3": {
+ "app3": {
      "job_type": "bash",
      "valid_if_or": {
        "_func": "stolos.examples.valid_if_or_example.func"
      }
  },
- "test_stolos/test_app4": {
+ "app4": {
      "job_type": "bash",
      "depends_on": {
-       "app_name": ["test_stolos/test_app", "test_stolos/test_app2", "test_stolos/test_app3"]
+       "app_name": ["app1", "app2", "app3"]
      }
  },
- "test_stolos/test_custom_job_id": {
+ "custom_job_id": {
      "job_type": "bash",
      "job_id": "{date}_{client_id}_{unvalidated_field}"
  },
- "test_stolos/test_bash": {
+ "bash1": {
      "job_type": "bash"
  },
- "test_stolos/test_bash2": {
-     "depends_on": {"app_name": ["test_stolos/test_bash"]},
+ "bash2": {
+     "depends_on": {"app_name": ["bash1"]},
      "job_type": "bash",
      "bash_opts": "echo 123"
  },
 
- "test_stolos/test_depends_on2": {
+ "depends_on2": {
      "job_type": "bash"
  },
-  "test_stolos/test_depends_on": {
+  "depends_on1": {
     "job_id": "{date}_{testID}",
     "job_type": "bash",
     "depends_on": {
       "depgrp1": [{
-        "app_name": ["test_stolos/test_app2", "test_stolos/test_app"],
+        "app_name": ["app2", "app1"],
         "collection_name": ["profile", "purchase"],
         "date": [20140601],
         "client_id": [876, 1011, 9020],
         "testID": [1]
         }, {
-        "app_name": ["test_stolos/test_app"],
+        "app_name": ["app1"],
         "job_id": ["20140601_999_purchase"],
         "testID": [1]
       }],
       "depgrp2": {
-        "app_name": ["test_stolos/test_depends_on2"],
+        "app_name": ["depends_on2"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [876, 1011, 9020],
         "testID": [2]
       },
       "depgrp3": {
-        "app_name": ["test_stolos/test_app"],
+        "app_name": ["app1"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [876],
         "testID": [3]
       },
       "depgrp4": {
-        "app_name": ["test_stolos/test_app"],
+        "app_name": ["app1"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [444],
@@ -77,18 +77,18 @@
       }
     }
   },
-  "test_stolos/test_fanout": {
+  "fanout1": {
     "job_type": "bash",
     "job_id": "{date}_{testID}",
     "depends_on": {
       "dep1": {
-        "app_name": ["test_stolos/test_app"],
+        "app_name": ["app1"],
         "testID": [1, 2, 3],
         "client_id": [555, 9],
         "collection_name": ["profile"]
       },
       "dep2": {
-        "app_name": ["test_stolos/test_app"],
+        "app_name": ["app1"],
         "date": [20140715, 20140714],
         "testID": [5,6],
         "client_id": [555],
@@ -96,19 +96,19 @@
       }
     }
   },
-  "test_stolos/test_topological_sort": {
+  "topological_sort1": {
     "job_id": "{date}_{testID}",
     "job_type": "bash",
     "depends_on": {
       "dep1": [
-        {"app_name": ["test_stolos/test_depends_on"],
+        {"app_name": ["depends_on1"],
          "date": [20140601],
          "testID": [1]
         }, {
          "app_name": [
-           "test_stolos/test_app",
-           "test_stolos/test_app2",
-           "test_stolos/test_bash2"],
+           "app1",
+           "app2",
+           "bash2"],
          "client_id": [101, 102],
          "collection_name": ["profile"],
          "date": [20140601],

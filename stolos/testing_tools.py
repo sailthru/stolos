@@ -2,15 +2,22 @@
 Useful utilities for testing
 """
 from contextlib import contextmanager
+import logging
 import os
-from os.path import join
+from os.path import join, abspath, dirname
 import tempfile
 import simplejson
 import nose.tools as nt
 
-from stolos import configuration_backend as cb, dag_tools as dt
-import stolos.configuration_backend.json_config as jc  # TODO: remove this?
+from stolos.initializer import initialize as _initialize
+from stolos import util
+
+from stolos import api
+
 from stolos import zookeeper_tools as zkt
+
+
+TASKS_JSON_READ_FP = join(dirname(abspath(__file__)), 'examples/tasks.json')
 
 
 def _smart_run(func, args, kwargs):
@@ -87,75 +94,63 @@ def _with_setup(setup=None, teardown=None, params=False):
     return decorate
 
 
-def _create_tasks_json(fname_suffix='', inject={}, rename=False):
+def _create_tasks_json(func_name='', inject={}, rename=False):
     """
     Create a new default tasks.json file
     This of this like a useful setup() operation before tests.
 
     `inject` - (dct) (re)define new tasks to add to the tasks graph
     mark this copy as the new default.
-    `fname_suffix` - suffix in the file name of the new tasks.json file
-    `rename` - if True, change the name all tasks to include the fname_suffix
+    `func_name` - the name of the function we're testing
+    `rename` - if True, change the name all tasks to include the func_name
 
     """
-    tasks_config = cb.get_tasks_config().cache
-    tasks_config.update(inject)  # assume we're using a json config
+    tasks_config = simplejson.load(open(TASKS_JSON_READ_FP))
+    tasks_config.update(inject)
 
-    f = tempfile.mkstemp(prefix='tasks_json', suffix=fname_suffix)[1]
+    f = tempfile.mkstemp(prefix='tasks_json', suffix=func_name)[1]
     frv = simplejson.dumps(tasks_config)
     if rename:
-        renames = [(k, "%s__%s" % (k, fname_suffix))
+        renames = [(k, 'test_stolos/%s/%s' % (func_name, k))
                    for k in tasks_config]
         for k, new_k in renames:
             frv = frv.replace(simplejson.dumps(k), simplejson.dumps(new_k))
     with open(f, 'w') as fout:
         fout.write(frv)
-
-    # HACK: set the tasks_json env var.
-    # this makes tests that modify this var NOT thread safe!
-    jc.TASKS_JSON = f
-
-    # clear the dag graph cache so it can be rebuilt with the appropriate data
-    try:
-        dt.build_dag_cached.cache.clear()
-    except AttributeError:
-        pass
-    return f
+    return f, renames
 
 
 def _setup_func(func_name):
     """Code that runs just before each test and configures a tasks.json file
     for each test.  The tasks.json tmp files are stored in a global var."""
-    zk = zkt.get_zkclient('localhost:2181')
-    zk.delete('test_stolos', recursive=True)
+    log = util.configure_logging(logging.getLogger(
+        'stolos.tests.test_dag.%s' % func_name))
+    tasks_json_tmpfile, renames = _create_tasks_json(
+        func_name=func_name, rename=True)
+    zk = api.get_zkclient('localhost:2181')
+    zk.delete('test_stolos/%s/' % func_name, recursive=True)
+    from stolos import queue_backend as _qb
+    from stolos import dag_tools as _dt
+    from stolos import configuration_backend as _cb
+    _initialize([_cb, _dt, _qb], args=['--tasks_json', tasks_json_tmpfile])
 
     rv = dict(
+        log=log,
         zk=zk,
-        app1='test_stolos/test_app__%s' % func_name,
-        app2='test_stolos/test_app2__%s' % func_name,
-        app3='test_stolos/test_app3__%s' % func_name,
-        app4='test_stolos/test_app4__%s' % func_name,
         job_id1='20140606_1111_profile',
         job_id2='20140606_2222_profile',
         job_id3='20140604_1111_profile',
-        depends_on1='test_stolos/test_depends_on__%s' % func_name,
-        bash1='test_stolos/test_bash__%s' % func_name,
         func_name=func_name,
-        tasks_json_tmpfile=_create_tasks_json(
-            fname_suffix=func_name, rename=True),
+        tasks_json_tmpfile=tasks_json_tmpfile,
     )
+    rv.update(renames)
 
     return ((), rv)
 
 
 def _teardown_func(func_name, tasks_json_tmpfile):
     """Code that runs just after each test"""
-    jc.TASKS_JSON = os.environ['TASKS_JSON']
     os.remove(tasks_json_tmpfile)
-    try:
-        dt.build_dag_cached.cache.clear()
-    except AttributeError:
-        pass
 
 
 def with_setup(func, setup_func=_setup_func, teardown_func=_teardown_func):
@@ -175,6 +170,10 @@ def inject_into_dag(new_task_dct):
     but it's not guaranteed.
     Assumes that the config we're using is the JSONMapping
     """
+
+    from stolos import configuration_backend as cb, dag_tools as dt
+    import stolos.configuration_backend.json_config as jc  # TODO: remove this?
+    # TODO: this will fail
     f = _create_tasks_json(inject=new_task_dct)
     new_task_dct = jc.JSONMapping(new_task_dct)
 
@@ -197,8 +196,8 @@ def inject_into_dag(new_task_dct):
 
 def enqueue(app_name, job_id, zk, validate_queued=True):
     # initialize job
-    zkt.maybe_add_subtask(app_name, job_id, zk)
-    zkt.maybe_add_subtask(app_name, job_id, zk)
+    api.maybe_add_subtask(app_name, job_id, zk)
+    api.maybe_add_subtask(app_name, job_id, zk)
     # verify initial conditions
     if validate_queued:
         validate_one_queued_task(zk, app_name, job_id)
