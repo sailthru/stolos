@@ -35,11 +35,11 @@ def add_argument(*args, **kwargs):
     if 'action' in kwargs:
         val = kwargs.pop('action')
         if val == 'store_true':
-            kwargs['type'] = bool
+            kwargs['const'] = True
+            kwargs['nargs'] = '?'
         elif val == 'store_false':
-            def notbool(x):
-                return not bool(x)
-            kwargs['type'] = notbool
+            kwargs['const'] = False
+            kwargs['nargs'] = '?'
         else:
             raise NotImplemented(
                 "Not sure how to deal with this argparse argument option"

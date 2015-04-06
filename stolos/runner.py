@@ -223,9 +223,10 @@ def build_arg_parser_and_parse_args():
         "Runtime options",
         at.app_name,
         at.add_argument(
-            '--bypass_scheduler', type=bool, help=(
+            '--bypass_scheduler', action='store_true', help=(
                 "Run a task directly. Do not schedule it."
-                "  Do not obtain a lock on this job.  Requires passing --job_id")),
+                "  Do not obtain a lock on this job."
+                "  Requires passing --job_id")),
         at.add_argument(
             '--timeout', type=int, default=2,
             help='time to wait for task to appear in queue before dying'),
