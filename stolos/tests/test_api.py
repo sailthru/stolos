@@ -283,22 +283,22 @@ def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3, zk):
             app1, zk, completed=True, failed=True, regexp=r'.*_1111_.*'))
 
 
-# @tt.with_setup
-# def test_initialize():
-    # raise NotImplementedError()
+@tt.with_setup
+def test_initialize():
+    raise NotImplementedError()
 
 
-# @tt.with_setup
-# def test_configure_logging():
-    # raise NotImplementedError()
+@tt.with_setup
+def test_configure_logging():
+    raise NotImplementedError()
 
 
-# @tt.with_setup
-# def test_visualize_dag():
-    # raise NotImplementedError()
+@tt.with_setup
+def test_visualize_dag():
+    raise NotImplementedError()
 
 
-# @tt.with_setup
-# def test_get_job_id_template():
-    # raise NotImplementedError()
+@tt.with_setup
+def test_get_job_id_template():
+    raise NotImplementedError()
 # TODO: what am I missing?
