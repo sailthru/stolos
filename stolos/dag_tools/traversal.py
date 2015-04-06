@@ -9,7 +9,7 @@ from stolos.exceptions import (
 from stolos import configuration_backend as cb
 from stolos import get_NS
 
-from .build import build_dag_cached
+from .build import build_dag
 from .node import (parse_job_id, get_job_id_template)
 from . import log
 
@@ -24,7 +24,7 @@ def topological_sort(lst):
     dct = defaultdict(list)
     for app_job in lst:
         dct[app_job[0]].append(app_job)
-    for node in nx.topological_sort(build_dag_cached()):
+    for node in nx.topological_sort(build_dag()):
         for app_job2 in dct[node]:
             yield app_job2
 
@@ -40,7 +40,7 @@ def get_parents(app_name, job_id, include_dependency_group=False,
         dependency group
 
     """
-    build_dag_cached()  # run validations
+    build_dag()  # run validations
     if job_id:
         parsed_job_id = parse_job_id(app_name, job_id)
         filter_deps = set(filter_deps)
@@ -285,7 +285,7 @@ def _iter_job_ids(dep_group, group_name, parent_app_name, ld):
 
 
 def get_children(node, job_id, include_dependency_group=True):
-    dg = build_dag_cached()
+    dg = build_dag()
     child_apps = ((k, vv) for k, v in dg.succ[node].items() for vv in v)
     child_apps = list(child_apps)
     for child, group_name in child_apps:

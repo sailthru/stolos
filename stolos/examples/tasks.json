@@ -23,7 +23,7 @@
        "app_name": ["app1", "app2", "app3"]
      }
  },
- "custom_job_id": {
+ "custom_job_id1": {
      "job_type": "bash",
      "job_id": "{date}_{client_id}_{unvalidated_field}"
  },

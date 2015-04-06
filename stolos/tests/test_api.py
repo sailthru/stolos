@@ -8,7 +8,7 @@ from stolos import testing_tools as tt
 from stolos import zookeeper_tools as zkt
 from stolos.exceptions import JobAlreadyQueued, InvalidJobId
 from stolos.configuration_backend import TasksConfigBaseMapping
-log = tt.configure_logging('stolos.tests.test_dag')
+nt.assert_equal.im_class.maxDiff = None
 
 
 @tt.with_setup
@@ -124,17 +124,17 @@ def test_get_tasks_config():
     nt.assert_is_instance(tc, TasksConfigBaseMapping)
     nt.assert_items_equal(
         tc,
-        [u'test_stolos/test_depends_on2__test_get_tasks_config',
-         u'test_stolos/test_custom_job_id__test_get_tasks_config',
-         u'test_stolos/test_app2__test_get_tasks_config',
-         u'test_stolos/test_topological_sort__test_get_tasks_config',
-         u'test_stolos/test_fanout__test_get_tasks_config',
-         u'test_stolos/test_depends_on__test_get_tasks_config',
-         u'test_stolos/test_bash2__test_get_tasks_config',
-         u'test_stolos/test_app3__test_get_tasks_config',
-         u'test_stolos/test_app__test_get_tasks_config',
-         u'test_stolos/test_bash__test_get_tasks_config',
-         u'test_stolos/test_app4__test_get_tasks_config'])
+        ['test_stolos/test_get_tasks_config/depends_on2',
+         'test_stolos/test_get_tasks_config/custom_job_id1',
+         'test_stolos/test_get_tasks_config/app2',
+         'test_stolos/test_get_tasks_config/topological_sort1',
+         'test_stolos/test_get_tasks_config/fanout1',
+         'test_stolos/test_get_tasks_config/depends_on1',
+         'test_stolos/test_get_tasks_config/bash2',
+         'test_stolos/test_get_tasks_config/app3',
+         'test_stolos/test_get_tasks_config/app1',
+         'test_stolos/test_get_tasks_config/bash1',
+         'test_stolos/test_get_tasks_config/app4'])
 
 
 @tt.with_setup
@@ -197,6 +197,9 @@ def test_delete(app1, job_id1, job_id2, zk):
 
     api.delete(app1, [job_id1, job_id2], zk, confirm=False)
     tt.validate_zero_queued_task(zk, app1)
+
+    # do not raise error if trying to delete nonexistent node
+    api.delete(app1, "doesnotexistjobid", zk, confirm=False)
 
 
 @tt.with_setup
@@ -280,22 +283,22 @@ def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3, zk):
             app1, zk, completed=True, failed=True, regexp=r'.*_1111_.*'))
 
 
-@tt.with_setup
-def test_initialize():
-    raise NotImplemented
+# @tt.with_setup
+# def test_initialize():
+    # raise NotImplementedError()
 
 
-@tt.with_setup
-def test_configure_logging():
-    raise NotImplemented
+# @tt.with_setup
+# def test_configure_logging():
+    # raise NotImplementedError()
 
 
-@tt.with_setup
-def test_visualize_dag():
-    raise NotImplemented
+# @tt.with_setup
+# def test_visualize_dag():
+    # raise NotImplementedError()
 
 
-@tt.with_setup
-def test_get_job_id_template():
-    raise NotImplemented
+# @tt.with_setup
+# def test_get_job_id_template():
+    # raise NotImplementedError()
 # TODO: what am I missing?

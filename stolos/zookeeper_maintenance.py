@@ -41,7 +41,10 @@ def delete(app_name, job_id, zk, confirm=True,
         _qpath = join(app_name, 'entries')
         for key in zk.get_children(_qpath):
             key_fullpath = join(_qpath, key)
-            queued_job_id = zk.get(key_fullpath)[0]
+            try:
+                queued_job_id = zk.get(key_fullpath)[0]
+            except kazoo.exceptions.NoNodeError:
+                continue  # huh - something else deleted it!
             if queued_job_id and queued_job_id in job_id:
                 paths_to_delete.append(key_fullpath)
     if confirm:

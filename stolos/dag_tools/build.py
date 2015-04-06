@@ -256,7 +256,7 @@ def validate_dag(dg, tasks_conf):
 def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
     """For interactive use"""
     if not dg:
-        dg = build_dag_cached()
+        dg = build_dag()
     tmpf = tempfile.mkstemp(suffix='.dot')[1]
     try:
         if plot:
@@ -352,18 +352,8 @@ def _build_dict_deps(dg, app_name, deps):
                     exception_kls=DAGMisconfigured)
 
 
-@util.cached
-def build_dag_cached(*args, **kwargs):
-    return build_dag(*args, **kwargs)
-
-
-def build_dag(tasks_conf=None, validate=True):
-    return _build_dag(tasks_conf, validate)
-
-
-def _build_dag(tasks_conf, validate):
-    if tasks_conf is None:
-        tasks_conf = cb.get_tasks_config()
+def build_dag(validate=False):
+    tasks_conf = cb.get_tasks_config()
     dg = nx.MultiDiGraph()
     for app_name, deps in _add_nodes(tasks_conf, dg):
         _build_dict_deps(

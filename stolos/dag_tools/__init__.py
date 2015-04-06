@@ -45,8 +45,7 @@ build_arg_parser = at.build_arg_parser([at.group(
 # Expose various functions to the rest of Stolos internals
 from .build import (
     build_dag,
-    build_dag_cached,
-    visualize_dag
+    visualize_dag,
 )
 from .node import (
     create_job_id,
