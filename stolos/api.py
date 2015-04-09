@@ -9,11 +9,11 @@ maybe_add_subtask, readd_subtask,
 get_zkclient
 
 from stolos.dag_tools import (
-    build_dag, visualize_dag,
+    build_dag, visualize_dag, topological_sort,
     create_job_id, parse_job_id, get_job_id_template,
     get_parents, get_children,
 )
-build_dag, visualize_dag,
+build_dag, visualize_dag, topological_sort
 create_job_id, parse_job_id, get_job_id_template,
 get_parents, get_children,
 

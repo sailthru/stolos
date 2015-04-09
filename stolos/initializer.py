@@ -17,7 +17,6 @@ import argparse
 import importlib
 import stolos
 from stolos import argparse_shared as at
-from stolos import util
 from stolos import log
 
 

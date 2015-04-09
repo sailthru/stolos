@@ -2,7 +2,6 @@ import networkx as nx
 import os
 import tempfile
 
-from stolos import util
 from stolos.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
 from stolos import configuration_backend as cb
 
