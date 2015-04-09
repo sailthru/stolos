@@ -7,7 +7,6 @@ use this sub-package.  External projects should refer directly to Stolos.api.
 """
 import importlib
 from stolos import argparse_shared as at
-import stolos
 
 import logging
 log = logging.getLogger('stolos.dag_tools')
@@ -61,3 +60,7 @@ from .traversal import (
     get_children,
     topological_sort,
 )
+build_dag, visualize_dag
+create_job_id, parse_job_id, passes_filter, get_job_id_template, get_job_type,
+get_task_names
+get_parents, get_children, topological_sort

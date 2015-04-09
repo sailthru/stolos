@@ -15,6 +15,7 @@ from stolos.util import load_obj_from_path as _load_obj_from_path
 
 # expose the base class to other configuration backend modules
 from .tasks_config_base import TasksConfigBaseMapping, TasksConfigBaseSequence
+TasksConfigBaseMapping, TasksConfigBaseSequence
 
 
 _PREFIX = "stolos.configuration_backend"

@@ -7,13 +7,13 @@ Everything needed to create a stolos plugin is available here.
 # publicly visible to plugins
 from stolos import argparse_shared as at
 from stolos import api
+at, api
 
 
 # imports hidden from plugins
 from logging import getLogger as _getLogger
 log = _getLogger('stolos.plugins')
 from stolos.exceptions import CodeError as _CodeError
-from stolos import runner as _runner
 
 
 def log_and_raise(err, log_details):

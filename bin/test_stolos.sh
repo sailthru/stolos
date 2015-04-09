@@ -21,6 +21,12 @@ if [ "$ans" = "no" -o "$ans2" = "no" ] ; then
   exit 1
 fi
 
-python $DIR/bin/code_linter.py || exit 1
+echo "\nrunning code linter"
+echo pep8...
+pep8 $DIR/stolos --ignore=E402 --exclude=.ropeproject
+echo pyflakes...
+find $DIR/stolos -name "*py" |xargs pyflakes
+echo "passed code linting"
 
+echo "\nRunning nosetests\n"
 nosetests $@
