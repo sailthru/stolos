@@ -13,6 +13,9 @@ from stolos.initializer import initialize as _initialize
 from stolos import util
 
 from stolos import api
+from stolos import queue_backend as qb
+from stolos import dag_tools as dt
+from stolos import configuration_backend as cb
 
 from stolos import zookeeper_tools as zkt
 
@@ -94,7 +97,7 @@ def _with_setup(setup=None, teardown=None, params=False):
     return decorate
 
 
-def _create_tasks_json(func_name='', inject={}, rename=False):
+def _create_tasks_json(func_name, inject={}):
     """
     Create a new default tasks.json file
     This of this like a useful setup() operation before tests.
@@ -102,21 +105,27 @@ def _create_tasks_json(func_name='', inject={}, rename=False):
     `inject` - (dct) (re)define new tasks to add to the tasks graph
     mark this copy as the new default.
     `func_name` - the name of the function we're testing
-    `rename` - if True, change the name all tasks to include the func_name
 
     """
     tasks_config = simplejson.load(open(TASKS_JSON_READ_FP))
-    tasks_config.update(inject)
+
+    # change the name of all tasks to include the func_name
+    tc1 = simplejson.dumps(tasks_config)
+    tc2 = simplejson.dumps(inject)
+    renames = [
+        (k, 'test_stolos/%s/%s' % (func_name, k))
+        for k in (x for y in (tasks_config, inject) for x in y)
+        if not k.startswith('test_stolos/%s/' % func_name)]
+    for k, new_k in renames:
+        tc1 = tc1.replace(simplejson.dumps(k), simplejson.dumps(new_k))
+        tc2 = tc2.replace(simplejson.dumps(k), simplejson.dumps(new_k))
+
+    tc3 = simplejson.loads(tc1)
+    tc3.update(simplejson.loads(tc2))
 
     f = tempfile.mkstemp(prefix='tasks_json', suffix=func_name)[1]
-    frv = simplejson.dumps(tasks_config)
-    if rename:
-        renames = [(k, 'test_stolos/%s/%s' % (func_name, k))
-                   for k in tasks_config]
-        for k, new_k in renames:
-            frv = frv.replace(simplejson.dumps(k), simplejson.dumps(new_k))
     with open(f, 'w') as fout:
-        fout.write(frv)
+        fout.write(simplejson.dumps(tc3))
     return f, renames
 
 
@@ -125,14 +134,10 @@ def _setup_func(func_name):
     for each test.  The tasks.json tmp files are stored in a global var."""
     log = util.configure_logging(logging.getLogger(
         'stolos.tests.test_dag.%s' % func_name))
-    tasks_json_tmpfile, renames = _create_tasks_json(
-        func_name=func_name, rename=True)
+    tasks_json_tmpfile, renames = _create_tasks_json(func_name)
     zk = api.get_zkclient('localhost:2181')
     zk.delete('test_stolos/%s/' % func_name, recursive=True)
-    from stolos import queue_backend as _qb
-    from stolos import dag_tools as _dt
-    from stolos import configuration_backend as _cb
-    _initialize([_cb, _dt, _qb], args=['--tasks_json', tasks_json_tmpfile])
+    _initialize([cb, dt, qb], args=['--tasks_json', tasks_json_tmpfile])
 
     rv = dict(
         log=log,
@@ -164,26 +169,22 @@ def with_setup(func, setup_func=_setup_func, teardown_func=_teardown_func):
 
 
 @contextmanager
-def inject_into_dag(new_task_dct):
+def inject_into_dag(func_name, inject_dct):
     """Update (add or replace) tasks in dag with new task config.
     Assumes that the config we're using is the JSONMapping
     """
-
-    from stolos import configuration_backend as cb, dag_tools as dt
-    import stolos.configuration_backend.json_config as jc  # TODO: remove this?
-    # TODO: this will fail
-    f = _create_tasks_json(inject=new_task_dct)
-    new_task_dct = jc.JSONMapping(new_task_dct)
+    if not all(k.startswith('test_stolos/%s/' % func_name) for k in inject_dct):
+        raise UserWarning(
+            "inject_into_dag can only inject app_names that"
+            " have the correct prefix:  test_stolos/%s/{app_name}" % func_name)
+    f = _create_tasks_json(func_name, inject=inject_dct)[0]
+    _initialize([cb, dt, qb], args=['--tasks_json', f])
 
     # verify injection worked
-    dg = cb.get_tasks_config()
-    assert isinstance(dg, jc.JSONMapping)
-    dag = dt.build_dag()
-    for k, v in new_task_dct.items():
+    dg = cb.get_tasks_config().to_dict()
+    for k, v in inject_dct.items():
         assert dg[k] == v, (
             "test code: inject_into_dag didn't insert the new tasks?")
-        assert dag.node[k] == dict(v), (
-            "test code: inject_into_dag didn't reset the dag graph")
     yield
     os.remove(f)
 

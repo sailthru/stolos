@@ -99,7 +99,7 @@ def test_no_tasks(zk, app1, app2, log, tasks_json_tmpfile):
 
 @with_setup
 def test_create_child_task_after_one_parent_completed(
-        zk, app1, app2, app3, job_id1, log, tasks_json_tmpfile):
+        zk, app1, app2, app3, job_id1, log, tasks_json_tmpfile, func_name):
     # if you modify the tasks.json file in the middle of processing the dag
     # modifications to the json file should be recognized
 
@@ -116,7 +116,8 @@ def test_create_child_task_after_one_parent_completed(
             "depends_on": {"app_name": [app1, app2]},
         },
     }
-    with inject_into_dag(dct):
+
+    with inject_into_dag(func_name, dct):
         validate_zero_queued_task(zk, injected_app)
         # unnecessary side effect: app1 queues app2...
         consume_queue(zk, app2)
@@ -129,7 +130,8 @@ def test_create_child_task_after_one_parent_completed(
 
 
 @with_setup
-def test_create_parent_task_after_child_completed(zk, app1, app3, job_id1):
+def test_create_parent_task_after_child_completed(zk, app1, app3, job_id1,
+                                                  func_name):
     # if you modify the tasks.json file in the middle of processing the dag
     # modifications to the json file should be recognized appropriately
 
@@ -139,7 +141,7 @@ def test_create_parent_task_after_child_completed(zk, app1, app3, job_id1):
     validate_one_completed_task(zk, app1, job_id1)
 
     injected_app = app3
-    child_injapp = 'test_stolos/testX'
+    child_injapp = 'test_stolos/%s/testX' % func_name
     dct = {
         injected_app: {
             "job_type": "bash",
@@ -149,7 +151,7 @@ def test_create_parent_task_after_child_completed(zk, app1, app3, job_id1):
             "depends_on": {"app_name": [injected_app]}
         }
     }
-    with inject_into_dag(dct):
+    with inject_into_dag(func_name, dct):
         validate_zero_queued_task(zk, injected_app)
         zkt.set_state(injected_app, job_id1, zk=zk, completed=True)
         validate_one_completed_task(zk, injected_app, job_id1)
@@ -560,7 +562,8 @@ def test_app_has_command_line_params(zk, bash1, job_id1, log, tasks_json_tmpfile
     msg = 'output: %s'
     # Test passed in params exist
     _, logoutput = run_code(
-        log, bash1, extra_opts='--redirect_to_stderr --bash echo newfakereadfp',
+        log, tasks_json_tmpfile, bash1,
+        extra_opts='--redirect_to_stderr --bash echo newfakereadfp',
         capture=True, raise_on_err=True)
     nose.tools.assert_in(
         'newfakereadfp', logoutput, msg % logoutput)
@@ -570,7 +573,8 @@ def test_app_has_command_line_params(zk, bash1, job_id1, log, tasks_json_tmpfile
 def test_run_given_specific_job_id(zk, app1, job_id1, log, tasks_json_tmpfile):
     enqueue(app1, job_id1, zk)
     out, err = run_code(
-        log, app1, '--job_id %s' % job_id1, raise_on_err=False, capture=True)
+        log, tasks_json_tmpfile, app1,
+        '--job_id %s' % job_id1, raise_on_err=False, capture=True)
     nose.tools.assert_regexp_matches(err, (
         'UserWarning: Will not execute this task because it might be'
         ' already queued or completed!'))
@@ -653,11 +657,11 @@ def test_race_condition_when_parent_queues_child(zk, app1, app2, job_id1, log, t
 @with_setup
 def test_run_multiple_given_specific_job_id(bash1, job_id1, log, tasks_json_tmpfile):
     p = run_code(
-        log, bash1,
+        log, tasks_json_tmpfile, bash1,
         extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
         async=True)
     p2 = run_code(
-        log, bash1,
+        log, tasks_json_tmpfile, bash1,
         extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
@@ -689,7 +693,8 @@ def test_run_failing_spark_given_specific_job_id(zk, bash1, job_id1, log, tasks_
 @with_setup
 def test_failing_task(bash1, log, tasks_json_tmpfile):
     _, err = run_code(
-        log, bash1, ' --job_id 20101010_-1_profile --bash notacommand...fail',
+        log, tasks_json_tmpfile, bash1,
+        ' --job_id 20101010_-1_profile --bash notacommand...fail',
         capture=True)
     nose.tools.assert_regexp_matches(
         err, "Bash job failed")
@@ -697,7 +702,8 @@ def test_failing_task(bash1, log, tasks_json_tmpfile):
         err, "Task retry count increased")
 
     _, err = run_code(
-        log, bash1, '--max_retry 1 --bash jaikahhaha', capture=True)
+        log, tasks_json_tmpfile, bash1,
+        '--max_retry 1 --bash jaikahhaha', capture=True)
     nose.tools.assert_regexp_matches(
         err, "Task retried too many times and is set as permanently failed")
 
