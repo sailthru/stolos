@@ -130,7 +130,7 @@ build_arg_parser = at.build_arg_parser([at.group(
             " after a given seconds"
         )),
     at.add_argument(
-        '--redirect_to_stderr', type=bool, help=(
+        '--redirect_to_stderr', action='store_true', help=(
             "Rather than capturing output and logging it,"
             " send output directly to sys.stderr")),
 )])

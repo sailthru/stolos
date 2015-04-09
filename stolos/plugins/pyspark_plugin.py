@@ -121,7 +121,7 @@ _build_arg_parser = at.build_arg_parser([at.group(
     at.group(
         "Preprocess data",
         at.add_argument(
-            '--mapjson', type=bool, help=(
+            '--mapjson', action='store_true', help=(
                 'convert each element in the textFile to json before doing'
                 ' anything with it.')),
         at.add_argument(

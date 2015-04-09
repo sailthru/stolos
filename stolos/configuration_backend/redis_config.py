@@ -104,7 +104,7 @@ def set_config(app_name, app_conf, cli,
         >> cli = redis.StrictRedis()
         >> set_config(app_name, app_conf, cli)
         [True]
-        >> cli.hgetall("%s%s" % (REDIS_PREFIX, app_name))
+        >> cli.hgetall("%s%s" % ('', app_name))
         {"'job_type'": "'bash'"}
 
     """
