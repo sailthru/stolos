@@ -53,11 +53,9 @@ def configure_logging(add_handler, log=log, colorize=True):
         if not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
             _h = logging.StreamHandler()
             if colorize:
-                _h.setFormatter(JsonFormatter(
-                    ("%(log_color)s%(levelname)-8s %(message)s"
-                    " %(reset)s %(cyan)s"),
-                    reset=True
-                ))
+                _h.setFormatter(JsonFormatter((
+                    "%(log_color)s%(levelname)-8s %(message)s"
+                    " %(reset)s %(cyan)s"), reset=True))
             else:
                 _h.setFormatter(JsonFormatter("%(levelname)-8s %(message)s",))
             log.addHandler(_h)

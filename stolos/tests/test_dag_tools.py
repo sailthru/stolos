@@ -46,7 +46,8 @@ def test_missing_job_id_validations_okay(custom_job_id1):
 
 
 @tt.with_setup
-def test_get_children(app1, app2, app4, depends_on1, depends_on2, bash1, bash2):
+def test_get_children(app1, app2, app4, depends_on1,
+                      depends_on2, bash1, bash2):
 
     nt.assert_items_equal(
         list(dag_tools.get_children(depends_on2, '20140601_876_profile')),
@@ -144,7 +145,7 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2):
         list(dag_tools.get_parents(depends_on1, '20140601_3', True)),
         [(app1, '20140601_444_profile', u'depgrp4'),
          (app1, '20140601_876_profile', u'depgrp3'),
-        ]
+         ]
     )
 
     # test the filter_deps option
@@ -160,7 +161,7 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2):
 
 
 @tt.with_setup
-def test_fan_out_tasks(app1, app2, app4, fanout1 ):
+def test_fan_out_tasks(app1, app2, app4, fanout1):
     # test for Many-to-Many relationships between parent and child tasks
     nt.assert_items_equal(
         list(dag_tools.get_parents(

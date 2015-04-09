@@ -336,7 +336,8 @@ def test_rerun_push_tasks(zk, app1, app2, job_id1):
 
 
 @with_setup
-def test_complex_dependencies_pull_push(zk, depends_on1, log, tasks_json_tmpfile):
+def test_complex_dependencies_pull_push(
+        zk, depends_on1, log, tasks_json_tmpfile):
     job_id = '20140601_1'
     enqueue(depends_on1, job_id, zk)
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash echo 123')
@@ -465,7 +466,8 @@ def test_pull_tasks_with_many_children(zk, app1, app2, app3, app4, job_id1,
 
 
 @with_setup
-def test_retry_failed_task(zk, app1, job_id1, job_id2, log, tasks_json_tmpfile):
+def test_retry_failed_task(
+        zk, app1, job_id1, job_id2, log, tasks_json_tmpfile):
     """
     Retry failed tasks up to max num retries and then remove self from queue
 
@@ -477,7 +479,9 @@ def test_retry_failed_task(zk, app1, job_id1, job_id2, log, tasks_json_tmpfile):
     nose.tools.assert_equal(2, get_zk_status(zk, app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(zk, app1))
     # run job_id2 and have it fail
-    run_code(log, tasks_json_tmpfile, app1, extra_opts='--bash "&& notacommand...fail" ')
+    run_code(
+        log, tasks_json_tmpfile, app1,
+        extra_opts='--bash "&& notacommand...fail" ')
     # ensure we still have both items in the queue
     nose.tools.assert_true(get_zk_status(zk, app1, job_id1)['in_queue'])
     nose.tools.assert_true(get_zk_status(zk, app1, job_id2)['in_queue'])
@@ -485,7 +489,9 @@ def test_retry_failed_task(zk, app1, job_id1, job_id2, log, tasks_json_tmpfile):
     nose.tools.assert_equal(2, get_zk_status(zk, app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(zk, app1))
     # run and fail n times, where n = max failures
-    run_code(log, tasks_json_tmpfile, app1, extra_opts='--max_retry 1 --bash "&& notacommand...fail"')
+    run_code(
+        log, tasks_json_tmpfile, app1,
+        extra_opts='--max_retry 1 --bash "&& notacommand...fail"')
     # verify that job_id2 is removed from queue
     validate_one_queued_task(zk, app1, job_id1)
     # verify that job_id2 state is 'failed' and job_id1 is still pending
@@ -557,7 +563,8 @@ def test_bash(zk, bash1, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_app_has_command_line_params(zk, bash1, job_id1, log, tasks_json_tmpfile):
+def test_app_has_command_line_params(
+        zk, bash1, job_id1, log, tasks_json_tmpfile):
     enqueue(bash1, job_id1, zk)
     msg = 'output: %s'
     # Test passed in params exist
@@ -626,7 +633,8 @@ def test_child_running_while_parent_pending_and_executing(
 
 
 @with_setup
-def test_race_condition_when_parent_queues_child(zk, app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_race_condition_when_parent_queues_child(
+        zk, app1, app2, job_id1, log, tasks_json_tmpfile):
     # The parent queues the child and the child runs before the parent gets
     # a chance to mark itself as completed
     zkt.set_state(app1, job_id1, zk=zk, pending=True)
@@ -655,7 +663,8 @@ def test_race_condition_when_parent_queues_child(zk, app1, app2, job_id1, log, t
 
 
 @with_setup
-def test_run_multiple_given_specific_job_id(bash1, job_id1, log, tasks_json_tmpfile):
+def test_run_multiple_given_specific_job_id(
+        bash1, job_id1, log, tasks_json_tmpfile):
     p = run_code(
         log, tasks_json_tmpfile, bash1,
         extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
@@ -679,14 +688,17 @@ def test_run_multiple_given_specific_job_id(bash1, job_id1, log, tasks_json_tmpf
 
 
 @with_setup
-def test_run_failing_spark_given_specific_job_id(zk, bash1, job_id1, log, tasks_json_tmpfile):
+def test_run_failing_spark_given_specific_job_id(
+        zk, bash1, job_id1, log, tasks_json_tmpfile):
     """
     task should still get queued if --job_id is specified and the task fails
     """
     with nose.tools.assert_raises(Exception):
         run_code(log, tasks_json_tmpfile, bash1, '--pluginfail')
     validate_zero_queued_task(zk, bash1)
-    run_code(log, tasks_json_tmpfile, bash1, '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
+    run_code(
+        log, tasks_json_tmpfile, bash1,
+        '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
     validate_one_queued_task(zk, bash1, job_id1)
 
 

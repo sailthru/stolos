@@ -50,7 +50,7 @@ build_arg_parser = at.build_arg_parser([at.group(
             ' See conf/stolos-env.sh for an example. '
             ' You can supply your own configuration backend or choose from the'
             ' following supported options: %s'
-            ) % list(_KNOWN_DEFAULT_BACKENDS.keys())),
+        ) % list(_KNOWN_DEFAULT_BACKENDS.keys())),
 )])
 
 

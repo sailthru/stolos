@@ -74,8 +74,8 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
 
 def _validate_dependency_groups_part2(dep_name, dep_grp, ld, tasks_conf):
     _log_raise_if(
-        ("app_name" not in dep_grp
-         or not isinstance(dep_grp["app_name"], cb.TasksConfigBaseSequence)),
+        ("app_name" not in dep_grp or
+         not isinstance(dep_grp["app_name"], cb.TasksConfigBaseSequence)),
         ("Each dependency group the task depends on must specify"
          " an app_name key whose value is a sequence of items"
          " (ie a cb.TasksConfigBaseSequence)"),

@@ -29,7 +29,7 @@ setup(
         ('stolos/examples', findall('stolos/examples'))
     ],
 
-    install_requires = [
+    install_requires=[
         'argparse>=1.1',
         'argparse_tools>=1.0.5',
         'colorlog>=2.2.0',
@@ -45,13 +45,13 @@ setup(
         'ui': ['pygraphviz>=1.2'],
     },
 
-    # include_package_data = True,
-    zip_safe = False,
+    # include_package_data=True,
+    zip_safe=False,
 
     # Include code that isn't pure python (like c stuff)
     # ext_modules=[Extension('foo', ['foo.c'])]
 
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'stolos = stolos.__main__:go',
         ],

@@ -69,8 +69,8 @@ def check(codeString, filename):
         messages.sort(lambda a, b: cmp(a.lineno, b.lineno))
         false_positives = 0
         for warning in messages:
-            if not (re.match('.*__init__.py', str(warning))
-                    and isinstance(warning, (UnusedImport, ImportStarUsed))):
+            if not (re.match('.*__init__.py', str(warning)) and
+                    isinstance(warning, (UnusedImport, ImportStarUsed))):
                 print(warning)
             else:
                 false_positives += 1

@@ -173,7 +173,8 @@ def inject_into_dag(func_name, inject_dct):
     """Update (add or replace) tasks in dag with new task config.
     Assumes that the config we're using is the JSONMapping
     """
-    if not all(k.startswith('test_stolos/%s/' % func_name) for k in inject_dct):
+    if not all(k.startswith('test_stolos/%s/' % func_name)
+               for k in inject_dct):
         raise UserWarning(
             "inject_into_dag can only inject app_names that"
             " have the correct prefix:  test_stolos/%s/{app_name}" % func_name)

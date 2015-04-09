@@ -15,7 +15,7 @@ from stolos.dag_tools import (
 )
 build_dag, visualize_dag, topological_sort
 create_job_id, parse_job_id, get_job_id_template,
-get_parents, get_children,
+get_parents, get_children
 
 from stolos.configuration_backend import get_tasks_config
 get_tasks_config,
@@ -25,7 +25,7 @@ from stolos.zookeeper_maintenance import (
     requeue,
     get_job_ids_by_status,
 )
-delete, requeue, get_job_ids_by_status,
+delete, requeue, get_job_ids_by_status
 
 
 from stolos.util import configure_logging
