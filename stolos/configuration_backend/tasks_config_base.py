@@ -1,6 +1,32 @@
 import collections
 
 
+def _recursem(mapping):
+    rv = {}
+    for k, v in mapping.items():
+        if isinstance(v, TasksConfigBaseMapping):
+            rv[k] = _recursem(v)
+        elif isinstance(v, TasksConfigBaseSequence):
+            rv[k] = _recursel(v)
+        else:
+            rv[k] = v
+    return rv
+
+
+def _recursel(sequence):
+    rv = []
+    for k in sequence:
+        if isinstance(k, TasksConfigBaseMapping):
+            rv.append(
+                _recursem(k))
+        elif isinstance(k, TasksConfigBaseSequence):
+            rv.append(
+                _recursel(k))
+        else:
+            rv.append(k)
+    return rv
+
+
 class ABCTasksConfigBase(object):
     def __getitem__(self, key):
         """
@@ -38,6 +64,9 @@ class TasksConfigBaseMapping(ABCTasksConfigBase, collections.Mapping):
         else:
             return False
 
+    def to_dict(self):
+        return _recursem(self)
+
 
 class TasksConfigBaseSequence(ABCTasksConfigBase, collections.Sequence):
     """Abstract Base Class interface for all configuration backends.
@@ -58,3 +87,6 @@ class TasksConfigBaseSequence(ABCTasksConfigBase, collections.Sequence):
 
     def __ne__(self, other):
         return not self == other
+
+    def to_list(self):
+        return _recursel(self)
