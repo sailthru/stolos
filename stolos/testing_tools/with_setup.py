@@ -2,16 +2,19 @@
 Implements a smarter version of nose.tools.with_setup
 """
 import nose.tools as nt
+import inspect
 
 
-def _smart_run(func, args, kwargs):
+def smart_run(func, args, kwargs):
     """Given a function definition, determine which of the args and
     kwargs are relevant and then execute the function"""
-    fc = func.func_code
-    kwargs2 = {
-        k: kwargs[k]
-        for k in kwargs if k in fc.co_varnames[:fc.co_nlocals]}
-    args2 = args[:fc.co_nlocals - len(kwargs2)]
+    spec = inspect.getargspec(func)
+    kwargs2 = {k: v for k, v in kwargs.items() if k in spec.args}
+    args2 = args[:len(spec.args) - len(kwargs2)]
+    if spec.varargs:
+        args2 += args[len(args2):]
+    if spec.keywords:
+        kwargs2.update(kwargs)
     return func(*args2, **kwargs2)
 
 
@@ -40,7 +43,7 @@ def with_setup(setup=None, teardown=None, params=False):
         if params:
             @nt.make_decorator(func)
             def func_wrapped():
-                _smart_run(func, args, kwargs)
+                smart_run(func, args, kwargs)
         else:
             func_wrapped = func
         if setup:
@@ -72,12 +75,12 @@ def with_setup(setup=None, teardown=None, params=False):
 
                 def _t():
                     _old_t()
-                    _smart_run(teardown, args, kwargs)
+                    smart_run(teardown, args, kwargs)
                 func_wrapped.teardown = _t
             else:
                 if params:
                     def _sr():
-                        _smart_run(teardown, args, kwargs)
+                        smart_run(teardown, args, kwargs)
                     func_wrapped.teardown = _sr
                 else:
                     func_wrapped.teardown = teardown

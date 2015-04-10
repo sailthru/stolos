@@ -13,7 +13,7 @@ from stolos import queue_backend as qb
 from stolos import dag_tools as dt
 from stolos import configuration_backend as cb
 
-from .with_setup import with_setup
+from .with_setup import with_setup, smart_run
 
 TASKS_JSON_READ_FP = join(dirname(abspath(__file__)), 'examples/tasks.json')
 
@@ -74,12 +74,22 @@ def setup_job_ids(func_name):
     ))
 
 
-def with_setup_factory(setup_funcs=(), teardown_funcs=()):
+def with_setup_factory(setup_funcs=(), teardown_funcs=(),
+                       post_initialize=None):
     """Create different kinds of `@with_setup` decorators
     to properly initialize and teardown things necessary to run test functions
 
     `setup_funcs` - a list of functions that do things before a test
     `teardown_funcs` - a list of funcitons that do things after a test
+    `post_initialize` - a function to run after stolos has been initialized
+
+    All functions must receive `func_name` as input.
+      - setup and teardown funcs must return (tup, dct) where:
+          - the tuple is an optional list of initializer_args to pass
+          to Stolos's initialier.
+          - the dict is an optional list of keywords that tests can request in
+          their function definitions
+      - post_initialize returns just the dict
     """
     def setup_func(func_name):
         initializer_args = []
@@ -93,11 +103,14 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=()):
             initializer_args.extend(tup)
             available_kwargs.update(dct)
         _initialize([cb, dt, qb], args=initializer_args)
+        if post_initialize:
+            dct = smart_run(post_initialize, (), available_kwargs)
+            available_kwargs.update(dct)
         return ((), available_kwargs)
 
     def teardown_func(*args, **kwargs):
         for f in teardown_funcs:
-            _smart_run(f, args, kwargs)
+            smart_run(f, args, kwargs)
 
     def with_setup_multi(func):
         """Decorator that wraps a test function and provides setup()
