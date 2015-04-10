@@ -32,3 +32,13 @@ def test_get_item(td, raw):
 def test_set_item(td, raw):
     with nt.assert_raises(TypeError):
         td['d'] = 1
+
+
+@with_setup
+def test_to_dict():
+    raise NotImplementedError()
+
+
+@with_setup
+def test_to_list():
+    raise NotImplementedError()
