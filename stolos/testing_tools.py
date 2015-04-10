@@ -37,14 +37,20 @@ def _smart_run(func, args, kwargs):
 def _with_setup(setup=None, teardown=None, params=False):
     """Decorator to add setup and/or teardown methods to a test function
 
-      @with_setup(setup, teardown)
-      def test_something():
-          " ... "
+    `setup` - setup function to run before calling a test function
+    `teardown` - teardown function to run after a test function returns
+    `params` - (boolean) whether to enable a special mode where:
+      - setup will return args and kwargs
+      - the test function and teardown will may define any of the values
+        returned by setup in their function definitions.
 
-    This extends the nose with_setup decorator such that:
-        - `setup` can return args and kwargs.
-        - The decorated test function and `teardown` can use any of the args
-          and kwargs returned by setup
+
+      def setup():
+          return dict(abc=123, def=456)
+
+      @_with_setup(setup, params=True)
+      def test_something(abc):
+          assert abc == 123
     """
     def decorate(func, setup=setup, teardown=teardown):
         args = []
@@ -133,7 +139,8 @@ def _setup_func(func_name):
     """Code that runs just before each test and configures a tasks.json file
     for each test.  The tasks.json tmp files are stored in a global var."""
     log = util.configure_logging(logging.getLogger(
-        'stolos.tests.test_dag.%s' % func_name))
+        'stolos.tests.%s' % func_name))
+
     tasks_json_tmpfile, renames = _create_tasks_json(func_name)
     zk = api.get_zkclient('localhost:2181')
     zk.delete('test_stolos/%s/' % func_name, recursive=True)
