@@ -1,7 +1,7 @@
 """
 Convert a directory into an executable
 """
-from runner import build_arg_parser_and_parse_args, main
+from stolos.runner import build_arg_parser_and_parse_args, main
 
 
 def go():

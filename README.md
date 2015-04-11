@@ -245,7 +245,7 @@ Concept: Job IDs
 ID Configuration](/README.md#configuration-job-ids)*  This section
 explains what `job_id`s are.
 
-Stolos recognizes apps (ie `App_` or `App_B`) and jobs (`App_A1`,
+Stolos recognizes apps (ie `App_A` or `App_B`) and jobs (`App_A1`,
 `App_A2`, ...).  An application, or app, represents a group of jobs.  A
 `job_id` identifies jobs, and it is made up of "identifiers" that we mash
 together via a `job_id` template.  A `job_id` identifies all possible
@@ -277,8 +277,9 @@ clarifies what the first and second apps have in common.
 
 Here's some general advice for choosing a `job_id` template:
 
-  - What results does this app generate?  The words that differentiate
-    those results are great candidates for identifers in a `job_id`.
+  - What results does this app generate?  The words that differentiate this
+    app's results from other apps' results are great candidates for identifers
+    in a `job_id`.
   - What parameters does this app expect?  The command-line arguments
     to a piece of code can be great `job_id` identiers.
   - How many different variations of this app exist?
@@ -427,38 +428,46 @@ The first thing you'll want to do is install Stolos
     # python setup.py bdist_egg
 
 
-Next, define environment vars that tell Stolos how to run.  For more options,
-see [a detailed environment configuration](conf/stolos-env.sh).
+Next, define environment vars.  You decide here which configuration backend and
+queue backend you will use.  See this [sample environment
+configuration](conf/stolos-env.sh) for details.
 
-    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
-    export JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
+    export STOLOS_JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
+    export STOLOS_JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
 
-    # and assuming you use the default json configuration backend:
-    export TASKS_JSON="/path/to/a/file/called/tasks.json"
+    # assuming you choose the default JSON configuration backend:
+    export STOLOS_TASKS_JSON="/path/to/a/file/called/tasks.json"
 
-    # and assuming you use the default queue backend:
-    export ZOOKEEPER_HOSTS="localhost:2181"
-
-
-Next, create a `job_id_validations` python module that should look like this:
-
-- See [example `job_id` validations file](stolos/examples/job_id_validations.py)
+    # and assuming you use the default Zookeeper queue backend:
+    export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"
 
 
-Last, tell Stolos how your applications depend on each other.  In the
+Next, tell Stolos how your applications depend on each other.  In the
 environment vars defined above, we assume you're using the default backend, a
-json file.  You may also change that if you wish.  See the links below:
+JSON file.  See the links below:
 
+
+- Learn about [Job Ids](README.md#configuration-job-ids)
 
 - Help me define app configuration: [Configuration: Apps, Dependencies and
   Configuration ](README.md#configuration-apps-dependencies-and-configuration)
 
-- Help me use a non-default configuration backend: [Setup: Configuration
-  Backends](README.md#setup-configuration-backends)
+Last, create a `job_id_validations` python file that should look like this:
+
+- See [example `job_id` validations file](stolos/examples/job_id_validations.py)
 
 
 [Use Stolos to run my
 applications](README.md#usage)
+
+
+For help configuring non-default options:
+- Non-default configuration backend: [Setup: Configuration
+
+  Backends](README.md#setup-configuration-backends)
+
+- Non-default queue backend: [Setup: Queue
+  Backends](README.md#setup-queue-backends)
 
 
 Setup: Configuration Backends
@@ -482,31 +491,72 @@ These are the steps you need to take to use a non-default backend:
    your own configuration backend, if you are so inclined).
 
 ```
-export CONFIGURATION_BACKEND="json"
+export STOLOS_CONFIGURATION_BACKEND="json"  # default
 ```
 
 OR
 
 ```
-export CONFIGURATION_BACKEND="redis"
+export STOLOS_CONFIGURATION_BACKEND="redis"
 ```
 
 OR
 
 ```
-export CONFIGURATION_BACKEND="mymodule.mybackend.MyMapping"
+export STOLOS_CONFIGURATION_BACKEND="mymodule.mybackend.MyMapping"
 ```
 
 2. Second, each backend has its own options.
     - For the JSON backend, you must define:
 
-        export TASKS_JSON="$DIR/stolos/examples/tasks.json"
+        export STOLOS_TASKS_JSON="$DIR/stolos/examples/tasks.json"
 
     - For the Redis backend, it is optional to overide these defaults:
 
-        export SCHEDULER_REDIS_DB=0  # which redis db is Stolos using?
-        export SCHEDULER_REDIS_PORT=6379
-        export SCHEDULER_REDIS_HOST='localhost'
+        export STOLOS_REDIS_DB=0  # which redis db is Stolos using?
+        export STOLOS_REDIS_PORT=6379
+        export STOLOS_REDIS_HOST='localhost'
+
+
+For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
+
+
+Setup: Queue Backends
+==============
+
+The queue backend identifies where (and how) you store job state.
+By default, Stolos uses the Zookeeper backend.
+
+Currently, the only supported queue backends are Zookeeper and Redis.  Both of
+these databases have strong consistency guarantees, which are important if you
+care about maintaining distributed locks.  If using the Redis backend with
+replication, be careful to follow the Redis documentation about
+[Replication](http://redis.io/topics/replication)
+
+These are the steps you need to take to use a non-default backend:
+
+1. First, let Stolos know which backend to load.
+
+```
+export STOLOS_QUEUE_BACKEND="zookeeper"  # default
+```
+
+OR
+
+```
+export STOLOS_QUEUE_BACKEND="redis"
+```
+
+2. Second, each backend has its own options.
+    - For the Zookeeper backend, you must define:
+
+        export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"  # or appropriate uri
+
+    - For the Redis backend, it is optional to overide these defaults:
+
+        export STOLOS_REDIS_DB=0  # which redis db is Stolos using?
+        export STOLOS_REDIS_PORT=6379
+        export STOLOS_REDIS_HOST='localhost'
 
 
 For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
@@ -561,15 +611,8 @@ server or "master" node from you can launch tasks or control Stolos.  Stolos is
 simply a thin wrapper for your application.  It is ignorant of your
 infrastructure and network topology.  You can generally execute Stolos
 applications the same way you would treat your application without Stolos.
-
-
-In order to run a job, you have to queue it and then execute it.  You
-can get a job from the application's queue and execute code via:
-
-
-    stolos --app_name test_scheduler/test_pyspark -h
-
-    stolos --app_name test_scheduler/test_bash -h
+Keep in mind, though, that if you run Stolos, your job will not run at that
+moment unless it is queued.
 
 
 This is how you can manually queue a job:
@@ -578,8 +621,19 @@ This is how you can manually queue a job:
     stolos-submit -h
 
 
+In order to run a job, you have to queue it and then execute it.  You
+can get a job from the application's queue and execute code via:
+
+
+    # to see demo example, run first:
+    . ./conf/stolos-env.sh
+
+    stolos -a app1 -h
+
+
+
 We also provide a way to bypass Stolos and execute a job
-directly.  This is useful if you are testing an app that may be
+directly.  This isn't useful unless you are testing an app that may be
 dependent on Stolos plugins, such as the pyspark plugin.
 
 
@@ -593,10 +647,10 @@ This section explains what configuration for `job_id`s must exist.
 
 These environment variables must be available to Stolos:
 
-    export JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
-    export JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
+    export STOLOS_JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
+    export STOLOS_JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
 
-- `JOB_ID_VALIDATIONS` points to a python module containing code to
+- `STOLOS_JOB_ID_VALIDATIONS` points to a python module containing code to
   verify that the identifiers in a `job_id` are correct.
   - See
     [stolos/examples/job_id_validations.py](stolos/examples/job_id_validations.py)
@@ -606,7 +660,7 @@ These environment variables must be available to Stolos:
     instance, an int or string?).
   - They are optional to implement, but you will see several warning
     messages for each unvalidated `job_id` identifier.
-- `JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for an app if
+- `STOLOS_JOB_ID_DEFAULT_TEMPLATE` - defines the default `job_id` for an app if
   the `job_id` template isn't explicitly defined in the app's config.  You
   should have `job_id` validation code for each identifier in your default
   template.
