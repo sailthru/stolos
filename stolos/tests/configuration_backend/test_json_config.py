@@ -15,7 +15,6 @@ def teardown_func():
     pass
 
 
-
 with_setup = tt.with_setup_factory(
     [setup_func], [teardown_func])
 

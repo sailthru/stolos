@@ -1,5 +1,3 @@
-import redis
-import os
 from stolos import testing_tools as tt
 import nose.tools as nt
 from stolos.configuration_backend.redis_config import (

@@ -7,6 +7,9 @@ echo $STOLOS_JOB_ID_DEFAULT_TEMPLATE
 echo $STOLOS_JOB_ID_VALIDATIONS
 echo $STOLOS_CONFIGURATION_BACKEND
 
+set -e
+set -u
+
 echo -n Is a local Zookeeper Server running and available?
 ans=`pgrep -f '\-Dzookeeper' >/dev/null && echo yes || echo no`
 echo ...$ans
