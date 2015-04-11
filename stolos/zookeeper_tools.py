@@ -481,9 +481,9 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
             pass  # no need to recurse further down the tree
 
 
-@util.pre_condition(dag_tools.parse_job_id)
-def set_state(app_name, job_id, zk,
-              pending=False, completed=False, failed=False, skipped=False):
+def _set_state_unsafe(
+        app_name, job_id, zk,
+        pending=False, completed=False, failed=False, skipped=False):
     """
     Set the state of a task
 
@@ -507,7 +507,8 @@ def set_state(app_name, job_id, zk,
         "Set task state",
         extra=dict(state=state, app_name=app_name, job_id=job_id))
 
-_set_state_unsafe = set_state.func_closure[0].cell_contents
+set_state = util.pre_condition(dag_tools.parse_job_id)(
+    _set_state_unsafe)
 
 
 def check_state(app_name, job_id, zk, raise_if_not_exists=False,

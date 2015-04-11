@@ -14,6 +14,61 @@ from . import log
 from .exceptions import _log_raise
 
 
+try:
+    from functools import lru_cache as _cached
+    cached = _cached(maxsize=None)
+except ImportError:  # python 2
+
+    def cached(_func=None, ignore_kwargs=(), memoize=1):
+        """A function decorator to cache results of function call.
+        Each cache is instantiated per function instance it decorates.
+        If the cached function is redefined (ie the module is reloaded),
+        its cache gets overwritten.
+
+        ignore_kwargs: a list of kwargs to ignore
+
+        This is solved in python3 via lru_cache
+        """
+        def cached_wrapper(func):
+            @functools.wraps(func)
+            def _cached(*args, **kwargs):
+                if not hasattr(_cached, 'cache'):
+                    _cached.cache = {}
+                    cached.CACHES[
+                        (func.__module__, func.func_name)] = _cached.cache
+                params = inspect.getcallargs(func, *args, **kwargs)
+                # drop certain keywords from cache key
+                if isinstance(ignore_kwargs, str):
+                    del params[ignore_kwargs]
+                else:
+                    for ign in ignore_kwargs:
+                        del params[ign]
+                # convert all dicts and lists to tuples
+                for key in params:
+                    if isinstance(params[key], collections.Mapping):
+                        params[key] = hash(tuple(sorted(params[key].items())))
+                    elif isinstance(params[key], collections.Sequence):
+                        params[key] = hash(tuple(sorted(params[key])))
+                    elif isinstance(params[key], argparse.Namespace):
+                        params[key] = hash(
+                            tuple(sorted(params[key].__dict__.items())))
+                key = (func.func_name, hash(tuple(sorted(params.items()))))
+                if key not in _cached.cache:
+                    if memoize:
+                        log.debug('STORE %s' % str(key))
+                    _cached.cache[key] = func(*args, **kwargs)
+                if memoize == 2:
+                    log.debug('GET %s' % str(key))
+                return _cached.cache[key]
+            return _cached
+        # Nifty trick to make @cached and @cached() both valid
+        if _func:
+            return cached_wrapper(_func)
+        else:
+            return cached_wrapper
+    cached.CACHES = {}
+
+
 def configure_logging(add_handler, log=log, colorize=True):
     """
     Configure log records.  If adding a handler, make the formatter print all
@@ -64,56 +119,6 @@ def configure_logging(add_handler, log=log, colorize=True):
     log.setLevel(logging.DEBUG)
     log.propagate = False
     return log
-
-
-def cached(_func=None, ignore_kwargs=(), memoize=1):
-    """A function decorator to cache results of function call.
-    Each cache is instantiated per function instance it decorates.
-    If the cached function is redefined (ie the module is reloaded),
-    its cache gets overwritten.
-
-    ignore_kwargs: a list of kwargs to ignore
-
-    This is solved in python3 via lru_cache
-    """
-    def cached_wrapper(func):
-        @functools.wraps(func)
-        def _cached(*args, **kwargs):
-            if not hasattr(_cached, 'cache'):
-                _cached.cache = {}
-                cached.CACHES[(func.__module__,
-                               func.func_name)] = _cached.cache
-            params = inspect.getcallargs(func, *args, **kwargs)
-            # drop certain keywords from cache key
-            if isinstance(ignore_kwargs, str):
-                del params[ignore_kwargs]
-            else:
-                for ign in ignore_kwargs:
-                    del params[ign]
-            # convert all dicts and lists to tuples
-            for key in params:
-                if isinstance(params[key], collections.Mapping):
-                    params[key] = hash(tuple(sorted(params[key].items())))
-                elif isinstance(params[key], collections.Sequence):
-                    params[key] = hash(tuple(sorted(params[key])))
-                elif isinstance(params[key], argparse.Namespace):
-                    params[key] = hash(
-                        tuple(sorted(params[key].__dict__.items())))
-            key = (func.func_name, hash(tuple(sorted(params.items()))))
-            if key not in _cached.cache:
-                if memoize:
-                    log.debug('STORE %s' % str(key))
-                _cached.cache[key] = func(*args, **kwargs)
-            if memoize == 2:
-                log.debug('GET %s' % str(key))
-            return _cached.cache[key]
-        return _cached
-    # Nifty trick to make @cached and @cached() both valid
-    if _func:
-        return cached_wrapper(_func)
-    else:
-        return cached_wrapper
-cached.CACHES = {}
 
 
 def pre_condition(validation_func):

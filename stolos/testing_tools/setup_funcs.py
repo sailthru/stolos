@@ -56,6 +56,10 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
     os.remove(tasks_json_tmpfile)
 
 
+def teardown_zookeeper(func_name, zk):
+    zk.delete('test_stolos/%s' % func_name, recursive=True)
+
+
 def setup_tasks_json(func_name):
     tasks_json_tmpfile, renames = _create_tasks_json(func_name)
     return ('--tasks_json', tasks_json_tmpfile), dict(
@@ -64,7 +68,7 @@ def setup_tasks_json(func_name):
 
 def setup_zookeeper(func_name):
     zk = api.get_zkclient('localhost:2181')
-    zk.delete('test_stolos/%s/' % func_name, recursive=True)
+    teardown_zookeeper(func_name, zk)
     return (), dict(zk=zk)
 
 
@@ -129,7 +133,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
 
 default_with_setup = with_setup_factory(
     (setup_job_ids, setup_tasks_json, setup_zookeeper),
-    (teardown_tasks_json, ))
+    (teardown_tasks_json, teardown_zookeeper))
 
 
 @contextmanager

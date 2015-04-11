@@ -1,6 +1,5 @@
 from nose import tools as nt
 from kazoo.exceptions import NoNodeError
-import os
 from networkx import MultiDiGraph
 
 import stolos
@@ -110,13 +109,14 @@ def test_readd_subtask(app1, job_id1, job_id2, zk):
 
 
 @tt.with_setup
-def test_get_zkclient():
+def test_get_zkclient(app1):
     zk1 = api.get_zkclient()
     zk2 = api.get_zkclient()
     nt.assert_equal(id(zk1), id(zk1))
     nt.assert_equal(hash(zk1), hash(zk2))
-    h, p = os.environ['ZOOKEEPER_HOSTS'].split(':')
-    nt.assert_equal(zk1.hosts, [(h, int(p))])
+
+    zk1.create(app1, 'A', makepath=True)
+    nt.assert_equal(zk2.get(app1)[0], 'A')
 
 
 @tt.with_setup
