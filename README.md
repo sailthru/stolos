@@ -2,23 +2,73 @@
 Summary:
 ==============
 
-Stolos is a really neat task dependency scheduler!  It manages the order of
-execution of interdependent applications, where an application is some piece of
-work that may have many variations.  It is not aware of resources or network
-topologies and does not implement the bin packing algorithm that most people
-think of when they typically think of schedulers.
+Stolos is a task dependency scheduler that helps build distributed pipelines.
+It shares similarities with [Chronos](https://github.com/mesos/chronos),
+[Luigi](http://luigi.readthedocs.org/en/latest/), and
+[Azkaban](http://azkaban.github.io/azkaban/docs/2.5/), yet remains
+fundamentally different from all three.
 
-Stolos has the following features:
+The goals of Stolos are the following:
 
-  - very simple to use (create an issue if something isn't obvious!)
-  - characterizes dependencies between apps using a directed acyclic
-    multi-graph
-  - supports subtasks and dependencies on arbitrary subsets of tasks
-  - decentralized and distributed, except that it centralizes work queues in
-    ZooKeeper.
-  - it does a couple things: manages job state, queues future work, and starts
-    your applications.
-  - excellent fault tolerance (via ZooKeeper) and as scalable as ZooKeeper
+  - Manage the order of execution of interdependent applications, where each
+    application may run many times with different input parameters.
+  - Provide an elegant way to define and reason about job dependencies.
+  - Built for fault tolerance and scalability.
+  - Applications are completely decoupled form and know nothing about Stolos.
+
+![](/screenshot.png?raw=true)
+
+
+How does Stolos work?
+==============
+
+Stolos consists of three primary components:
+
+- a Queue (stores job state)
+- a Configuration (defines task dependencies.  this is a JSON file by default)
+- the Runner (ie. runs code via bash command or a plugin)
+
+**Stolos manages a queuing system** to decide, at any given point in time, if
+the current application has any jobs, if the current job is runnable, whether
+to queue child or parent jobs, or whether to requeue the current job if it
+failed.
+
+**Stolos "wraps" jobs.**  This is an important concept for three reasons.
+First, before the job starts and after the job finishes, Stolos updates the
+job's state in the queueing system.  Second, rather than run a job directly (ie
+from command-line), Stolos runs directly from the command-line, where it will
+check the application's queue and run a queued job.  If no job is queued,
+Stolos will wait for one or exit.  Third, Stolos must run once for every job in
+the queue.  Stolos is like a queue consume, and an external process must
+maintain a healthy number of queue consumers.  This can be done with crontab
+(meh), [Relay.Mesos](https://github.com/sailthru/relay.mesos), or any auto
+scaler program.
+
+Stolos lets its **users define deterministic dependency
+relationships between applications**.  The documentation explains this in
+detail.  In the future, we may let users define non-deterministic dependency
+relationships, but we don't see the benefits yet.
+
+**Applications are completely decoupled from Stolos.** This means applications
+can run independently of Stolos and can also integrate directly with it without
+any changes to the application's code.  Stolos identifies an application via a
+Configuration, defined in the documentation.
+
+Unlike many other dependency schedulers, **Stolos is decentralized**.  There is
+no central server that "runs" things.  Decentralization here means a few
+things.  First, Stolos does not care where or how jobs run.  Second, it doesn't
+care about which queuing or configuration backends are used, provided that
+Stolos is able to communicate with these backends.  Third, and perhaps most
+importantly, the mission-critical questions about Consistency vs Availability
+vs Partition Tolerance (as defined by the CAP theorem) are delegated to the
+queue backend (and to some extent, the configuration backend).
+
+
+
+Stolos, in summary:
+==============
+
+  - manages job state, queues future work, and starts your applications.
   - language agnostic (but written in Python).
   - "at least once" semantics (a guarantee that a job will successfully
     complete or fail after n retries)
@@ -26,34 +76,38 @@ Stolos has the following features:
     jobs that take a second to complete
 
 What this is project not:
+--------------
+
   - not aware of machines, nodes, network topologies and infrastructure
   - does not (and should not) auto-scale workers
   - not (necessarily) meant for "real-time" computation
   - This is not a grid scheduler (ie this does not solve a bin packing problem)
-  - not a crontab.  (in certain cases, this is not entirely true)
-  - usually not meant to execute services, unless it makes
-    sense to express the work those services do as batch jobs that
-    depend on each other
-  - requires that your dependency graph is completely deterministic.
+  - not a crontab.  (in certain cases this is not entirely true)
+  - not meant to manage long-running services or servers (unless order
+    in which they start is important)
 
 
 Similar tools out there:
-
-- These are or can be used as directed acyclic graph schedulers, but they
-  aren't designed to support variations of applications.  Stolos is
-  a directed acyclic _multi-_ graph scheduler.
+--------------
 
   - [Chronos](https://github.com/airbnb/chronos)
+  - [Luigi](http://luigi.readthedocs.org/en/latest/), and
+  - [Azkaban](http://azkaban.github.io/azkaban/docs/2.5/), yet fundamentally
   - [Dagobah](https://github.com/thieman/dagobah)
   - [Quartz](http://quartz-scheduler.org/)
   - [Cascading](http://www.cascading.org/documentation/)
 
 
 Requirements:
-  - ZooKeeper
+--------------
+
+  - A Queue backend (ZooKeeper or Redis for now)
+  - A Configuration backend (JSON file, Redis, ...)
   - Some Python libraries (Kazoo, Networkx, Argparse, ...)
 
 Optional requirements:
+--------------
+
   - Apache Spark
   - GraphViz
 
@@ -98,7 +152,7 @@ We start with an assumption that our applications depend on each other:
               App_A                     App_A
                 |                        /     \
                 v                       v       v
-              App_B                  App_B   App_C
+              App_B                   App_B    App_C
                                         |       |
                                         |      App_D
                                         |       |
