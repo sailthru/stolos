@@ -120,7 +120,7 @@ def main(ns):
 build_arg_parser = at.build_arg_parser([at.group(
     'Bash Job Options',
     at.add_argument(
-        '--bash', nargs=REMAINDER, help=(
+        '--bash_cmd', nargs=REMAINDER, help=(
             "All remaining args are passed to the bash script. ie: "
             " myscript.sh arg1 --arg2 -c=4"
         )),

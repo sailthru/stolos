@@ -82,7 +82,7 @@ def test_bypass_scheduler(zk, bash1, job_id1, log, tasks_json_tmpfile):
     validate_zero_queued_task(zk, bash1)
     run_code(
         log, tasks_json_tmpfile, bash1,
-        '--bypass_scheduler --job_id %s --bash echo 123' % job_id1)
+        '--bypass_scheduler --job_id %s --bash_cmd echo 123' % job_id1)
     validate_zero_queued_task(zk, bash1)
     validate_zero_completed_task(zk, bash1)
 
@@ -125,7 +125,7 @@ def test_create_child_task_after_one_parent_completed(
 
         validate_one_completed_task(zk, app2, job_id1)
         validate_one_queued_task(zk, injected_app, job_id1)
-        run_code(log, tasks_json_tmpfile, injected_app, '--bash echo 123')
+        run_code(log, tasks_json_tmpfile, injected_app, '--bash_cmd echo 123')
         validate_one_completed_task(zk, injected_app, job_id1)
 
 
@@ -340,7 +340,7 @@ def test_complex_dependencies_pull_push(
         zk, depends_on1, log, tasks_json_tmpfile):
     job_id = '20140601_1'
     enqueue(depends_on1, job_id, zk)
-    run_code(log, tasks_json_tmpfile, depends_on1, '--bash echo 123')
+    run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
 
     parents = api.get_parents(depends_on1, job_id)
     parents = list(api.topological_sort(parents))
@@ -349,7 +349,7 @@ def test_complex_dependencies_pull_push(
         validate_zero_queued_task(zk, depends_on1)
     zkt.set_state(*parents[-1], zk=zk, completed=True)
     validate_one_queued_task(zk, depends_on1, job_id)
-    run_code(log, tasks_json_tmpfile, depends_on1, '--bash echo 123')
+    run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     validate_one_completed_task(zk, depends_on1, job_id)
 
 
@@ -386,7 +386,7 @@ def test_complex_dependencies_readd(zk, depends_on1, log, tasks_json_tmpfile):
         zkt.set_state(p2, pjob2, zk=zk, completed=True)
     # now, that last parent should have queued our application
     validate_one_queued_task(zk, depends_on1, job_id)
-    run_code(log, tasks_json_tmpfile, depends_on1, '--bash echo 123')
+    run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     validate_one_completed_task(zk, depends_on1, job_id)
     # phew!
 
@@ -430,7 +430,7 @@ def test_pull_tasks_with_many_children(zk, app1, app2, app3, app4, job_id1,
     validate_zero_queued_task(zk, app2)
     validate_zero_queued_task(zk, app3)
 
-    run_code(log, tasks_json_tmpfile, app4, '--bash echo app4helloworld')
+    run_code(log, tasks_json_tmpfile, app4, '--bash_cmd echo app4helloworld')
     validate_zero_queued_task(zk, app4)
     validate_one_queued_task(zk, app1, job_id1)
     validate_one_queued_task(zk, app2, job_id1)
@@ -481,7 +481,7 @@ def test_retry_failed_task(
     # run job_id2 and have it fail
     run_code(
         log, tasks_json_tmpfile, app1,
-        extra_opts='--bash "&& notacommand...fail" ')
+        extra_opts='--bash_cmd "&& notacommand...fail" ')
     # ensure we still have both items in the queue
     nose.tools.assert_true(get_zk_status(zk, app1, job_id1)['in_queue'])
     nose.tools.assert_true(get_zk_status(zk, app1, job_id2)['in_queue'])
@@ -491,7 +491,7 @@ def test_retry_failed_task(
     # run and fail n times, where n = max failures
     run_code(
         log, tasks_json_tmpfile, app1,
-        extra_opts='--max_retry 1 --bash "&& notacommand...fail"')
+        extra_opts='--max_retry 1 --bash_cmd "&& notacommand...fail"')
     # verify that job_id2 is removed from queue
     validate_one_queued_task(zk, app1, job_id1)
     # verify that job_id2 state is 'failed' and job_id1 is still pending
@@ -555,10 +555,11 @@ def test_bash(zk, bash1, job_id1, log, tasks_json_tmpfile):
     enqueue(bash1, job_id1, zk)
     validate_one_queued_task(zk, bash1, job_id1)
     # run failing task
-    run_code(log, tasks_json_tmpfile, bash1, '--bash thiscommandshouldfail')
+    run_code(
+        log, tasks_json_tmpfile, bash1, '--bash_cmd thiscommandshouldfail')
     validate_one_queued_task(zk, bash1, job_id1)
     # run successful task
-    run_code(log, tasks_json_tmpfile, bash1, '--bash echo 123')
+    run_code(log, tasks_json_tmpfile, bash1, '--bash_cmd echo 123')
     validate_zero_queued_task(zk, bash1)
 
 
@@ -570,7 +571,7 @@ def test_app_has_command_line_params(
     # Test passed in params exist
     _, logoutput = run_code(
         log, tasks_json_tmpfile, bash1,
-        extra_opts='--redirect_to_stderr --bash echo newfakereadfp',
+        extra_opts='--redirect_to_stderr --bash_cmd echo newfakereadfp',
         capture=True, raise_on_err=True)
     nose.tools.assert_in(
         'newfakereadfp', logoutput, msg % logoutput)
@@ -656,11 +657,11 @@ def test_run_multiple_given_specific_job_id(
         bash1, job_id1, log, tasks_json_tmpfile):
     p = run_code(
         log, tasks_json_tmpfile, bash1,
-        extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
+        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 1' % job_id1,
         async=True)
     p2 = run_code(
         log, tasks_json_tmpfile, bash1,
-        extra_opts='--job_id %s --timeout 1 --bash sleep 1' % job_id1,
+        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 1' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
     err = p.communicate()[1] + p2.communicate()[1]
@@ -687,7 +688,7 @@ def test_run_failing_spark_given_specific_job_id(
     validate_zero_queued_task(zk, bash1)
     run_code(
         log, tasks_json_tmpfile, bash1,
-        '--job_id %s --bash kasdfkajsdfajaja' % job_id1)
+        '--job_id %s --bash_cmd kasdfkajsdfajaja' % job_id1)
     validate_one_queued_task(zk, bash1, job_id1)
 
 
@@ -695,7 +696,7 @@ def test_run_failing_spark_given_specific_job_id(
 def test_failing_task(bash1, log, tasks_json_tmpfile):
     _, err = run_code(
         log, tasks_json_tmpfile, bash1,
-        ' --job_id 20101010_-1_profile --bash notacommand...fail',
+        ' --job_id 20101010_-1_profile --bash_cmd notacommand...fail',
         capture=True)
     nose.tools.assert_regexp_matches(
         err, "Bash job failed")
@@ -704,7 +705,7 @@ def test_failing_task(bash1, log, tasks_json_tmpfile):
 
     _, err = run_code(
         log, tasks_json_tmpfile, bash1,
-        '--max_retry 1 --bash jaikahhaha', capture=True)
+        '--max_retry 1 --bash_cmd jaikahhaha', capture=True)
     nose.tools.assert_regexp_matches(
         err, "Task retried too many times and is set as permanently failed")
 
@@ -718,6 +719,6 @@ def test_invalid_queued_job_id(zk, app4, log, tasks_json_tmpfile):
     q.put(job_id)
     validate_one_queued_task(zk, app4, job_id)
 
-    run_code(log, tasks_json_tmpfile, app4, '--bash echo 123')
+    run_code(log, tasks_json_tmpfile, app4, '--bash_cmd echo 123')
     validate_one_failed_task(zk, app4, job_id)
     validate_zero_queued_task(zk, app4)

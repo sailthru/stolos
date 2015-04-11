@@ -605,7 +605,7 @@ Here is a minimum viable configuration for an app:
     }
 
 As you can see, there's not much to it.  You would need to define a
-command-line like "--bash echo 123" for this example to run properly.
+command-line like "--bash_cmd echo 123" for this example to run properly.
 
 Here is an example of a simple App_Ai` --> `App_Bi` relationship.
 Also notice that the `bash_cmd` performs string interpolation so
