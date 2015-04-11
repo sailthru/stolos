@@ -17,6 +17,43 @@ def enqueue(app_name, job_id, zk, validate_queued=True):
         validate_one_queued_task(zk, app_name, job_id)
 
 
+def cycle_queue(zk, app_name):
+    """Get item from queue, put at back of queue and return item"""
+    q = zk.LockingQueue(app_name)
+    item = q.get()
+    q.put(item)
+    q.consume()
+    return item
+
+
+def consume_queue(zk, app_name, timeout=1):
+    q = zk.LockingQueue(app_name)
+    item = q.get(timeout=timeout)
+    q.consume()
+    return item
+
+
+def get_zk_status(zk, app_name, job_id):
+    path = zkt._get_zookeeper_path(app_name, job_id)
+    elockpath = join(path, 'execute_lock')
+    alockpath = join(path, 'add_lock')
+    entriespath = join(app_name, 'entries')
+    return {
+        'num_add_locks': len(
+            zk.exists(alockpath) and zk.get_children(alockpath) or []),
+        'num_execute_locks': len(
+            zk.exists(elockpath) and zk.get_children(elockpath) or []),
+        'in_queue': (
+            any(zk.get(join(app_name, 'entries', x))[0] == job_id
+                for x in zk.get_children(entriespath))
+            if zk.exists(entriespath) else False),
+        'app_qsize': (
+            len(zk.get_children(entriespath))
+            if zk.exists(entriespath) else 0),
+        'state': zk.get(path)[0],
+    }
+
+
 def validate_zero_queued_task(zk, app_name):
     if zk.exists(join(app_name, 'entries')):
         nt.assert_equal(
@@ -77,40 +114,3 @@ def validate_n_queued_task(zk, app_name, *job_ids):
         nt.assert_equal(status['in_queue'], True, job_id)
         nt.assert_equal(status['app_qsize'], len(job_ids), job_id)
         nt.assert_equal(status['state'], 'pending', job_id)
-
-
-def cycle_queue(zk, app_name):
-    """Get item from queue, put at back of queue and return item"""
-    q = zk.LockingQueue(app_name)
-    item = q.get()
-    q.put(item)
-    q.consume()
-    return item
-
-
-def consume_queue(zk, app_name, timeout=1):
-    q = zk.LockingQueue(app_name)
-    item = q.get(timeout=timeout)
-    q.consume()
-    return item
-
-
-def get_zk_status(zk, app_name, job_id):
-    path = zkt._get_zookeeper_path(app_name, job_id)
-    elockpath = join(path, 'execute_lock')
-    alockpath = join(path, 'add_lock')
-    entriespath = join(app_name, 'entries')
-    return {
-        'num_add_locks': len(
-            zk.exists(alockpath) and zk.get_children(alockpath) or []),
-        'num_execute_locks': len(
-            zk.exists(elockpath) and zk.get_children(elockpath) or []),
-        'in_queue': (
-            any(zk.get(join(app_name, 'entries', x))[0] == job_id
-                for x in zk.get_children(entriespath))
-            if zk.exists(entriespath) else False),
-        'app_qsize': (
-            len(zk.get_children(entriespath))
-            if zk.exists(entriespath) else 0),
-        'state': zk.get(path)[0],
-    }
