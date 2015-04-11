@@ -35,8 +35,9 @@ build_arg_parser = at.build_arg_parser([at.group(
 class _RedisConfig(object):
     def __getitem__(self, key):
         if key not in self.cache:
+            key = "%s%s" % (self.redis_key_prefix, key)
             try:
-                val = self.cli.hgetall('%s%s' % (self.redis_key_prefix, key))
+                val = self.cli.hgetall(key)
             except:
                 log.error((
                     "Redis failed to fetch app config data."
@@ -50,8 +51,8 @@ class _RedisConfig(object):
 
             # Convert redis values to python objects.  Potentially dangerous.
             val = {eval(k, {}, {}): eval(v, {}, {}) for k, v in val.items()}
-            self.cache[key] = val
-        return _ensure_type(self.cache[key], JSONMapping, JSONSequence)
+            self.cache[key] = _ensure_type(val, JSONMapping, JSONSequence)
+        return self.cache[key]
 
     def __len__(self):
         return self.cli.dbsize()

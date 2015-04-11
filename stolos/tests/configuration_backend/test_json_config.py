@@ -5,7 +5,8 @@ from stolos.configuration_backend.json_config import (
 
 
 def setup_func(func_name):
-    raw = {'a': 1, 'b': [1, 2, 3], 'c': {'aa': 1, 'bb': [1, 2, 3]}}
+    raw = {'a': 1, 'b': [1, 2, 3], 'c': {'aa': 1, 'bb': [1, 2, 3]},
+           'd': [1, [2, 3]]}
     td = JSONMapping(raw)
     return [], dict(td=td, raw=raw)
 
@@ -14,8 +15,9 @@ def teardown_func():
     pass
 
 
-def with_setup(func):
-    return tt.with_setup(func, setup_func, teardown_func)
+
+with_setup = tt.with_setup_factory(
+    [setup_func], [teardown_func])
 
 
 @with_setup
@@ -35,10 +37,10 @@ def test_set_item(td, raw):
 
 
 @with_setup
-def test_to_dict():
-    raise NotImplementedError()
+def test_to_dict(td, raw):
+    nt.assert_dict_equal(td.to_dict(), raw)
 
 
 @with_setup
-def test_to_list():
-    raise NotImplementedError()
+def test_to_list(td, raw):
+    nt.assert_list_equal(td['d'].to_list(), raw['d'])

@@ -20,29 +20,32 @@ def make_json():
 
 
 def setup_redis(func_name):
-    return ('--configuration_backend', 'redis'), dict()
+    return (
+        '--configuration_backend', 'redis',
+        '--redis_key_prefix', '',
+    ), dict()
 
 
 def post_initialize(func_name):
-    raw = {REDIS_PREFIX % (func_name, app_name): data
-           for app_name, data in make_json().items()}
+    raw = make_json()
+    app_names = {
+        app_name: REDIS_PREFIX % (func_name, app_name) for app_name in raw}
+    td = RedisMapping()
     for app_name, app_conf in raw.items():
-        td.cli.hmset(REDIS_PREFIX % (func_name, app_name), app_conf)
+        td.cli.hmset(app_names[app_name], app_conf)
     return dict(
-        cli=td.cli, raw=raw,
-        **{a: a2 for a, a2 in zip(make_json().keys(), raw.keys())})
+        cli=td.cli, raw=raw, td=td, **app_names)
 
 
 def teardown_redis(raw, cli, func_name):
     assert cli.delete(
         *(REDIS_PREFIX % (func_name, app_name)
-          for app_name in raw.keys())), \
+          for app_name in raw)), \
         "Oops did not clean up redis properly"
 
 
 with_setup = tt.with_setup_factory(
     [setup_redis], [teardown_redis], post_initialize)
-print(with_setup)
 
 
 @with_setup
@@ -84,6 +87,7 @@ def test_set_config(app1, cli, td):
     # verify set_config does not delete old keys
     nt.assert_in('key1', td[app1])
     nt.assert_equal(1, td[app1]['key1'])
+    td = RedisMapping()  # reset's RedisMapping's cache, from prev line
     set_config(app1, dct, cli=cli)
     nt.assert_in('key1', td[app1])
     nt.assert_equal(1, td[app1]['key1'])
@@ -98,5 +102,6 @@ def test_set_config(app1, cli, td):
         td[app1][3], JSONSequence)
     nt.assert_is_instance(
         td[app1][4], JSONMapping)
+
     nt.assert_list_equal(list(td[app1][3]), dct[3])
     nt.assert_dict_equal(dict(td[app1][4]), dct[4])
