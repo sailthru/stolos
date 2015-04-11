@@ -252,25 +252,20 @@ def validate_dag(dg, tasks_conf):
         validate_job_type(app_name1, metadata, dg, tasks_conf, ld)
 
 
-def visualize_dag(dg=None, plot=True, write_dot=False, delete_plot=True):
+def visualize_dag(dg=None, plot_nx=False, plot_graphviz=True, write_dot=True,
+                  prog='dot'):
     """For interactive use"""
+    import webbrowser
     if not dg:
         dg = build_dag()
-    tmpf = tempfile.mkstemp(suffix='.dot')[1]
-    try:
-        if plot:
-            nx.draw_graphviz(dg, prog='dot')
-        if write_dot:
-            nx.write_dot(dg, '{0}'.format(tmpf))
-            os.popen(
-                'dot {0} -Tpng > {0}.png ; open {0}.png ; sleep 5'
-                .format(tmpf))
-    finally:
-        if delete_plot:
-            if os.path.exists(tmpf):
-                os.remove(tmpf)
-            if os.path.exists(tmpf + '.png'):
-                os.remove(tmpf + '.png')
+    if plot_nx:
+        nx.draw_graphviz(dg, prog=prog)
+    if write_dot or plot_graphviz:
+        tmpf = tempfile.mkstemp(suffix='.dot', prefix='stolos_dag_')[1]
+        nx.write_dot(dg, tmpf)
+        os.popen('{1} {0} -Tpng > {0}.png'.format(tmpf, prog))
+        if plot_graphviz:
+            webbrowser.open(tmpf + '.png')
 
 
 def _add_nodes(tasks_conf, dg):

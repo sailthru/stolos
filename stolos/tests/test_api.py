@@ -3,6 +3,7 @@ from kazoo.exceptions import NoNodeError
 import os
 from networkx import MultiDiGraph
 
+import stolos
 from stolos import api
 from stolos import testing_tools as tt
 from stolos import zookeeper_tools as zkt
@@ -184,6 +185,11 @@ def test_get_children():
 
 
 @tt.with_setup
+def test_topological_sort():
+    pass  # tested in dag_tools
+
+
+@tt.with_setup
 def test_delete(app1, job_id1, job_id2, zk):
     api.maybe_add_subtask(app1, job_id1, zk)
     api.maybe_add_subtask(app1, job_id2, zk)
@@ -285,20 +291,35 @@ def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3, zk):
 
 @tt.with_setup
 def test_initialize():
-    raise NotImplementedError()
+    with nt.assert_raises(SystemExit):
+        api.initialize(['-h'])
+    api.initialize(['--configuration_backend', 'json', '--tasks_json', 'a'])
+    tj = stolos.get_NS().tasks_json
+    api.initialize(['--configuration_backend', 'json', '--tasks_json', 'b'])
+    tj2 = stolos.get_NS().tasks_json
+    nt.assert_equal(tj, 'a')
+    nt.assert_equal(tj2, 'b')
 
 
 @tt.with_setup
-def test_configure_logging():
-    raise NotImplementedError()
+def test_configure_logging(log, func_name):
+    nt.assert_equal(log.name, 'stolos.tests.%s' % func_name)
 
 
 @tt.with_setup
 def test_visualize_dag():
-    raise NotImplementedError()
+    # this should succeeed but do nothing.
+    api.visualize_dag(dg=None, plot_nx=False, plot_graphviz=False,
+                      write_dot=False, prog='dot')
 
 
 @tt.with_setup
-def test_get_job_id_template():
-    raise NotImplementedError()
-# TODO: what am I missing?
+def test_get_job_id_template(custom_job_id1):
+    tc = api.get_tasks_config()
+    templ, ptempl = api.get_job_id_template(custom_job_id1)
+    nt.assert_equal(templ, tc[custom_job_id1]['job_id'])
+    nt.assert_equal(len(ptempl), tc[custom_job_id1]['job_id'].count('{'))
+    # sanity check
+    nt.assert_equal(
+        tc[custom_job_id1]['job_id'].count('{'),
+        tc[custom_job_id1]['job_id'].count('}'))

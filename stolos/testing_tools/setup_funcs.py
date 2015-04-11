@@ -13,9 +13,10 @@ from stolos import queue_backend as qb
 from stolos import dag_tools as dt
 from stolos import configuration_backend as cb
 
-from .with_setup import with_setup, smart_run
+from .with_setup_tools import with_setup, smart_run
 
-TASKS_JSON_READ_FP = join(dirname(abspath(__file__)), 'examples/tasks.json')
+TASKS_JSON_READ_FP = join(
+    dirname(dirname(abspath(__file__))), 'examples/tasks.json')
 
 
 def _create_tasks_json(func_name, inject={}):
@@ -57,7 +58,8 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
 
 def setup_tasks_json(func_name):
     tasks_json_tmpfile, renames = _create_tasks_json(func_name)
-    return ('--tasks_json', tasks_json_tmpfile), renames
+    return ('--tasks_json', tasks_json_tmpfile), dict(
+        tasks_json_tmpfile=tasks_json_tmpfile, **dict(renames))
 
 
 def setup_zookeeper(func_name):
@@ -94,7 +96,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
     def setup_func(func_name):
         initializer_args = []
         available_kwargs = dict(
-            log=util.configure_logging(logging.getLogger(
+            log=util.configure_logging(True, log=logging.getLogger(
                 'stolos.tests.%s' % func_name)),
             func_name=func_name,
         )
@@ -127,7 +129,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
 
 default_with_setup = with_setup_factory(
     (setup_job_ids, setup_tasks_json, setup_zookeeper),
-    (teardown_tasks_json))
+    (teardown_tasks_json, ))
 
 
 @contextmanager
