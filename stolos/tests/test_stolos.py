@@ -589,17 +589,6 @@ def test_run_given_specific_job_id(zk, app1, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_readd_change_child_state_while_child_running():
-    #
-    # This test guarantees that we can readd a parent task and have child task
-    # fails.  If the child directly modifies the parent's output, then you
-    # still have an issue.
-
-    # TODO
-    raise nose.plugins.skip.SkipTest()
-
-
-@with_setup
 def test_child_running_while_parent_pending_but_not_executing(
         zk, app1, app2, job_id1):
     enqueue(app1, job_id1, zk)

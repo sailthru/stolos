@@ -108,6 +108,7 @@ def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
     Queue a new task if it isn't already in the queue.
 
     This is slow if the queue is large.  Use carefully!
+    Potentially unsafe if decendant tasks are already running/queued.
 
     `_force` (bool) If True, add to queue regardless of whether job_id
         is previously queued
