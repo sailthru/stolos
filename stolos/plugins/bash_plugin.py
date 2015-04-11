@@ -54,7 +54,7 @@ def get_process_children(pid):
     return [int(sp) for sp in stdout.split()]
 
 
-def get_bash_opts(app_name):
+def get_bash_cmd(app_name):
     """Lookup the bash command-line options for a bash task
     If they don't exist, return empty string"""
     dg = api.get_tasks_config()
@@ -66,11 +66,11 @@ def get_bash_opts(app_name):
         log.error(
             "App is not a bash job", extra=dict(
                 app_name=app_name, job_type=job_type))
-    rv = meta.get('bash_opts', '')
+    rv = meta.get('bash_cmd', '')
     if not isinstance(rv, (str, unicode)):
         log_and_raise(
             "App config for bash plugin is misconfigured:"
-            " bash_opts is not a string", dict(app_name=app_name))
+            " bash_cmd is not a string", dict(app_name=app_name))
     return rv
 
 
@@ -84,7 +84,7 @@ def main(ns):
     ld = dict(**ns.__dict__)
     ld.update(job_id=job_id)
     log.info('Running bash job', extra=dict(**ld))
-    cmd = get_bash_opts(ns.app_name)  # TODO
+    cmd = get_bash_cmd(ns.app_name)  # TODO
     if ns.bash:
         cmd += ' '.join(ns.bash)
         log.debug(

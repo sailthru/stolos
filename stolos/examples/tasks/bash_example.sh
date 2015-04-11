@@ -8,7 +8,7 @@
 #
 #   "test_stolos/test_bash": {
 #     "job_type": "bash",
-#     "bash_opts": "echo Hello from {app_name}. Completing work for {job_id}."
+#     "bash_cmd": "echo Hello from {app_name}. Completing work for {job_id}."
 #   }
 
 #

@@ -2,14 +2,14 @@
   "app1": {
      "pymodule": "stolos.examples.tasks.test_task",
      "job_type": "bash",
-     "bash_opts": "echo {app_name}"
+     "bash_cmd": "echo {app_name}"
  },
  "app2": {
      "pymodule": "stolos.examples.tasks.test_task",
      "depends_on": {"app_name": ["app1"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
      "job_type": "bash",
-     "bash_opts": "echo {app_name}"
+     "bash_cmd": "echo {app_name}"
  },
  "app3": {
      "job_type": "bash",
@@ -33,7 +33,7 @@
  "bash2": {
      "depends_on": {"app_name": ["bash1"]},
      "job_type": "bash",
-     "bash_opts": "echo 123"
+     "bash_cmd": "echo 123"
  },
 
  "depends_on2": {

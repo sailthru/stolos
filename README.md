@@ -474,7 +474,7 @@ cat > $TASKS_JSON <<EOF
     "myapp": {
         "job_type": "bash",
         "job_id": "{num}",
-        "bash_opts": "echo 123"
+        "bash_cmd": "echo 123"
     }
 }
 EOF
@@ -608,17 +608,17 @@ As you can see, there's not much to it.  You would need to define a
 command-line like "--bash echo 123" for this example to run properly.
 
 Here is an example of a simple App_Ai` --> `App_Bi` relationship.
-Also notice that the `bash_opts` performs string interpolation so
+Also notice that the `bash_cmd` performs string interpolation so
 applications can receive dynamically determined command-line parameters.
 
     {
         "App1": {
             "job_type": "bash",
-            "bash_opts": "echo {app_name} is Running App 1 with {job_id}"
+            "bash_cmd": "echo {app_name} is Running App 1 with {job_id}"
         },
         "App2": {
             "job_type": "bash",
-            "bash_opts": "echo Running App 2. job_id contains date={date}"
+            "bash_cmd": "echo Running App 2. job_id contains date={date}"
             "depends_on": {"app_name": ["App1"]}
         }
     }
@@ -768,7 +768,7 @@ particularly useful, remember that running the application without Stolos may
 require some extra code on your part.
 
  - `job_type`="bash"
-    - `bash_opts`
+    - `bash_cmd`
  - `job_type`="pyspark"
     - `pymodule` - a python import path to python application code.  ie.
       `stolos.examples.tasks.test_task`,
