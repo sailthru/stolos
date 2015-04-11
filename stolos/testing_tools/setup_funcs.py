@@ -56,8 +56,8 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
     os.remove(tasks_json_tmpfile)
 
 
-def teardown_zookeeper(func_name, zk):
-    zk.delete('test_stolos/%s' % func_name, recursive=True)
+def teardown_zookeeper(func_name):
+    api.get_zkclient().delete('test_stolos/%s' % func_name, recursive=True)
 
 
 def setup_tasks_json(func_name):
@@ -66,10 +66,9 @@ def setup_tasks_json(func_name):
         tasks_json_tmpfile=tasks_json_tmpfile, **dict(renames))
 
 
-def setup_zookeeper(func_name):
-    zk = api.get_zkclient('localhost:2181')
-    teardown_zookeeper(func_name, zk)
-    return (), dict(zk=zk)
+def post_setup_zookeeper(func_name):
+    teardown_zookeeper(func_name)  # must happen after initialize(...)
+    return dict()
 
 
 def setup_job_ids(func_name):
@@ -81,13 +80,14 @@ def setup_job_ids(func_name):
 
 
 def with_setup_factory(setup_funcs=(), teardown_funcs=(),
-                       post_initialize=None):
+                       post_initialize=()):
     """Create different kinds of `@with_setup` decorators
     to properly initialize and teardown things necessary to run test functions
 
     `setup_funcs` - a list of functions that do things before a test
     `teardown_funcs` - a list of funcitons that do things after a test
-    `post_initialize` - a function to run after stolos has been initialized
+    `post_initialize` - a list of functionis to run during setup, but after
+        stolos has been initialized
 
     All functions must receive `func_name` as input.
       - setup and teardown funcs must return (tup, dct) where:
@@ -95,7 +95,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
           to Stolos's initialier.
           - the dict is an optional list of keywords that tests can request in
           their function definitions
-      - post_initialize returns just the dict
+      - post_initialize funcs return just the dict
     """
     def setup_func(func_name):
         initializer_args = []
@@ -109,8 +109,8 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
             initializer_args.extend(tup)
             available_kwargs.update(dct)
         _initialize([cb, dt, qb], args=initializer_args)
-        if post_initialize:
-            dct = smart_run(post_initialize, (), available_kwargs)
+        for f in post_initialize:
+            dct = smart_run(f, (), available_kwargs)
             available_kwargs.update(dct)
         return ((), available_kwargs)
 
@@ -132,8 +132,10 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
 
 
 default_with_setup = with_setup_factory(
-    (setup_job_ids, setup_tasks_json, setup_zookeeper),
-    (teardown_tasks_json, teardown_zookeeper))
+    (setup_job_ids, setup_tasks_json),
+    (teardown_tasks_json, teardown_zookeeper),
+    (post_setup_zookeeper, )
+)
 
 
 @contextmanager

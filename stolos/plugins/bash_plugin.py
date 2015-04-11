@@ -84,9 +84,9 @@ def main(ns):
     ld = dict(**ns.__dict__)
     ld.update(job_id=job_id)
     log.info('Running bash job', extra=dict(**ld))
-    cmd = get_bash_cmd(ns.app_name)  # TODO
-    if ns.bash:
-        cmd += ' '.join(ns.bash)
+    cmd = get_bash_cmd(ns.app_name)
+    if ns.bash_cmd:
+        cmd += ' '.join(ns.bash_cmd)
         log.debug(
             "Appending user-supplied bash options to defaults", extra=dict(
                 app_name=ns.app_name, job_id=job_id, cmd=cmd))

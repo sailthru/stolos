@@ -7,7 +7,7 @@ import kazoo.exceptions
 from stolos import zookeeper_tools as zkt, log
 
 
-def delete(app_name, job_id, zk, confirm=True,
+def delete(app_name, job_id, confirm=True,
            delete_from_queue=True, delete_job_state=True, dryrun=False):
     """Delete Zookeeper data for one or more specific jobs.
 
@@ -29,6 +29,7 @@ def delete(app_name, job_id, zk, confirm=True,
     `dryrun` (bool) don't actually delete nodes
 
     """
+    zk = zkt.get_zkclient()
     if isinstance(job_id, (str, unicode)):
         job_id = set([job_id])
 
@@ -73,7 +74,7 @@ def delete(app_name, job_id, zk, confirm=True,
     return rvs
 
 
-def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
+def get_job_ids_by_status(app_name, regexp=None, **job_states):
     """
     Return a list of job_ids that match a given state.
 
@@ -86,8 +87,9 @@ def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
     `job_states` (kws) keys: pending|failed|completed|skipped|all
                        vals: True|False
         If no job states are defined, assume all=True
-        ie.  get_job_ids_by_status(app_name, zk, pending=True, failed=True)
+        ie.  get_job_ids_by_status(app_name, pending=True, failed=True)
     """
+    zk = zkt.get_zkclient()
     if not job_states:
         job_states = dict(all=True)  # assume all job states
     path = zkt._get_zookeeper_path(app_name, '')
@@ -106,19 +108,19 @@ def get_job_ids_by_status(app_name, zk, regexp=None, **job_states):
         log.warn('no job_ids found matching regex and app_name', extra=dict(
             app_name=app_name, regexp=regexp))
 
-    gen = zip(job_ids, zkt.check_state(app_name, job_ids, zk=zk, **job_states))
+    gen = zip(job_ids, zkt.check_state(app_name, job_ids, **job_states))
     return [job_id for job_id, inset in gen if inset is True]
 
 
-def requeue(app_name, zk, regexp=None, confirm=True, **job_states):
+def requeue(app_name, regexp=None, confirm=True, **job_states):
     """
     Get and requeue jobs for app_name where given job_states are True
 
     `job_states` (kws) keys: pending|failed|completed|skipped|all
                        vals: True|False
-        ie.  requeue(app_name, zk, pending=True, failed=True)
+        ie.  requeue(app_name, pending=True, failed=True)
     """
-    IDS = get_job_ids_by_status(app_name, zk, regexp=regexp, **job_states)
+    IDS = get_job_ids_by_status(app_name, regexp=regexp, **job_states)
     log.info(
         "A list of some of the failed job_ids for %s: \n%s"
         % (app_name, IDS[:200]))
@@ -129,7 +131,7 @@ def requeue(app_name, zk, regexp=None, confirm=True, **job_states):
     else:
         log.info(msg)
     for job_id in IDS:
-        zkt.readd_subtask(app_name, job_id, zk=zk)
+        zkt.readd_subtask(app_name, job_id)
 
 
 def promptconfirm(msg):

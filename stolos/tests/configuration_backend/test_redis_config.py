@@ -43,7 +43,7 @@ def teardown_redis(raw, cli, func_name):
 
 
 with_setup = tt.with_setup_factory(
-    [setup_redis], [teardown_redis], post_initialize)
+    [setup_redis], [teardown_redis], [post_initialize])
 
 
 @with_setup

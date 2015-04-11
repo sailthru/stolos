@@ -6,7 +6,7 @@ import importlib
 
 from stolos import argparse_shared as at
 from stolos import log
-from stolos import dag_tools, exceptions, zookeeper_tools
+from stolos import dag_tools, exceptions, zookeeper_tools as zkt
 from stolos import queue_backend
 from stolos import configuration_backend
 from stolos.initializer import initialize
@@ -32,21 +32,20 @@ def main(ns):
         return
 
     log.info("Beginning Stolos", extra=dict(**ns.__dict__))
-    zk = zookeeper_tools.get_zkclient(ns.zookeeper_hosts)
-    q = zk.LockingQueue(ns.app_name)
+    q = zkt.get_zkclient().LockingQueue(ns.app_name)
     if ns.job_id:
-        lock = _handle_manually_given_job_id(ns, zk)
+        lock = _handle_manually_given_job_id(ns)
     else:
         lock = None
         ns.job_id = q.get(timeout=ns.timeout)
         if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,
-                               q=q, zk=zk, timeout=ns.timeout):
+                               q=q, timeout=ns.timeout):
             return
     log.info(
         "Stolos got a job_id.  Checking if it is runnable", extra=dict(
             app_name=ns.app_name, job_id=ns.job_id))
     lock = get_lock_if_job_is_runnable(
-        app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout,
+        app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout,
         lock=lock)
 
     if lock is False:
@@ -54,18 +53,18 @@ def main(ns):
         log.info("Could not obtain a lock.  Will requeue and try again later",
                  extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         _send_to_back_of_queue(
-            q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+            q=q, app_name=ns.app_name, job_id=ns.job_id)
         return
 
     parents_completed, consume_queue, parent_locks = \
-        zookeeper_tools.ensure_parents_completed(
-            app_name=ns.app_name, job_id=ns.job_id, zk=zk, timeout=ns.timeout)
+        zkt.ensure_parents_completed(
+            app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout)
     if parents_completed is False:
         if consume_queue:
             q.consume()
         else:
             _send_to_back_of_queue(
-                q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+                q=q, app_name=ns.app_name, job_id=ns.job_id)
         lock.release()
         [l.release() for l in parent_locks]
         return
@@ -77,7 +76,7 @@ def main(ns):
     try:
         ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
-        _handle_failure(ns, zk, q, lock)
+        _handle_failure(ns, q, lock)
         return
     except Exception as err:
         log.exception(
@@ -86,10 +85,10 @@ def main(ns):
             % (err.__class__.__name__, err), extra=dict(
                 app_name=ns.app_name, job_id=ns.job_id, failed=True))
         return
-    _handle_success(ns, zk, q, lock)
+    _handle_success(ns, q, lock)
 
 
-def validate_job_id(app_name, job_id, q, zk, timeout):
+def validate_job_id(app_name, job_id, q, timeout):
     """Return True if valid job_id.
     If invalid, do whatever cleanup for this job is necessary and return False.
       --> necessary cleanup may include removing this job_id from queue
@@ -106,13 +105,13 @@ def validate_job_id(app_name, job_id, q, zk, timeout):
             " and marking that job_id as failed.  Error details: %s") % err,
             extra=dict(app_name=app_name, job_id=job_id))
         q.consume()
-        zookeeper_tools._set_state_unsafe(
-            app_name, job_id, zk=zk, failed=True)
+        zkt._set_state_unsafe(
+            app_name, job_id, failed=True)
         return False
     return True
 
 
-def _handle_manually_given_job_id(ns, zk):
+def _handle_manually_given_job_id(ns):
     """This process was given a specific --job_id arg.
     Decide whether it's okay to execute this job_id,
     and if its okay to go forward, set job_id state appropriately
@@ -121,28 +120,28 @@ def _handle_manually_given_job_id(ns, zk):
         ('using specific job_id and'
          ' blindly assuming this job is not already queued.'),
         extra=dict(app_name=ns.app_name, job_id=ns.job_id))
-    created = zk.exists(zookeeper_tools._get_zookeeper_path(
-        ns.app_name, ns.job_id))
+    created = zkt.get_zkclient().exists(
+        zkt._get_zookeeper_path(ns.app_name, ns.job_id))
     if created:
         msg = ('Will not execute this task because it might be already'
                ' queued or completed!')
         log.critical(
             msg, extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         raise UserWarning(msg)
-    lock = zookeeper_tools.obtain_execute_lock(
-        ns.app_name, ns.job_id, zk=zk, safe=False, raise_on_error=True,
+    lock = zkt.obtain_execute_lock(
+        ns.app_name, ns.job_id, safe=False, raise_on_error=True,
         timeout=ns.timeout)
-    zookeeper_tools.set_state(ns.app_name, ns.job_id, zk=zk, pending=True)
+    zkt.set_state(ns.app_name, ns.job_id, pending=True)
     return lock
 
 
-def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
+def get_lock_if_job_is_runnable(app_name, job_id, timeout, lock):
     """Return a lock instance or False.  If returning False,
     the job is not ready to execute.  If we already have the lock, use that one
     """
 
-    available = zookeeper_tools.check_state(
-        app_name, job_id, zk, pending=True, raise_if_not_exists=True)
+    available = zkt.check_state(
+        app_name, job_id, pending=True, raise_if_not_exists=True)
     if not available:
         try:
             raise RuntimeError(
@@ -155,14 +154,14 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
                 err, extra=dict(
                     app_name=app_name,
                     job_id=job_id,
-                    state=zookeeper_tools.check_state(
-                        app_name, job_id, zk=zk, _get=True)))
+                    state=zkt.check_state(
+                        app_name, job_id, _get=True)))
             return False
     if lock:
         l = lock
     else:
-        l = zookeeper_tools.obtain_execute_lock(
-            app_name, job_id, zk, timeout=timeout)
+        l = zkt.obtain_execute_lock(
+            app_name, job_id, timeout=timeout)
     if l is False:
         log.warn('Could not obtain execute lock for task because'
                  ' something is already processing this job_id',
@@ -171,11 +170,11 @@ def get_lock_if_job_is_runnable(app_name, job_id, zk, timeout, lock):
     return l
 
 
-def _send_to_back_of_queue(q, app_name, job_id, zk):
+def _send_to_back_of_queue(q, app_name, job_id):
     # this exists so un-runnable tasks don't hog the front of the queue
     # and soak up resources
     try:
-        zookeeper_tools.readd_subtask(app_name, job_id, zk=zk, _force=True)
+        zkt.readd_subtask(app_name, job_id, _force=True)
         q.consume()
         log.info(
             "Job sent to back of queue",
@@ -186,25 +185,24 @@ def _send_to_back_of_queue(q, app_name, job_id, zk):
             extra=dict(app_name=app_name, job_id=job_id))
 
 
-def _handle_failure(ns, zk, q, lock):
+def _handle_failure(ns, q, lock):
     """The job has failed.  Increase it's retry limit, send to back of queue,
     and release the lock"""
-    exceeded_retry_limit = zookeeper_tools.inc_retry_count(
-        app_name=ns.app_name, job_id=ns.job_id, zk=zk,
-        max_retry=ns.max_retry)
+    exceeded_retry_limit = zkt.inc_retry_count(
+        app_name=ns.app_name, job_id=ns.job_id, max_retry=ns.max_retry)
     if exceeded_retry_limit:
         q.consume()
     else:
         _send_to_back_of_queue(
-            q=q, app_name=ns.app_name, job_id=ns.job_id, zk=zk)
+            q=q, app_name=ns.app_name, job_id=ns.job_id)
     lock.release()
     log.warn("Job failed", extra=dict(
         job_id=ns.job_id, app_name=ns.app_name, failed=True))
 
 
-def _handle_success(ns, zk, q, lock):
-    zookeeper_tools.set_state(
-        app_name=ns.app_name, job_id=ns.job_id, zk=zk, completed=True)
+def _handle_success(ns, q, lock):
+    zkt.set_state(
+        app_name=ns.app_name, job_id=ns.job_id, completed=True)
     q.consume()
     lock.release()
     log.info(

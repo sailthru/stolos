@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 from stolos import argparse_shared as at
-from stolos import zookeeper_tools as zkt, dag_tools
+from stolos import api
 from stolos import log
 
 
 def main(ns):
-    zk = zkt.get_zkclient(ns.zookeeper_hosts)
+    api.initialize()
     if ns.readd:
-        zkt.readd_subtask(ns.app_name, ns.job_id, zk=zk)
+        api.readd_subtask(ns.app_name, ns.job_id)
     else:
-        rv = zkt.maybe_add_subtask(ns.app_name, ns.job_id, zk=zk)
+        rv = api.maybe_add_subtask(ns.app_name, ns.job_id)
         if not rv:
             log.warn("Did not add subtask")
 
 
 build_arg_parser = at.build_arg_parser([
     at.add_argument('--job_id', required=True),
-    at.app_name(required=True, choices=dag_tools.get_task_names()),
+    at.app_name(required=True, choices=list(api.get_tasks_config().keys())),
     at.zookeeper_hosts,
     at.add_argument(
         '--readd', action='store_true', help=(

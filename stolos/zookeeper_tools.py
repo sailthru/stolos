@@ -5,8 +5,8 @@ import atexit
 from kazoo.client import KazooClient
 import kazoo.exceptions
 from os.path import join
-import os
 
+import stolos
 from stolos import util
 from stolos import log
 from stolos import dag_tools
@@ -20,11 +20,11 @@ ZOOKEEPER_SKIPPED = 'skipped'
 
 
 @util.cached
-def get_zkclient(zookeeper_hosts=None):
+def get_zkclient():
     """Start and return a connection to ZooKeeper"""
-    if zookeeper_hosts is None:
-        zookeeper_hosts = os.environ["STOLOS_ZOOKEEPER_HOSTS"]
-    log.debug("Connecting to ZooKeeper: %s" % zookeeper_hosts)
+    zookeeper_hosts = stolos.get_NS().zookeeper_hosts
+    log.debug(
+        "Connecting to ZooKeeper", extra=dict(zookeeper_hosts=zookeeper_hosts))
     zk = KazooClient(zookeeper_hosts)
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
@@ -33,7 +33,7 @@ def get_zkclient(zookeeper_hosts=None):
     return zk
 
 
-def get_qsize(app_name, zk, queued=True, taken=True):
+def get_qsize(app_name, queued=True, taken=True):
     """
     Find the number of jobs in the given app's queue
 
@@ -42,6 +42,7 @@ def get_qsize(app_name, zk, queued=True, taken=True):
     `taken` - Include the entries in the queue that are currently being
         processed or are otherwise locked
     """
+    zk = get_zkclient()
     pq = join(app_name, 'entries')
     pt = join(app_name, 'taken')
     if queued:
@@ -62,9 +63,10 @@ def get_qsize(app_name, zk, queued=True, taken=True):
                 " that are both not locked and not waiting.")
 
 
-def _queue(app_name, job_id, zk, queue=True, priority=None):
+def _queue(app_name, job_id, queue=True, priority=None):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
+    zk = get_zkclient()
     log.info(
         'Creating and queueing new subtask',
         extra=dict(app_name=app_name, job_id=job_id, priority=priority))
@@ -81,15 +83,16 @@ def _queue(app_name, job_id, zk, queue=True, priority=None):
             log.warn(
                 'create a subtask but not actually queueing it', extra=dict(
                     app_name=app_name, job_id=job_id, priority=priority))
-        set_state(app_name, job_id, zk, pending=True)
+        set_state(app_name, job_id, pending=True)
     else:
         log.info(
             'job invalid.  marking as skipped so it does not run',
             extra=dict(app_name=app_name, job_id=job_id))
-        set_state(app_name, job_id, zk, skipped=True)
+        set_state(app_name, job_id, skipped=True)
 
 
-def check_if_queued(app_name, job_id, zk):
+def check_if_queued(app_name, job_id):
+    zk = get_zkclient()
     p = join(app_name, 'entries')
     try:
         queued_jobs = {zk.get(join(p, x))[0] for x in zk.get_children(p)}
@@ -102,7 +105,7 @@ def check_if_queued(app_name, job_id, zk):
 
 
 @util.pre_condition(dag_tools.parse_job_id)
-def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
+def readd_subtask(app_name, job_id, timeout=5, _force=False,
                   _reset_descendants=True, _ignore_if_queued=False):
     """
     Queue a new task if it isn't already in the queue.
@@ -125,11 +128,10 @@ def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
     # obtain lock
     try:
         lock = obtain_add_lock(
-            app_name, job_id, zk, timeout=timeout, raise_on_error=True)
+            app_name, job_id, timeout=timeout, raise_on_error=True)
     except exceptions.CouldNotObtainLock:
         # call maybe_add_subtask(...) and return
-        added = maybe_add_subtask(
-            app_name, job_id, zk=zk)
+        added = maybe_add_subtask(app_name, job_id)
         if not added:
             raise exceptions.CodeError(
                 "wtf?  If I can't obtain a lock on a job_id, then I should"
@@ -145,7 +147,7 @@ def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
             queued = False
         else:
             queued = check_if_queued(
-                app_name, job_id, zk)
+                app_name, job_id)
             if queued and _ignore_if_queued:
                 log.debug(
                     "Job already queued!  We'll handle this properly."
@@ -163,38 +165,34 @@ def readd_subtask(app_name, job_id, zk, timeout=5, _force=False,
 
         if _reset_descendants:
             # all child tasks will also get re-executed
-            _recursively_reset_child_task_state(app_name, job_id, zk=zk)
+            _recursively_reset_child_task_state(app_name, job_id)
 
         if not queued:
-            _queue(app_name, job_id, zk)
+            _queue(app_name, job_id)
     finally:
         lock.release()
     return True
 
 
 @util.pre_condition(dag_tools.parse_job_id)
-def maybe_add_subtask(app_name, job_id, zk=None, zookeeper_hosts=None,
-                      timeout=5, queue=True, priority=None):
+def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
     """Add a subtask to the queue if it hasn't been added yet.
 
-    `zk` (kazoo.client.KazooClient instance)
-    `zookeeper_hosts` - A zookeeper connection string. Used if `zk` not given.
     `queue` (bool, optional) - if False, don't add the subtask to queue
     `timeout` (int, optional) - num seconds to wait for a lock before queueing
     `priority` (int, optional) - prioritize this item in the queue.
         1 is highest priority 100 is lowest priority.
         Irrelevant if `queue` is False
     """
-    if zk is None:
-        zk = get_zkclient(zookeeper_hosts)
+    zk = get_zkclient()
     if zk.exists(_get_zookeeper_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice concurrently
-    lock = obtain_add_lock(app_name, job_id, zk, timeout=timeout, safe=False)
+    lock = obtain_add_lock(app_name, job_id, timeout=timeout, safe=False)
     if not lock:
         return False
     try:
-        _queue(app_name, job_id, zk, queue=queue, priority=priority)
+        _queue(app_name, job_id, queue=queue, priority=priority)
     finally:
             lock.release()
     return True
@@ -205,7 +203,7 @@ def _get_lockpath(typ, app_name, job_id):
     return join(_get_zookeeper_path(app_name, job_id), '%s_lock' % typ)
 
 
-def _obtain_lock(typ, app_name, job_id, zk,
+def _obtain_lock(typ, app_name, job_id,
                  timeout=None, blocking=True, raise_on_error=False, safe=True):
     """Try to acquire a lock.
 
@@ -220,6 +218,7 @@ def _obtain_lock(typ, app_name, job_id, zk,
 
     Either return a lock or [ raise | return False ]
     """
+    zk = get_zkclient()
     _path = _get_zookeeper_path(app_name, job_id)
     if safe and not zk.exists(_path):
         log.warn(
@@ -249,19 +248,20 @@ def _obtain_lock(typ, app_name, job_id, zk,
     return l
 
 
-def obtain_add_lock(app_name, job_id, zk, *args, **kwargs):
+def obtain_add_lock(app_name, job_id, *args, **kwargs):
     """Obtain a lock used when adding a job to queue"""
     return _obtain_lock(
-        'add', app_name=app_name, job_id=job_id, zk=zk, *args, **kwargs)
+        'add', app_name=app_name, job_id=job_id, *args, **kwargs)
 
 
-def obtain_execute_lock(app_name, job_id, zk, *args, **kwargs):
+def obtain_execute_lock(app_name, job_id, *args, **kwargs):
     """Obtain a lock used when executing a job"""
     return _obtain_lock(
-        'execute', app_name=app_name, job_id=job_id, zk=zk, *args, **kwargs)
+        'execute', app_name=app_name, job_id=job_id, *args, **kwargs)
 
 
-def is_execute_locked(app_name, job_id, zk):
+def is_execute_locked(app_name, job_id):
+    zk = get_zkclient()
     path = _get_lockpath('execute', app_name, job_id)
     try:
         return bool(zk.get_children(path))
@@ -270,7 +270,7 @@ def is_execute_locked(app_name, job_id, zk):
 
 
 @util.pre_condition(dag_tools.parse_job_id)
-def inc_retry_count(app_name, job_id, zk, max_retry):
+def inc_retry_count(app_name, job_id, max_retry):
     """Increment the retry count for the given task.  If the retry count is
     greater than the max allowed number of retries, set the tasks's state
     to failed.
@@ -278,6 +278,7 @@ def inc_retry_count(app_name, job_id, zk, max_retry):
     Returns False if task exceeded retry limit and True if the increment was
     fine
     """
+    zk = get_zkclient()
     path = join(_get_zookeeper_path(app_name, job_id), 'retry_count')
     if not zk.exists(path):
         zk.create(path, '0', makepath=False)
@@ -285,7 +286,7 @@ def inc_retry_count(app_name, job_id, zk, max_retry):
     else:
         cnt = int(zk.get(path)[0])
     if cnt + 1 >= max_retry:
-        set_state(app_name, job_id, zk, failed=True)
+        set_state(app_name, job_id, failed=True)
         log.error(
             'Task retried too many times and is set as permanently failed.',
             extra=dict(retry_cnt=cnt, app_name=app_name, job_id=job_id))
@@ -330,7 +331,7 @@ def _validate_state(pending, completed, failed, skipped,
         return rv[0]
 
 
-def _maybe_queue_children(parent_app_name, parent_job_id, zk):
+def _maybe_queue_children(parent_app_name, parent_job_id):
     """
     This is basically a "set_state(completed=True)" pre-commit hook
 
@@ -358,7 +359,7 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
         pcomplete = sum(
             1 for p, pj in parents
             if util.lazy_set_default(
-                state_dct, (p, pj), check_state, p, pj, zk=zk, completed=True))
+                state_dct, (p, pj), check_state, p, pj, completed=True))
 
         ld = dict(
             child_app_name=child_app_name,
@@ -368,7 +369,7 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
         if (pcomplete == ptotal):
             log.info(
                 "Parent is queuing a child task", extra=ld)
-            if check_state(child_app_name, cjob_id, zk=zk, completed=True):
+            if check_state(child_app_name, cjob_id, completed=True):
                 log.warn(
                     "Queuing a previously completed child task"
                     " presumably because of the following:"
@@ -381,7 +382,7 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
 
             try:
                 readd_subtask(
-                    child_app_name, cjob_id, zk=zk,
+                    child_app_name, cjob_id,
                     _reset_descendants=False,  # descendants previously handled
                     _ignore_if_queued=True)
             except exceptions.JobAlreadyQueued:
@@ -399,7 +400,7 @@ def _maybe_queue_children(parent_app_name, parent_job_id, zk):
                 " completed than there are parents.")
 
 
-def ensure_parents_completed(app_name, job_id, zk, timeout):
+def ensure_parents_completed(app_name, job_id, timeout):
     """
     Assume that given job_id is pulled from the app_name's queue.
 
@@ -417,7 +418,7 @@ def ensure_parents_completed(app_name, job_id, zk, timeout):
     parent_locks = set()
     for parent, pjob_id, dep_grp in dag_tools.get_parents(app_name,
                                                           job_id, True):
-        if check_state(app_name=parent, job_id=pjob_id, zk=zk, completed=True):
+        if check_state(app_name=parent, job_id=pjob_id, completed=True):
             continue
         parents_completed = False
         log.info(
@@ -448,13 +449,13 @@ def ensure_parents_completed(app_name, job_id, zk, timeout):
         # won't run by the time I unqueue myself.  Otherwise, I should just
         # default to assuming parent is running and requeue myself by default.
 
-        maybe_add_subtask(parent, pjob_id, zk)
+        maybe_add_subtask(parent, pjob_id)
 
         elock = obtain_execute_lock(
-            parent, pjob_id, zk=zk,
+            parent, pjob_id,
             raise_on_error=False, timeout=timeout)
         if elock:
-            if not check_state(parent, pjob_id, zk=zk, pending=True):
+            if not check_state(parent, pjob_id, pending=True):
                 elock.release()  # race condition
             else:
                 consume_queue = True
@@ -466,7 +467,8 @@ def ensure_parents_completed(app_name, job_id, zk, timeout):
     return parents_completed, consume_queue, parent_locks
 
 
-def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
+def _recursively_reset_child_task_state(parent_app_name, job_id):
+    zk = get_zkclient()
     log.debug(
         "recursively setting all descendant tasks to 'pending' and "
         " marking that the parent is not completed",
@@ -476,28 +478,27 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, zk):
     for child_app_name, cjob_id, dep_grp in gen:
         child_path = _get_zookeeper_path(child_app_name, cjob_id)
         if zk.exists(child_path):
-            set_state(child_app_name, cjob_id, zk, pending=True)
-            _recursively_reset_child_task_state(child_app_name, cjob_id, zk)
+            set_state(child_app_name, cjob_id, pending=True)
+            _recursively_reset_child_task_state(child_app_name, cjob_id)
         else:
             pass  # no need to recurse further down the tree
 
 
 def _set_state_unsafe(
-        app_name, job_id, zk,
+        app_name, job_id,
         pending=False, completed=False, failed=False, skipped=False):
     """
     Set the state of a task
 
     `app_name` is a task identifier
     `job_id` is a subtask identifier
-    `zk` is a KazooClient instance
     `pending`, `completed` and `failed` (bool) are mutually exclusive
     """
+    zk = get_zkclient()
     zookeeper_path = _get_zookeeper_path(app_name, job_id)
     state = _validate_state(pending, completed, failed, skipped)
     if completed:  # basecase
-        _maybe_queue_children(
-            parent_app_name=app_name, parent_job_id=job_id, zk=zk)
+        _maybe_queue_children(parent_app_name=app_name, parent_job_id=job_id)
 
     if zk.exists(zookeeper_path):
         zk.set(zookeeper_path, state)
@@ -512,7 +513,7 @@ set_state = util.pre_condition(dag_tools.parse_job_id)(
     _set_state_unsafe)
 
 
-def check_state(app_name, job_id, zk, raise_if_not_exists=False,
+def check_state(app_name, job_id, raise_if_not_exists=False,
                 pending=False, completed=False, failed=False, skipped=False,
                 all=False, _get=False):
     """Determine whether a specific job is in one or more specific state(s)
@@ -522,11 +523,11 @@ def check_state(app_name, job_id, zk, raise_if_not_exists=False,
 
     `app_name` is a task identifier
     `job_id` (str or list of str) is a subtask identifier or a list of them
-    `zk` is a KazooClient instance
     `all` (bool) if True, return True if the job_id is in a recognizable state
     `_get` (bool) if True, just return the string value of the state and
                   ignore the (pending, completed, xor failed) choice
     """
+    zk = get_zkclient()
     if isinstance(job_id, (str, unicode)):
         job_ids = [job_id]
         rvaslist = False
