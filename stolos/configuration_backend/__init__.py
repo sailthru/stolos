@@ -11,47 +11,27 @@ log = logging.getLogger('stolos.configuration_backend')
 
 import stolos
 from stolos import argparse_shared as at
-from stolos.util import load_obj_from_path as _load_obj_from_path
 
 # expose the base class to other configuration backend modules
 from .tasks_config_base import TasksConfigBaseMapping, TasksConfigBaseSequence
 TasksConfigBaseMapping, TasksConfigBaseSequence
 
 
-_PREFIX = "stolos.configuration_backend"
-# a lookup table that we can alias a particular
-# configuration backend's full python import path to.
-_KNOWN_DEFAULT_BACKENDS = {
-    "json": "%s.%s" % (_PREFIX, "json_config.JSONMapping"),
-    "redis": "%s.%s" % (_PREFIX, "redis_config.RedisMapping"),
-}
-
-
-def _load_backend(inpt):
-    _cb = _KNOWN_DEFAULT_BACKENDS.get(inpt, inpt)
-    try:
-        cb = _load_obj_from_path(
-            _cb, dict(key='configuration_backend', configuration_backend=_cb))
-    except:
-        log.error(
-            "Could not load configuration backend",
-            extra=dict(configuration_backend=_cb))
-        raise
-    return cb
-
-
 build_arg_parser = at.build_arg_parser([at.group(
     "Application Dependency Configuration",
-    at.add_argument(
-        '--configuration_backend',
-        default='json', type=_load_backend, help=(
+    at.backend(
+        backend_type='configuration',
+        default='json',
+        known_backends={
+            "json": "stolos.configuration_backend.json_config.JSONMapping",
+            "redis": "stolos.configuration_backend.redis_config.RedisMapping"},
+        help=(
             "Where do you store the application dependency data?"
-            ' This option defines which backend to use to access'
-            ' application dependency configuration.'
-            ' See conf/stolos-env.sh for an example. '
+            ' This option defines which configuration backend Stolos uses'
+            ' to access the directed graph defining how your applications'
+            ' depend on each other.'
             ' You can supply your own configuration backend or choose from the'
-            ' following supported options: %s'
-        ) % list(_KNOWN_DEFAULT_BACKENDS.keys())),
+            ' following supported options: {known_backends}')),
 )])
 
 

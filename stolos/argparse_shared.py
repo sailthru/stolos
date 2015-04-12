@@ -8,7 +8,6 @@ from argparse_tools import (
     DefaultFromEnv,
     add_argument as _add_argument)
 
-
 # This code block exists for linting
 group
 mutually_exclusive
@@ -56,3 +55,51 @@ def app_name(parser,
              required=True, **kwargs):
     add_argument(
         '-a', '--app_name', help=help, required=True, **kwargs)(parser)
+
+
+def _load_backend(known_backends, backend_type):
+    """
+    Returns a function that will load a given backend.
+
+    `known_backends` - dict defining all Stolos-supported backends in form:
+        {'easy-to-type-backend-name': 'python.path.to.class', ...}
+    `backend_type` - either "configuration" or "queue"
+    """
+    def _load_backend_decorator(inpt):
+        _backend = known_backends.get(inpt, inpt)
+        try:
+            backend = load_obj_from_path(
+                _backend,
+                {'key': '%s_backend' % backend_type, backend_type: _backend})
+        except:
+            log.error(
+                "Could not load %s backend" % backend_type,
+                extra={'%s_backend' % backend_type: _backend})
+            raise
+        return backend
+    return _load_backend_decorator
+
+
+@lazy_kwargs
+def backend(backend_type, default, known_backends, help):
+    """
+    adds the option --<backend_type>_backend with given `default`, where
+    the `type=` function loads the chosen backend as a python object
+
+    Only 2 backends are supported:  --configuration_backend and --queue_backend
+
+    `backend_type` - either "configuration" or "queue"
+    `known_backends` - Stolos-supported backends for the given `backend_type`
+    `default` - the argparse default= option
+    `help` - the argparse help= option
+
+    """
+    if backend_type not in ['configuration', 'queue']:
+        raise UserWarning(
+            "The only recognized types of backends are"
+            " 'configuration' and 'queue'")
+    add_argument(
+        '--%s_backend' % backend_type,
+        default=default,
+        type=_load_backend(known_backends, backend_type),
+        help=help.format(known_backends=str(known_backends.keys()))),
