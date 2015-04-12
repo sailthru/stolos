@@ -151,7 +151,7 @@ def _obtain_lock(typ, app_name, job_id,
         else:
             return False
 
-    path = _get_lockpath(typ, app_name, job_id)
+    path = get_lock_path(typ, app_name, job_id)
     assert path.startswith(_path), "Code Error!"
     l = zk.Lock(path)
     try:
@@ -170,7 +170,7 @@ def _obtain_lock(typ, app_name, job_id,
 
 def is_execute_locked(app_name, job_id):
     zk = get_zkclient()
-    path = _get_lockpath('execute', app_name, job_id)
+    path = get_lock_path('execute', app_name, job_id)
     try:
         return bool(zk.get_children(path))
     except kazoo.exceptions.NoNodeError:

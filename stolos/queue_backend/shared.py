@@ -81,7 +81,7 @@ def get_job_path(app_name, job_id, *args):
     return join(app_name, 'all_subtasks', job_id, *args)
 
 
-def _get_lockpath(typ, app_name, job_id):
+def get_lock_path(typ, app_name, job_id):
     assert typ in set(['execute', 'add'])
     return join(get_job_path(app_name, job_id), '%s_lock' % typ)
 
