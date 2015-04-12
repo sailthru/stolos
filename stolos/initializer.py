@@ -37,13 +37,14 @@ def _get_parent_parsers(objects):
         yield p
 
 
-def initialize_configuration_backend(cbackend, parser, add_help):
+def initialize_backend(backend, parser, add_help):
     """
-    get options for the chosen configuration_backend.
+    get options for the chosen backend
     ensure they don't conflict with previously defined ones
     """
-    cb = importlib.import_module(cbackend.__module__).build_arg_parser()
-    newparser = at.build_arg_parser(parents=[parser, cb], add_help=add_help)
+    backend = importlib.import_module(backend.__module__).build_arg_parser()
+    newparser = at.build_arg_parser(
+        parents=[parser, backend], add_help=add_help)
     return newparser
 
 
@@ -84,9 +85,11 @@ def initialize(objects, args=None, parse_known_args=False,
         ns, _ = parser.parse_known_args(args)
     else:
         ns, _ = parser.parse_known_args()
-    # get a new parser updated with options for chosen configuration backend
-    parser = initialize_configuration_backend(
-        ns.configuration_backend, parser, add_help=not bool(parse_known_args))
+
+    # get a new parser updated with options for each chosen backend
+    for backend in [ns.configuration_backend, ns.queue_backend]:
+        parser = initialize_backend(
+            backend, parser, add_help=not bool(parse_known_args))
 
     if not parse_known_args:
         ns = parser.parse_args(args)
