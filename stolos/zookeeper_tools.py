@@ -110,7 +110,7 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
         Irrelevant if `queue` is False
     """
     zk = get_zkclient()
-    if zk.exists(_get_zookeeper_path(app_name, job_id)):
+    if zk.exists(get_job_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice concurrently
     lock = obtain_add_lock(app_name, job_id, timeout=timeout, safe=False)
@@ -139,7 +139,7 @@ def _obtain_lock(typ, app_name, job_id,
     Either return a lock or [ raise | return False ]
     """
     zk = get_zkclient()
-    _path = _get_zookeeper_path(app_name, job_id)
+    _path = get_job_path(app_name, job_id)
     if safe and not zk.exists(_path):
         log.warn(
             "Cannot create a lock if the task hasn't been added yet!",
@@ -187,7 +187,7 @@ def inc_retry_count(app_name, job_id, max_retry):
     fine
     """
     zk = get_zkclient()
-    path = join(_get_zookeeper_path(app_name, job_id), 'retry_count')
+    path = join(get_job_path(app_name, job_id), 'retry_count')
     if not zk.exists(path):
         zk.create(path, '0', makepath=False)
         cnt = 0
@@ -216,7 +216,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
     gen = dag_tools.get_children(parent_app_name, job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
-        child_path = _get_zookeeper_path(child_app_name, cjob_id)
+        child_path = get_job_path(child_app_name, cjob_id)
         if zk.exists(child_path):
             set_state(child_app_name, cjob_id, pending=True)
             _recursively_reset_child_task_state(child_app_name, cjob_id)
@@ -235,7 +235,7 @@ def _set_state_unsafe(
     `pending`, `completed` and `failed` (bool) are mutually exclusive
     """
     zk = get_zkclient()
-    zookeeper_path = _get_zookeeper_path(app_name, job_id)
+    zookeeper_path = get_job_path(app_name, job_id)
     state = task_states.validate_state(pending, completed, failed, skipped)
     if completed:  # basecase
         _maybe_queue_children(parent_app_name=app_name, parent_job_id=job_id)
@@ -277,7 +277,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
 
     rv = []
     for job_id in job_ids:
-        zookeeper_path = _get_zookeeper_path(app_name, job_id)
+        zookeeper_path = get_job_path(app_name, job_id)
         try:
             gotstate = zk.get(zookeeper_path)[0]
         except kazoo.exceptions.NoNodeError:

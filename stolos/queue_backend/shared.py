@@ -77,9 +77,13 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
     return True
 
 
+def get_job_path(app_name, job_id, *args):
+    return join(app_name, 'all_subtasks', job_id, *args)
+
+
 def _get_lockpath(typ, app_name, job_id):
     assert typ in set(['execute', 'add'])
-    return join(_get_zookeeper_path(app_name, job_id), '%s_lock' % typ)
+    return join(get_job_path(app_name, job_id), '%s_lock' % typ)
 
 
 def obtain_add_lock(app_name, job_id, *args, **kwargs):
@@ -92,10 +96,6 @@ def obtain_execute_lock(app_name, job_id, *args, **kwargs):
     """Obtain a lock used when executing a job"""
     return _obtain_lock(
         'execute', app_name=app_name, job_id=job_id, *args, **kwargs)
-
-
-def _get_zookeeper_path(app_name, job_id, *args):
-    return join(app_name, 'all_subtasks', job_id, *args)
 
 
 def _maybe_queue_children(parent_app_name, parent_job_id):

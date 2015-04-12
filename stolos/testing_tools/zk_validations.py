@@ -34,7 +34,7 @@ def consume_queue(app_name, timeout=1):
 
 
 def get_zk_status(app_name, job_id):
-    path = zkt._get_zookeeper_path(app_name, job_id)
+    path = zkt.get_job_path(app_name, job_id)
     elockpath = join(path, 'execute_lock')
     alockpath = join(path, 'add_lock')
     entriespath = join(app_name, 'entries')

@@ -21,7 +21,7 @@ def test_check_state(app1, job_id1, job_id2):
     zkt.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
     api.get_zkclient().create(
-        zkt._get_zookeeper_path(app1, job_id2), None, makepath=True)
+        zkt.get_job_path(app1, job_id2), None, makepath=True)
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1)

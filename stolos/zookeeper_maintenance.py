@@ -34,7 +34,7 @@ def delete(app_name, job_id, confirm=True,
         job_id = set([job_id])
 
     if delete_job_state:  # delete path to each job_id
-        paths_to_delete = [zkt._get_zookeeper_path(app_name, j) for j in job_id
+        paths_to_delete = [zkt.get_job_path(app_name, j) for j in job_id
                            if j]
 
     if delete_from_queue:
@@ -92,7 +92,7 @@ def get_job_ids_by_status(app_name, regexp=None, **job_states):
     zk = zkt.get_zkclient()
     if not job_states:
         job_states = dict(all=True)  # assume all job states
-    path = zkt._get_zookeeper_path(app_name, '')
+    path = zkt.get_job_path(app_name, '')
     try:
         children = zk.get_children(path)
     except kazoo.exceptions.NoNodeError:

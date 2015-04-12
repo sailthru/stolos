@@ -121,7 +121,7 @@ def _handle_manually_given_job_id(ns):
          ' blindly assuming this job is not already queued.'),
         extra=dict(app_name=ns.app_name, job_id=ns.job_id))
     created = zkt.get_zkclient().exists(
-        zkt._get_zookeeper_path(ns.app_name, ns.job_id))
+        zkt.get_job_path(ns.app_name, ns.job_id))
     if created:
         msg = ('Will not execute this task because it might be already'
                ' queued or completed!')
