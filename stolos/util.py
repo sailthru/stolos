@@ -216,6 +216,12 @@ def load_obj_from_path(import_path, ld=dict()):
         mypackage.module.class
 
     """
+    try:
+        return importlib.import_module(import_path)
+    except ImportError as err:
+        log.debug("Given import path did not lead to a module."
+                  " Perhaps it points to a python object...",
+                  extra=dict(err_msg=err, import_path=import_path))
     log.debug(
         'attempting to load a python object from an import path',
         extra=dict(import_path=import_path, **ld))

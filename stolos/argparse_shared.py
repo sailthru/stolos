@@ -8,6 +8,9 @@ from argparse_tools import (
     DefaultFromEnv,
     add_argument as _add_argument)
 
+from stolos import log
+from stolos import util
+
 # This code block exists for linting
 group
 mutually_exclusive
@@ -68,7 +71,7 @@ def _load_backend(known_backends, backend_type):
     def _load_backend_decorator(inpt):
         _backend = known_backends.get(inpt, inpt)
         try:
-            backend = load_obj_from_path(
+            backend = util.load_obj_from_path(
                 _backend,
                 {'key': '%s_backend' % backend_type, backend_type: _backend})
         except:
@@ -80,7 +83,6 @@ def _load_backend(known_backends, backend_type):
     return _load_backend_decorator
 
 
-@lazy_kwargs
 def backend(backend_type, default, known_backends, help):
     """
     adds the option --<backend_type>_backend with given `default`, where
@@ -98,8 +100,9 @@ def backend(backend_type, default, known_backends, help):
         raise UserWarning(
             "The only recognized types of backends are"
             " 'configuration' and 'queue'")
-    add_argument(
+
+    return add_argument(
         '--%s_backend' % backend_type,
         default=default,
         type=_load_backend(known_backends, backend_type),
-        help=help.format(known_backends=str(known_backends.keys()))),
+        help=help.format(known_backends=str(known_backends.keys())))

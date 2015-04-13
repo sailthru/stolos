@@ -42,9 +42,13 @@ def initialize_backend(backend, parser, add_help):
     get options for the chosen backend
     ensure they don't conflict with previously defined ones
     """
-    backend = importlib.import_module(backend.__module__).build_arg_parser()
+    if hasattr(backend, '__module__'):
+        # ie. configuration_backends are classes
+        # in a module containing the arg parser
+        # (otherwise, assume the backend is a module containing the arg parser)
+        backend = importlib.import_module(backend.__module__)
     newparser = at.build_arg_parser(
-        parents=[parser, backend], add_help=add_help)
+        parents=[parser, backend.build_arg_parser()], add_help=add_help)
     return newparser
 
 
@@ -87,9 +91,10 @@ def initialize(objects, args=None, parse_known_args=False,
         ns, _ = parser.parse_known_args()
 
     # get a new parser updated with options for each chosen backend
-    for backend in [ns.configuration_backend, ns.queue_backend]:
-        parser = initialize_backend(
-            backend, parser, add_help=not bool(parse_known_args))
+    parser = initialize_backend(
+        ns.configuration_backend, parser, add_help=False)
+    parser = initialize_backend(
+        ns.queue_backend, parser, add_help=not bool(parse_known_args))
 
     if not parse_known_args:
         ns = parser.parse_args(args)
