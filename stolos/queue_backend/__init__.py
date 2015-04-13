@@ -14,8 +14,8 @@ build_arg_parser = at.build_arg_parser([at.group(
         backend_type='queue',
         default='zookeeper',
         known_backends={
-            "zookeeper": "stolos.queue_backend.qb_zookeeper.ZookeeperQB",
-            "redis": "stolos.queue_backend.qb_redis.RedisQB"},
+            "zookeeper": "stolos.queue_backend.qbcli_zookeeper.ZookeeperQB",
+            "redis": "stolos.queue_backend.qbcli_redis.RedisQB"},
         help=(
             'Select a database that stores job state.'
             ' This option defines which queue backend Stolos uses.'

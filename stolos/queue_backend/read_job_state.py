@@ -49,7 +49,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
     `_get` (bool) if True, just return the string value of the state and
                   ignore the (pending, completed, xor failed) choice
     """
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     if isinstance(job_id, (str, unicode)):
         job_ids = [job_id]
         rvaslist = False
@@ -61,7 +61,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
     for job_id in job_ids:
         job_path = shared.get_job_path(app_name, job_id)
         try:
-            gotstate = qb.get(job_path)[0]
+            gotstate = qbcli.get(job_path)[0]
         except exceptions.NoNodeError:
             if raise_if_not_exists:
                 raise

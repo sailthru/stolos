@@ -14,7 +14,7 @@ from . import log
 def _queue(app_name, job_id, queue=True, priority=None):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     log.info(
         'Creating and queueing new subtask',
         extra=dict(app_name=app_name, job_id=job_id, priority=priority))
@@ -24,9 +24,9 @@ def _queue(app_name, job_id, queue=True, priority=None):
             job_id = str(job_id)
         if queue:
             if priority:
-                qb.LockingQueue(app_name).put(job_id, priority=priority)
+                qbcli.LockingQueue(app_name).put(job_id, priority=priority)
             else:
-                qb.LockingQueue(app_name).put(job_id)
+                qbcli.LockingQueue(app_name).put(job_id)
         else:
             log.warn(
                 'create a subtask but not actually queueing it', extra=dict(
@@ -49,8 +49,8 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
         1 is highest priority 100 is lowest priority.
         Irrelevant if `queue` is False
     """
-    qb = get_NS().queue_backend()
-    if qb.exists(shared.get_job_path(app_name, job_id)):
+    qbcli = get_NS().queue_backend()
+    if qbcli.exists(shared.get_job_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice concurrently
     lock = obtain_add_lock(app_name, job_id, timeout=timeout, safe=False)
@@ -64,7 +64,7 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
 
 
 def _recursively_reset_child_task_state(parent_app_name, job_id):
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     log.debug(
         "recursively setting all descendant tasks to 'pending' and "
         " marking that the parent is not completed",
@@ -73,7 +73,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
     gen = dt.get_children(parent_app_name, job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
         child_path = shared.get_job_path(child_app_name, cjob_id)
-        if qb.exists(child_path):
+        if qbcli.exists(child_path):
             set_state(child_app_name, cjob_id, pending=True)
             _recursively_reset_child_task_state(child_app_name, cjob_id)
         else:
@@ -82,10 +82,10 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
 def _check_if_queued(app_name, job_id):
     # TODO: leave this here? or pull it into the QB api?
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     p = join(app_name, 'entries')
     try:
-        queued_jobs = {qb.get(join(p, x))[0] for x in qb.get_children(p)}
+        queued_jobs = {qbcli.get(join(p, x))[0] for x in qbcli.get_children(p)}
     except exceptions.NoNodeError:
         queued_jobs = set()
 
@@ -243,16 +243,16 @@ def _set_state_unsafe(
     `job_id` is a subtask identifier
     `pending`, `completed` and `failed` (bool) are mutually exclusive
     """
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     job_path = shared.get_job_path(app_name, job_id)
     state = validate_state(pending, completed, failed, skipped)
     if completed:  # basecase
         _maybe_queue_children(parent_app_name=app_name, parent_job_id=job_id)
 
-    if qb.exists(job_path):
-        qb.set(job_path, state)
+    if qbcli.exists(job_path):
+        qbcli.set(job_path, state)
     else:
-        qb.create(job_path, state, makepath=True)
+        qbcli.create(job_path, state, makepath=True)
 
     log.debug(
         "Set task state",
@@ -271,13 +271,13 @@ def inc_retry_count(app_name, job_id, max_retry):
     Returns False if task exceeded retry limit and True if the increment was
     fine
     """
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     path = join(shared.get_job_path(app_name, job_id), 'retry_count')
-    if not qb.exists(path):
-        qb.create(path, '0', makepath=False)
+    if not qbcli.exists(path):
+        qbcli.create(path, '0', makepath=False)
         cnt = 0
     else:
-        cnt = int(qb.get(path)[0])
+        cnt = int(qbcli.get(path)[0])
     if cnt + 1 >= max_retry:
         set_state(app_name, job_id, failed=True)
         log.error(
@@ -286,7 +286,7 @@ def inc_retry_count(app_name, job_id, max_retry):
         exceeded_limit = True
     else:
         exceeded_limit = False
-    qb.set(path, str(cnt + 1))
+    qbcli.set(path, str(cnt + 1))
     log.info('Task retry count increased',
              extra=dict(retry_cnt=cnt + 1, app_name=app_name, job_id=job_id))
     return exceeded_limit

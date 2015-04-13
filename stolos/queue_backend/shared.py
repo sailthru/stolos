@@ -29,19 +29,19 @@ def get_qsize(app_name, queued=True, taken=True):
     `taken` - Include the entries in the queue that are currently being
         processed or are otherwise locked
     """
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     pq = join(app_name, 'entries')
     pt = join(app_name, 'taken')
     if queued:
-        entries = len(qb.get_children(pq))
+        entries = len(qbcli.get_children(pq))
         if taken:
             return entries
         else:
-            taken = len(qb.get_children(pt))
+            taken = len(qbcli.get_children(pt))
             return entries - taken
     else:
         if taken:
-            taken = len(qb.get_children(pt))
+            taken = len(qbcli.get_children(pt))
             return taken
         else:
             raise AttributeError(

@@ -32,9 +32,9 @@ def _obtain_lock(typ, app_name, job_id,
 
     Either return a lock or [ raise | return False ]
     """
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     _path = shared.get_job_path(app_name, job_id)
-    if safe and not qb.exists(_path):
+    if safe and not qbcli.exists(_path):
         log.warn(
             "Cannot create a lock if the task hasn't been added yet!",
             extra=dict(app_name=app_name, job_id=job_id))
@@ -47,7 +47,7 @@ def _obtain_lock(typ, app_name, job_id,
 
     path = shared.get_lock_path(typ, app_name, job_id)
     assert path.startswith(_path), "Code Error!"
-    l = qb.Lock(path)
+    l = qbcli.Lock(path)
     try:
         l.acquire(timeout=timeout, blocking=blocking)
     except:
@@ -63,9 +63,9 @@ def _obtain_lock(typ, app_name, job_id,
 
 
 def is_execute_locked(app_name, job_id):
-    qb = get_NS().queue_backend()
+    qbcli = get_NS().queue_backend()
     path = shared.get_lock_path('execute', app_name, job_id)
     try:
-        return bool(qb.get_children(path))
+        return bool(qbcli.get_children(path))
     except exceptions.NoNodeError:
         return False
