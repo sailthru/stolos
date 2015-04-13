@@ -1,12 +1,12 @@
-from stolos.zookeeper_tools import (
+from stolos.queue_backend import (
     check_state, get_qsize,
     maybe_add_subtask, readd_subtask,
-    get_zkclient
+    get_qbclient
 )
 # linting
 check_state, get_qsize,
 maybe_add_subtask, readd_subtask,
-get_zkclient
+get_qbclient
 
 from stolos.dag_tools import (
     build_dag, visualize_dag, topological_sort,
@@ -20,12 +20,13 @@ get_parents, get_children
 from stolos.configuration_backend import get_tasks_config
 get_tasks_config,
 
-from stolos.zookeeper_maintenance import (
-    delete,
-    requeue,
-    get_job_ids_by_status,
-)
-delete, requeue, get_job_ids_by_status
+# TODO: figure out how to deal with this.  decide if get_qbclient is necessary
+# from stolos.zookeeper_maintenance import (
+#     delete,
+#     requeue,
+#     get_job_ids_by_status,
+# )
+# delete, requeue, get_job_ids_by_status
 
 
 from stolos.util import configure_logging

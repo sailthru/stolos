@@ -7,7 +7,7 @@ from kazoo.client import (
 
 from stolos import get_NS
 from stolos import argparse_shared as at
-from .queue_backend_base import BaseQueueBackend, BaseLock, BaseLockingQueue
+from .queue_backend_base import BaseLock, BaseLockingQueue
 from . import log
 
 
@@ -39,45 +39,42 @@ class ZookeeperLock(BaseLock):
         raise NotImplemented()
 
 
-class ZookeeperQB(BaseQueueBackend):
-    def __init__(self):
-        """Start a connection to ZooKeeper"""
-        zookeeper_hosts = get_NS().zookeeper_hosts
-        log.debug(
-            "Connecting to ZooKeeper",
-            extra=dict(zookeeper_hosts=zookeeper_hosts))
-        zk = KazooClient(zookeeper_hosts)
-        zk.logger.handlers = log.handlers
-        zk.logger.setLevel('WARN')
-        zk.start()
-        atexit.register(zk.stop)
-        self._zk = zk
+def get_client():
+    """Start a connection to ZooKeeper"""
+    zookeeper_hosts = get_NS().zookeeper_hosts
+    log.debug(
+        "Connecting to ZooKeeper",
+        extra=dict(zookeeper_hosts=zookeeper_hosts))
+    zk = KazooClient(zookeeper_hosts)
+    zk.logger.handlers = log.handlers
+    zk.logger.setLevel('WARN')
+    zk.start()
+    atexit.register(zk.stop)
+    return zk
 
-    def get(self, path):
-        raise NotImplementedError
 
-    def get_children(self, path):
-        raise NotImplementedError
+def get(self, path):
+    raise NotImplementedError
 
-    def exists(self, path):
-        raise NotImplementedError
 
-    def set(self, path, value):
-        raise NotImplementedError
+def get_children(self, path):
+    raise NotImplementedError
 
-    def create(self, path, value, makepath=False):
-        raise NotImplementedError
 
-    def qsize(self, queued=True, taken=True):
-        raise NotImplemented()
+def exists(self, path):
+    raise NotImplementedError
 
-    def Lock(self, path):
-        # acquire, release
-        raise NotImplementedError
 
-    def LockingQueue(path):
-        # put, consume, get, is_queued
-        raise NotImplementedError
+def set(self, path, value):
+    raise NotImplementedError
+
+
+def create(self, path, value, makepath=False):
+    raise NotImplementedError
+
+
+def qsize(self, queued=True, taken=True):
+    raise NotImplemented()
 
 
 build_arg_parser = at.build_arg_parser([

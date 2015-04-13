@@ -4,7 +4,7 @@ from stolos import exceptions
 from . import shared
 
 
-def _validate_state(
+def validate_state(
         pending, completed, failed, skipped, all=False, multi=False):
     """Helper function to that raises UserWarning if user's request defines
     an invalid combination of job states
@@ -72,7 +72,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
             rv.append(gotstate)
             continue
         else:
-            accepted_states = _validate_state(
+            accepted_states = validate_state(
                 pending, completed, failed, skipped, all=all, multi=True)
             rv.append(gotstate in accepted_states)
             continue

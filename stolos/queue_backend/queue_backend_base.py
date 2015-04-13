@@ -1,34 +1,31 @@
-class BaseQueueBackend(object):
-    def __init__(self):  # TODO
-        raise NotImplementedError
+"""
+This file defines the basic api and classes that a queue backend must implement.
+All queue backends should define these functions and inherit from these classes
+"""
 
-    def get(self, path):
-        # or raise NoNodeError
-        raise NotImplementedError
 
-    def get_children(self, path):
-        # or raise NoNodeError
-        raise NotImplementedError
+def get_client():
+    raise NotImplementedError
 
-    def exists(self, path):
-        raise NotImplementedError
+def get(path):
+    # or raise NoNodeError
+    raise NotImplementedError
 
-    def set(self, path, value):
-        raise NotImplementedError
+def get_children(path):
+    # or raise NoNodeError
+    raise NotImplementedError
 
-    def create(self, path, value, makepath=False):
-        raise NotImplementedError
+def exists(path):
+    raise NotImplementedError
 
-    def qsize(self, queued=True, taken=True):
-        raise NotImplemented()
+def set(path, value):
+    raise NotImplementedError
 
-    def Lock(self, path):
-        # acquire, release
-        raise NotImplementedError
+def create(path, value, makepath=False):
+    raise NotImplementedError
 
-    def LockingQueue(path):
-        # put, consume, get, is_queued
-        raise NotImplementedError
+def qsize(queued=True, taken=True):
+    raise NotImplemented()
 
 
 class BaseLock(object):
