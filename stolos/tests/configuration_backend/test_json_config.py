@@ -2,6 +2,7 @@ from stolos import testing_tools as tt
 import nose.tools as nt
 from stolos.configuration_backend.json_config import (
     JSONMapping, JSONSequence)
+from stolos import api
 
 
 def setup_func(func_name):
@@ -43,3 +44,18 @@ def test_to_dict(td, raw):
 @with_setup
 def test_to_list(td, raw):
     nt.assert_list_equal(td['d'].to_list(), raw['d'])
+
+
+@with_setup
+def test_tasks_json():
+    api.initialize(['--tasks_json', ''])
+    with nt.assert_raises(IOError):
+        JSONMapping()
+
+
+@with_setup
+def test_nonstandard_input():
+    with nt.assert_raises(AssertionError):
+        JSONMapping([1, 2, 3])
+    with nt.assert_raises(AssertionError):
+        JSONSequence({"a": 1})

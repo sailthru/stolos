@@ -39,9 +39,6 @@ def add_argument(*args, **kwargs):
         if val == 'store_true':
             kwargs['const'] = True
             kwargs['nargs'] = '?'
-        elif val == 'store_false':
-            kwargs['const'] = False
-            kwargs['nargs'] = '?'
         else:
             raise NotImplemented(
                 "Not sure how to deal with this argparse argument option"

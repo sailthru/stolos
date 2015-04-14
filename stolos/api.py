@@ -1,3 +1,8 @@
+from stolos.initializer import initialize as _initialize
+from stolos import dag_tools as _dt
+from stolos import configuration_backend as _cb
+from stolos import queue_backend as _qb
+
 from stolos.queue_backend import (
     check_state, maybe_add_subtask, readd_subtask, get_qbclient
 )
@@ -42,8 +47,4 @@ def initialize(args=None):
         To guarantee NO arguments are read from sys.argv, set args=[]
         Example:  args=['--option1', 'val', ...]
     """
-    from stolos.initializer import initialize as _initialize
-    from stolos import dag_tools as _dt
-    from stolos import configuration_backend as _cb
-    from stolos import queue_backend as _qb
     _initialize([_dt, _cb, _qb], args=args)
