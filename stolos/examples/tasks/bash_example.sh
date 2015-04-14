@@ -17,7 +17,7 @@
 
 #   ./bin/stolos-submit -a test_stolos/test_bash --job_id 20140501_1_test
 #
-#   python -m stolos --zookeeper_hosts localhost:2181
+#   python -m stolos --qb_zookeeper_hosts localhost:2181
 #     -a test_stolos/test_bash
 
 
@@ -26,5 +26,5 @@
 # bash plugin.  This is useful if you wish to verify that Stolos will
 # call your application with the correct parameters.
 #
-#   python -m stolos --zookeeper_hosts localhost:2181
+#   python -m stolos --qb_zookeeper_hosts localhost:2181
 #     -a test_stolos/test_bash --bypass_scheduler --job_id 20140501_1_test

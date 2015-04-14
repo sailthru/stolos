@@ -17,7 +17,7 @@ def main(ns):
 build_arg_parser = at.build_arg_parser([
     at.add_argument('--job_id', required=True),
     at.app_name(required=True, choices=list(api.get_tasks_config().keys())),
-    at.zookeeper_hosts,
+    at.qb_zookeeper_hosts,
     at.add_argument(
         '--readd', action='store_true', help=(
             "Try to add this to the queue if it isn't already.  Assume we've"

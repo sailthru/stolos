@@ -76,11 +76,11 @@ class Lock(BaseLock):
 @util.cached
 def raw_client():
     """Start a connection to ZooKeeper"""
-    zookeeper_hosts = get_NS().zookeeper_hosts
+    qb_zookeeper_hosts = get_NS().qb_zookeeper_hosts
     log.debug(
         "Connecting to ZooKeeper",
-        extra=dict(zookeeper_hosts=zookeeper_hosts))
-    zk = KazooClient(zookeeper_hosts)
+        extra=dict(qb_zookeeper_hosts=qb_zookeeper_hosts))
+    zk = KazooClient(qb_zookeeper_hosts)
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
     zk.start()
@@ -130,7 +130,7 @@ def create(path, value, makepath=False):
 
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
-        '--zookeeper_hosts', help="The address to your Zookeeper cluster")
+        '--qb_zookeeper_hosts', help="The address to your Zookeeper cluster")
 ], description=(
     "Options that specify which queue to use to store state about your jobs")
 )
