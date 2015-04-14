@@ -6,7 +6,6 @@ import simplejson
 import tempfile
 
 from stolos.initializer import initialize as _initialize
-from stolos import api
 from stolos import util
 
 from stolos import queue_backend as qb
@@ -57,7 +56,7 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
 
 
 def teardown_queue_backend(func_name):
-    api.get_qbclient().delete('test_stolos/%s' % func_name, recursive=True)
+    qb.get_qbclient().delete('test_stolos/%s' % func_name, recursive=True)
 
 
 def setup_tasks_json(func_name):

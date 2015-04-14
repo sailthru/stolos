@@ -110,7 +110,10 @@ def get_children(path):
 
 
 def count_children(path):
-    return raw_client().get(path)[1].numChildren
+    try:
+        return raw_client().get(path)[1].numChildren
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(err)
 
 
 def exists(path):

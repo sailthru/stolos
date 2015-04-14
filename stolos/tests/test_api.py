@@ -13,9 +13,9 @@ nt.assert_equal.im_class.maxDiff = None
 @tt.with_setup
 def test_check_state(app1, job_id1, job_id2):
 
-    nt.assert_false(api.check_state(app1, job_id1))
+    nt.assert_false(api.check_state(app1, 'doesnotexist', pending=True))
     with nt.assert_raises(NoNodeError):
-        api.check_state(app1, job_id1, raise_if_not_exists=True)
+        api.check_state(app1, 'doesnotexist', raise_if_not_exists=True)
 
     qb.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
@@ -57,7 +57,7 @@ def test_get_qsize(app1, job_id1, job_id2):
     tt.enqueue(app1, job_id1, )
     tt.enqueue(app1, job_id2, validate_queued=False)
     q = api.get_qbclient().LockingQueue(app1)
-    itm = q.get(.1)
+    itm = q.get(1)
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=False, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=False))

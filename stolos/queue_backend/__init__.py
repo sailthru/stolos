@@ -21,6 +21,14 @@ check_state
 from .locking import (obtain_execute_lock, obtain_add_lock, is_execute_locked)
 obtain_execute_lock, obtain_add_lock, is_execute_locked
 
+from .queue_maintenance import (
+    delete,
+    requeue,
+    get_job_ids_by_status,
+    get_qsize
+)
+delete, requeue, get_job_ids_by_status, get_qsize
+
 
 build_arg_parser = at.build_arg_parser([at.group(
     "Stolos Queue Backend (manages job state)",

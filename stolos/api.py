@@ -16,14 +16,13 @@ get_parents, get_children
 from stolos.configuration_backend import get_tasks_config
 get_tasks_config,
 
-# TODO: figure out how to deal with this.  decide if get_qbclient is necessary
-# from stolos.zookeeper_maintenance import (
-#     delete,
-#     requeue,
-#     get_job_ids_by_status,
-#     get_qsize
-# )
-# delete, requeue, get_job_ids_by_status
+from stolos.queue_backend import (
+    delete,
+    requeue,
+    get_job_ids_by_status,
+    get_qsize
+)
+delete, requeue, get_job_ids_by_status, get_qsize
 
 
 from stolos.util import configure_logging

@@ -2,14 +2,17 @@ from __future__ import unicode_literals
 from os.path import join
 import re
 import sys
-import kazoo.exceptions
 
-from stolos import queue_backend as qb, log
+from stolos import exceptions
+from . import shared, log
+from .modify_job_state import readd_subtask
+from .read_job_state import check_state
 
 
 def get_qsize(app_name, queued=True, taken=True):
     """Get the number of objects in the queue"""
-    return qb.get_qbclient().LockingQueue(app_name).size()
+    return shared.get_qbclient().LockingQueue(app_name).size(
+        queued=queued, taken=taken)
 
 
 def delete(app_name, job_id, confirm=True,
@@ -34,12 +37,12 @@ def delete(app_name, job_id, confirm=True,
     `dryrun` (bool) don't actually delete nodes
 
     """
-    qbcli = qb.get_qbclient()
+    qbcli = shared.get_qbclient()
     if isinstance(job_id, (str, unicode)):
         job_id = set([job_id])
 
     if delete_job_state:  # delete path to each job_id
-        paths_to_delete = [qb.get_job_path(app_name, j) for j in job_id
+        paths_to_delete = [shared.get_job_path(app_name, j) for j in job_id
                            if j]
 
     if delete_from_queue:
@@ -49,7 +52,7 @@ def delete(app_name, job_id, confirm=True,
             key_fullpath = join(_qpath, key)
             try:
                 queued_job_id = qbcli.get(key_fullpath)
-            except kazoo.exceptions.NoNodeError:
+            except exceptions.NoNodeError:
                 continue  # huh - something else deleted it!
             if queued_job_id and queued_job_id in job_id:
                 paths_to_delete.append(key_fullpath)
@@ -94,13 +97,13 @@ def get_job_ids_by_status(app_name, regexp=None, **job_states):
         If no job states are defined, assume all=True
         ie.  get_job_ids_by_status(app_name, pending=True, failed=True)
     """
-    qbcli = qb.get_qbclient()
+    qbcli = shared.get_qbclient()
     if not job_states:
         job_states = dict(all=True)  # assume all job states
-    path = qb.get_job_path(app_name, '')
+    path = shared.get_job_path(app_name, '')
     try:
         children = qbcli.get_children(path)
-    except kazoo.exceptions.NoNodeError:
+    except exceptions.NoNodeError:
         log.warn("Unrecognized app_name", extra=dict(app_name=app_name))
         return []
     job_ids = []
@@ -113,7 +116,7 @@ def get_job_ids_by_status(app_name, regexp=None, **job_states):
         log.warn('no job_ids found matching regex and app_name', extra=dict(
             app_name=app_name, regexp=regexp))
 
-    gen = zip(job_ids, qb.check_state(app_name, job_ids, **job_states))
+    gen = zip(job_ids, check_state(app_name, job_ids, **job_states))
     return [job_id for job_id, inset in gen if inset is True]
 
 
@@ -136,7 +139,7 @@ def requeue(app_name, regexp=None, confirm=True, **job_states):
     else:
         log.info(msg)
     for job_id in IDS:
-        qb.readd_subtask(app_name, job_id)
+        readd_subtask(app_name, job_id)
 
 
 def _promptconfirm(msg):
