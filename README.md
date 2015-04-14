@@ -439,7 +439,7 @@ configuration](conf/stolos-env.sh) for details.
     export STOLOS_TASKS_JSON="/path/to/a/file/called/tasks.json"
 
     # and assuming you use the default Zookeeper queue backend:
-    export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"
+    export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
 
 
 Next, tell Stolos how your applications depend on each other.  In the
@@ -550,7 +550,7 @@ export STOLOS_QUEUE_BACKEND="redis"
 2. Second, each backend has its own options.
     - For the Zookeeper backend, you must define:
 
-        export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"  # or appropriate uri
+        export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"  # or appropriate uri
 
     - For the Redis backend, it is optional to overide these defaults:
 

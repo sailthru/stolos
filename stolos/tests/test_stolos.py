@@ -17,7 +17,7 @@ from stolos.testing_tools import (
 CMD = (
     'STOLOS_TASKS_JSON={tasks_json}'
     ' STOLOS_APP_NAME={app_name}'
-    ' STOLOS_ZOOKEEPER_HOSTS=localhost:2181'
+    ' STOLOS_QB_ZOOKEEPER_HOSTS=localhost:2181'
     ' python -m stolos.runner '
     ' {extra_opts}'
 )

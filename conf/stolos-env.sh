@@ -9,7 +9,7 @@ export STOLOS_JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
 export STOLOS_JOB_ID_VALIDATIONS="stolos.examples.job_id_validations"
 
 # Queue Backend:
-export STOLOS_ZOOKEEPER_HOSTS="localhost:2181"
+export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
 
 # Configuration backend.  the default is json
 

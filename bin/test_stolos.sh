@@ -1,7 +1,7 @@
 DIR="$( dirname "$( cd "$( dirname "$0" )" && pwd )")"
 
 . $DIR/conf/stolos-env.sh
-echo $STOLOS_ZOOKEEPER_HOSTS
+echo $STOLOS_QB_ZOOKEEPER_HOSTS
 echo $STOLOS_TASKS_JSON
 echo $STOLOS_JOB_ID_DEFAULT_TEMPLATE
 echo $STOLOS_JOB_ID_VALIDATIONS
