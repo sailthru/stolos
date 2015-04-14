@@ -23,10 +23,7 @@ from stolos import log
 def _get_parent_parsers(objects):
     """Internal function to call m.build_arg_parser() for each m in objects"""
     for m in set(objects):
-        if isinstance(m, argparse.ArgumentParser):
-            p = m
-        else:
-            p = m.build_arg_parser()
+        p = m.build_arg_parser()
         if not isinstance(p, argparse.ArgumentParser):
             msg = (
                 "Failed to initialize Stolos because the initializer"
