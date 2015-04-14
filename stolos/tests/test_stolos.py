@@ -3,10 +3,10 @@ import subprocess
 
 from stolos import api
 from stolos import exceptions
-from stolos import zookeeper_tools as zkt  # TODO: remove reliance on this
+from stolos import queue_backend as qb  # TODO: remove reliance on this
 from stolos.testing_tools import (
     with_setup, inject_into_dag,
-    enqueue, cycle_queue, consume_queue, get_zk_status,
+    enqueue, cycle_queue, consume_queue, get_qb_status,
     validate_zero_queued_task, validate_zero_completed_task,
     validate_one_failed_task, validate_one_queued_executing_task,
     validate_one_queued_task, validate_one_completed_task,
@@ -106,7 +106,7 @@ def test_create_child_task_after_one_parent_completed(
     # the child task should run if another parent completes
     # but otherwise should not run until it's manually queued
 
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     validate_one_completed_task(app1, job_id1)
 
     injected_app = app3
@@ -121,7 +121,7 @@ def test_create_child_task_after_one_parent_completed(
         validate_zero_queued_task(injected_app)
         # unnecessary side effect: app1 queues app2...
         consume_queue(app2)
-        zkt.set_state(app2, job_id1, completed=True)
+        qb.set_state(app2, job_id1, completed=True)
 
         validate_one_completed_task(app2, job_id1)
         validate_one_queued_task(injected_app, job_id1)
@@ -137,7 +137,7 @@ def test_create_parent_task_after_child_completed(app1, app3, job_id1,
 
     # we do not re-schedule the child unless parent is completed
 
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     validate_one_completed_task(app1, job_id1)
 
     injected_app = app3
@@ -153,7 +153,7 @@ def test_create_parent_task_after_child_completed(app1, app3, job_id1,
     }
     with inject_into_dag(func_name, dct):
         validate_zero_queued_task(injected_app)
-        zkt.set_state(injected_app, job_id1, completed=True)
+        qb.set_state(injected_app, job_id1, completed=True)
         validate_one_completed_task(injected_app, job_id1)
         validate_one_queued_task(child_injapp, job_id1)
 
@@ -168,13 +168,13 @@ def test_should_not_add_queue_while_consuming_queue(app1, job_id1):
     """
     enqueue(app1, job_id1)
 
-    q = zkt.get_zkclient().LockingQueue(app1)
+    q = qb.get_qbclient().LockingQueue(app1)
     q.get()
     validate_one_queued_task(app1, job_id1)
 
     enqueue(app1, job_id1)
     with nose.tools.assert_raises(exceptions.JobAlreadyQueued):
-        zkt.readd_subtask(app1, job_id1)
+        qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
 
@@ -197,17 +197,17 @@ def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
 def test_rerun_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
     # queue and complete app 1. it queues a child
     enqueue(app1, job_id1)
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
     # complete app 2
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_zero_queued_task(app2)
 
     # readd app 2
-    zkt.readd_subtask(app2, job_id1)
+    qb.readd_subtask(app2, job_id1)
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
     # run app 2.  the parent was previously completed
@@ -222,12 +222,12 @@ def test_rerun_manual_task(app1, job_id1):
     validate_one_queued_task(app1, job_id1)
 
     with nose.tools.assert_raises(exceptions.JobAlreadyQueued):
-        zkt.readd_subtask(app1, job_id1)
+        qb.readd_subtask(app1, job_id1)
 
 
 @with_setup
 def test_rerun_manual_task2(app1, job_id1):
-    zkt.readd_subtask(app1, job_id1)
+    qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
 
@@ -238,13 +238,13 @@ def test_rerun_push_tasks_when_manually_queuing_child_and_parent(
         app1, app2, job_id1)
 
     # complete parent first
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
     # child completes normally
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
@@ -257,21 +257,21 @@ def test_rerun_pull_tasks_when_manually_queuing_child_and_parent(
         app1, app2, job_id1)
 
     # complete child first
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     # --> parent still queued
     validate_one_queued_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
 
     # then complete parent
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
     # --> child gets re-queued
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
     # complete child second time
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
@@ -281,20 +281,20 @@ def _test_rerun_tasks_when_manually_queuing_child_and_parent(
         app1, app2, job_id1):
     # complete parent and child
     enqueue(app1, job_id1)
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
 
     # manually re-add child
-    zkt.readd_subtask(app2, job_id1)
+    qb.readd_subtask(app2, job_id1)
     validate_one_queued_task(app2, job_id1)
     validate_one_completed_task(app1, job_id1)
 
     # manually re-add parent
-    zkt.readd_subtask(app1, job_id1)
+    qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
@@ -305,31 +305,31 @@ def test_rerun_push_tasks(app1, app2, job_id1):
 
     # queue and complete app 1. it queues a child
     enqueue(app1, job_id1)
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
 
     # complete app 2
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
 
     # readd app 1
-    zkt.readd_subtask(app1, job_id1)
+    qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
     validate_zero_queued_task(app2)
     nose.tools.assert_true(
-        zkt.check_state(app2, job_id1, pending=True))
+        qb.check_state(app2, job_id1, pending=True))
 
     # complete app 1
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     consume_queue(app1)
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
     # complete app 2
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     consume_queue(app2)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
@@ -345,9 +345,9 @@ def test_complex_dependencies_pull_push(
     parents = api.get_parents(depends_on1, job_id)
     parents = list(api.topological_sort(parents))
     for parent, pjob_id in parents[:-1]:
-        zkt.set_state(parent, pjob_id, completed=True)
+        qb.set_state(parent, pjob_id, completed=True)
         validate_zero_queued_task(depends_on1)
-    zkt.set_state(*parents[-1], completed=True)
+    qb.set_state(*parents[-1], completed=True)
     validate_one_queued_task(depends_on1, job_id)
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     validate_one_completed_task(depends_on1, job_id)
@@ -360,22 +360,22 @@ def test_complex_dependencies_readd(depends_on1, log, tasks_json_tmpfile):
     # mark everything completed
     parents = list(api.topological_sort(api.get_parents(depends_on1, job_id)))
     for parent, pjob_id in parents:
-        zkt.set_state(parent, pjob_id, completed=True)
+        qb.set_state(parent, pjob_id, completed=True)
     # --> parents should queue our app
     validate_one_queued_task(depends_on1, job_id)
     consume_queue(depends_on1)
-    zkt.set_state(depends_on1, job_id, completed=True)
+    qb.set_state(depends_on1, job_id, completed=True)
     validate_one_completed_task(depends_on1, job_id)
 
     log.warn("OK... Now try complex dependency test with a readd")
     # re-complete the very first parent.
     # we assume that this parent is a root task
     parent, pjob_id = parents[0]
-    zkt.readd_subtask(parent, pjob_id)
+    qb.readd_subtask(parent, pjob_id)
     validate_one_queued_task(parent, pjob_id)
     validate_zero_queued_task(depends_on1)
     consume_queue(parent)
-    zkt.set_state(parent, pjob_id, completed=True)
+    qb.set_state(parent, pjob_id, completed=True)
     validate_one_completed_task(parent, pjob_id)
     # since that parent re-queues children that may be depends_on1's
     # parents, complete those too!
@@ -383,7 +383,7 @@ def test_complex_dependencies_readd(depends_on1, log, tasks_json_tmpfile):
         if p2 == depends_on1:
             continue
         consume_queue(p2)
-        zkt.set_state(p2, pjob2, completed=True)
+        qb.set_state(p2, pjob2, completed=True)
     # now, that last parent should have queued our application
     validate_one_queued_task(depends_on1, job_id)
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
@@ -437,28 +437,28 @@ def test_pull_tasks_with_many_children(app1, app2, app3, app4, job_id1,
     validate_one_queued_task(app3, job_id1)
 
     consume_queue(app1)
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     validate_zero_queued_task(app4)
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
     validate_one_queued_task(app3, job_id1)
 
     consume_queue(app2)
-    zkt.set_state(app2, job_id1, completed=True)
+    qb.set_state(app2, job_id1, completed=True)
     validate_zero_queued_task(app4)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
     validate_one_queued_task(app3, job_id1)
 
     consume_queue(app3)
-    zkt.set_state(app3, job_id1, completed=True)
+    qb.set_state(app3, job_id1, completed=True)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
     validate_one_completed_task(app3, job_id1)
     validate_one_queued_task(app4, job_id1)
 
     consume_queue(app4)
-    zkt.set_state(app4, job_id1, completed=True)
+    qb.set_state(app4, job_id1, completed=True)
     validate_one_completed_task(app1, job_id1)
     validate_one_completed_task(app2, job_id1)
     validate_one_completed_task(app3, job_id1)
@@ -476,17 +476,17 @@ def test_retry_failed_task(
     # create 2 tasks in same queue
     enqueue(app1, job_id1)
     enqueue(app1, job_id2, validate_queued=False)
-    nose.tools.assert_equal(2, get_zk_status(app1, job_id1)['app_qsize'])
+    nose.tools.assert_equal(2, get_qb_status(app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(app1))
     # run job_id2 and have it fail
     run_code(
         log, tasks_json_tmpfile, app1,
         extra_opts='--bash_cmd "&& notacommand...fail" ')
     # ensure we still have both items in the queue
-    nose.tools.assert_true(get_zk_status(app1, job_id1)['in_queue'])
-    nose.tools.assert_true(get_zk_status(app1, job_id2)['in_queue'])
+    nose.tools.assert_true(get_qb_status(app1, job_id1)['in_queue'])
+    nose.tools.assert_true(get_qb_status(app1, job_id2)['in_queue'])
     # ensure the failed task is sent to back of the queue
-    nose.tools.assert_equal(2, get_zk_status(app1, job_id1)['app_qsize'])
+    nose.tools.assert_equal(2, get_qb_status(app1, job_id1)['app_qsize'])
     nose.tools.assert_equal(job_id1, cycle_queue(app1))
     # run and fail n times, where n = max failures
     run_code(
@@ -595,7 +595,7 @@ def test_child_running_while_parent_pending_but_not_executing(
     enqueue(app1, job_id1)
     enqueue(app2, job_id1)
     parents_completed, consume_queue, parent_locks = \
-        zkt.ensure_parents_completed(app2, job_id1, timeout=1)
+        qb.ensure_parents_completed(app2, job_id1, timeout=1)
     # ensure lock is obtained by ensure_parents_completed
     validate_one_queued_executing_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
@@ -610,10 +610,10 @@ def test_child_running_while_parent_pending_and_executing(
         app1, app2, job_id1):
     enqueue(app1, job_id1)
     enqueue(app2, job_id1)
-    lock = zkt.obtain_execute_lock(app1, job_id1)
+    lock = qb.obtain_execute_lock(app1, job_id1)
     assert lock
     parents_completed, consume_queue, parent_locks = \
-        zkt.ensure_parents_completed(app2, job_id1, timeout=1)
+        qb.ensure_parents_completed(app2, job_id1, timeout=1)
     validate_one_queued_executing_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
     nose.tools.assert_equal(parents_completed, False)
@@ -627,10 +627,10 @@ def test_race_condition_when_parent_queues_child(
         app1, app2, job_id1, log, tasks_json_tmpfile):
     # The parent queues the child and the child runs before the parent gets
     # a chance to mark itself as completed
-    zkt.set_state(app1, job_id1, pending=True)
-    lock = zkt.obtain_execute_lock(app1, job_id1)
+    qb.set_state(app1, job_id1, pending=True)
+    lock = qb.obtain_execute_lock(app1, job_id1)
     assert lock
-    zkt._maybe_queue_children(
+    qb._maybe_queue_children(
         parent_app_name=app1, parent_job_id=job_id1)
     validate_one_queued_task(app2, job_id1)
     validate_zero_queued_task(app1)
@@ -642,7 +642,7 @@ def test_race_condition_when_parent_queues_child(
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
 
-    zkt.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, completed=True)
     lock.release()
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
@@ -714,8 +714,8 @@ def test_failing_task(bash1, log, tasks_json_tmpfile):
 def test_invalid_queued_job_id(app4, log, tasks_json_tmpfile):
     job_id = '0011_i_dont_work_123_w_234'
     # manually bypass the decorator that validates job_id
-    zkt._set_state_unsafe(app4, job_id, pending=True)
-    q = zkt.get_zkclient().LockingQueue(app4)
+    qb._set_state_unsafe(app4, job_id, pending=True)
+    q = qb.get_qbclient().LockingQueue(app4)
     q.put(job_id)
     validate_one_queued_task(app4, job_id)
 

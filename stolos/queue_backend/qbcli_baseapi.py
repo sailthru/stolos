@@ -31,16 +31,27 @@ class BaseLock(object):
         raise NotImplemented()
 
 
+def delete(path, recursive=False):
+    """Remove path from queue backend"""
+    raise NotImplementedError()
+
+
 def get_client():
     """Start a connection to ZooKeeper"""
     raise NotImplementedError()
 
 
 def get(self, path):
+    """Get value at given path.
+    If path does not exist, throw stolos.exceptions.NoNodeError
+    """
     raise NotImplementedError()
 
 
 def get_children(self, path):
+    """Get names of child nodes under given path
+    If path does not exist, throw stolos.exceptions.NoNodeError
+    """
     raise NotImplementedError()
 
 

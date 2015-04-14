@@ -1,6 +1,7 @@
 import atexit
 from kazoo.client import (
     KazooClient,
+    NoNodeError,
     Lock as _zkLock, LockingQueue as _zkLockingQueue
 )
 from os.path import join
@@ -8,14 +9,15 @@ from os.path import join
 from stolos import get_NS
 from stolos import argparse_shared as at
 from stolos import util
-from .baseapi import BaseLock, BaseLockingQueue
+from stolos import exceptions
+from .qbcli_baseapi import BaseLock, BaseLockingQueue
 from . import log
 
 
 class LockingQueue(BaseLockingQueue):
     def __init__(self, path):
         self._path = path
-        self._q = _zkLockingQueue(client=get_client(), path=path)
+        self._q = _zkLockingQueue(client=raw_client(), path=path)
 
     def put(self, value, priority=100):
         self._q.put(value, priority=priority)
@@ -60,7 +62,7 @@ class LockingQueue(BaseLockingQueue):
 
 class Lock(BaseLock):
     def __init__(self, path):
-        self._l = _zkLock(client=get_client(), path=path)
+        self._l = _zkLock(client=raw_client(), path=path)
 
     def acquire(self, blocking=True, timeout=None):
         return self._l.acquire(blocking=blocking, timeout=timeout)
@@ -72,7 +74,7 @@ class Lock(BaseLock):
 
 
 @util.cached
-def get_client():
+def raw_client():
     """Start a connection to ZooKeeper"""
     zookeeper_hosts = get_NS().zookeeper_hosts
     log.debug(
@@ -86,28 +88,41 @@ def get_client():
     return zk
 
 
-def get(self, path):
-    return get_client().get(path)[0]
+def delete(path, recursive=False):
+    try:
+        raw_client().delete(path, recursive=recursive)
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(err)
 
 
-def get_children(self, path):
-    return get_client().get_children(path)
+def get(path):
+    try:
+        return raw_client().get(path)[0]
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(err)
 
 
-def count_children(self, path):
-    return get_client().get(path)[1].numChildren
+def get_children(path):
+    try:
+        return raw_client().get_children(path)
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(err)
 
 
-def exists(self, path):
-    return get_client().exists(path)
+def count_children(path):
+    return raw_client().get(path)[1].numChildren
 
 
-def set(self, path, value):
-    return get_client().set(path, value)
+def exists(path):
+    return raw_client().exists(path)
 
 
-def create(self, path, value, makepath=False):
-    return get_client.create(path, value, makepath=makepath)
+def set(path, value):
+    return raw_client().set(path, value)
+
+
+def create(path, value, makepath=False):
+    return raw_client().create(path, value, makepath=makepath)
 
 
 build_arg_parser = at.build_arg_parser([

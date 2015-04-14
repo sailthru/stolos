@@ -1,4 +1,3 @@
-from stolos import get_NS
 from stolos import exceptions
 
 from . import log
@@ -32,7 +31,7 @@ def _obtain_lock(typ, app_name, job_id,
 
     Either return a lock or [ raise | return False ]
     """
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     _path = shared.get_job_path(app_name, job_id)
     if safe and not qbcli.exists(_path):
         log.warn(
@@ -63,7 +62,7 @@ def _obtain_lock(typ, app_name, job_id,
 
 
 def is_execute_locked(app_name, job_id):
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     path = shared.get_lock_path('execute', app_name, job_id)
     try:
         return bool(qbcli.get_children(path))

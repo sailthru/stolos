@@ -11,25 +11,30 @@ def _log_raise(msg, extra, exception_kls):
     raise exception_kls(msg)
 
 
-class CodeError(Exception):
+class StolosException(Exception):
+    """Base Class for all Stolos Exceptions"""
     pass
 
 
-class JobAlreadyQueued(Exception):
+class CodeError(StolosException):
     pass
 
 
-class CouldNotObtainLock(Exception):
+class JobAlreadyQueued(StolosException):
     pass
 
 
-class LockAlreadyAcquired(Exception):
+class CouldNotObtainLock(StolosException):
     pass
 
 
-class DAGMisconfigured(Exception):
+class LockAlreadyAcquired(StolosException):
     pass
 
 
-class InvalidJobId(Exception):
+class DAGMisconfigured(StolosException):
+    pass
+
+
+class InvalidJobId(StolosException):
     pass

@@ -6,9 +6,9 @@ import importlib
 
 from stolos import argparse_shared as at
 from stolos import log
-from stolos import dag_tools, exceptions, zookeeper_tools as zkt
-from stolos import queue_backend
-from stolos import configuration_backend
+from stolos import dag_tools as dt, exceptions
+from stolos import queue_backend as qb
+from stolos import configuration_backend as cb
 from stolos.initializer import initialize
 
 
@@ -21,7 +21,7 @@ def main(ns):
     parent queues and remove the job from its own queue.
     If the job fails, either requeue it or mark it as permanently failed
     """
-    assert ns.app_name in dag_tools.get_task_names()
+    assert ns.app_name in dt.get_task_names()
     if ns.bypass_scheduler:
         log.info(
             "Running a task without scheduling anything"
@@ -32,7 +32,7 @@ def main(ns):
         return
 
     log.info("Beginning Stolos", extra=dict(**ns.__dict__))
-    q = zkt.get_zkclient().LockingQueue(ns.app_name)
+    q = qb.get_qbclient().LockingQueue(ns.app_name)
     if ns.job_id:
         lock = _handle_manually_given_job_id(ns)
     else:
@@ -57,7 +57,7 @@ def main(ns):
         return
 
     parents_completed, consume_queue, parent_locks = \
-        zkt.ensure_parents_completed(
+        qb.ensure_parents_completed(
             app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout)
     if parents_completed is False:
         if consume_queue:
@@ -98,14 +98,14 @@ def validate_job_id(app_name, job_id, q, timeout):
             app_name=app_name))
         return False
     try:
-        dag_tools.parse_job_id(app_name, job_id)
+        dt.parse_job_id(app_name, job_id)
     except exceptions.InvalidJobId as err:
         log.error((
             "Stolos found an invalid job_id.  Removing it from queue"
             " and marking that job_id as failed.  Error details: %s") % err,
             extra=dict(app_name=app_name, job_id=job_id))
         q.consume()
-        zkt._set_state_unsafe(
+        qb._set_state_unsafe(
             app_name, job_id, failed=True)
         return False
     return True
@@ -120,18 +120,16 @@ def _handle_manually_given_job_id(ns):
         ('using specific job_id and'
          ' blindly assuming this job is not already queued.'),
         extra=dict(app_name=ns.app_name, job_id=ns.job_id))
-    created = zkt.get_zkclient().exists(
-        zkt.get_job_path(ns.app_name, ns.job_id))
-    if created:
+    if qb.get_qbclient().exists(qb.get_job_path(ns.app_name, ns.job_id)):
         msg = ('Will not execute this task because it might be already'
                ' queued or completed!')
         log.critical(
             msg, extra=dict(app_name=ns.app_name, job_id=ns.job_id))
         raise UserWarning(msg)
-    lock = zkt.obtain_execute_lock(
+    lock = qb.obtain_execute_lock(
         ns.app_name, ns.job_id, safe=False, raise_on_error=True,
         timeout=ns.timeout)
-    zkt.set_state(ns.app_name, ns.job_id, pending=True)
+    qb.set_state(ns.app_name, ns.job_id, pending=True)
     return lock
 
 
@@ -140,7 +138,7 @@ def get_lock_if_job_is_runnable(app_name, job_id, timeout, lock):
     the job is not ready to execute.  If we already have the lock, use that one
     """
 
-    available = zkt.check_state(
+    available = qb.check_state(
         app_name, job_id, pending=True, raise_if_not_exists=True)
     if not available:
         try:
@@ -154,13 +152,13 @@ def get_lock_if_job_is_runnable(app_name, job_id, timeout, lock):
                 err, extra=dict(
                     app_name=app_name,
                     job_id=job_id,
-                    state=zkt.check_state(
+                    state=qb.check_state(
                         app_name, job_id, _get=True)))
             return False
     if lock:
         l = lock
     else:
-        l = zkt.obtain_execute_lock(
+        l = qb.obtain_execute_lock(
             app_name, job_id, timeout=timeout)
     if l is False:
         log.warn('Could not obtain execute lock for task because'
@@ -174,7 +172,7 @@ def _send_to_back_of_queue(q, app_name, job_id):
     # this exists so un-runnable tasks don't hog the front of the queue
     # and soak up resources
     try:
-        zkt.readd_subtask(app_name, job_id, _force=True)
+        qb.readd_subtask(app_name, job_id, _force=True)
         q.consume()
         log.info(
             "Job sent to back of queue",
@@ -188,7 +186,7 @@ def _send_to_back_of_queue(q, app_name, job_id):
 def _handle_failure(ns, q, lock):
     """The job has failed.  Increase it's retry limit, send to back of queue,
     and release the lock"""
-    exceeded_retry_limit = zkt.inc_retry_count(
+    exceeded_retry_limit = qb.inc_retry_count(
         app_name=ns.app_name, job_id=ns.job_id, max_retry=ns.max_retry)
     if exceeded_retry_limit:
         q.consume()
@@ -201,7 +199,7 @@ def _handle_failure(ns, q, lock):
 
 
 def _handle_success(ns, q, lock):
-    zkt.set_state(
+    qb.set_state(
         app_name=ns.app_name, job_id=ns.job_id, completed=True)
     q.consume()
     lock.release()
@@ -244,12 +242,12 @@ def build_arg_parser_and_parse_args():
         " It may also queue child or parent jobs depending on their status."),
     )
     parser, ns = initialize(
-        [parser(), dag_tools, configuration_backend, queue_backend],
+        [parser(), dt, cb, qb],
         parse_known_args=True)
 
     # get plugin parser
     plugin = importlib.import_module(
-        'stolos.plugins.%s_plugin' % dag_tools.get_job_type(ns.app_name))
+        'stolos.plugins.%s_plugin' % dt.get_job_type(ns.app_name))
     ns = at.build_arg_parser(
         parents=[parser, plugin.build_arg_parser()],
         add_help=True

@@ -1,12 +1,8 @@
 from stolos.queue_backend import (
-    check_state, get_qsize,
-    maybe_add_subtask, readd_subtask,
-    get_qbclient
+    check_state, maybe_add_subtask, readd_subtask, get_qbclient
 )
 # linting
-check_state, get_qsize,
-maybe_add_subtask, readd_subtask,
-get_qbclient
+check_state, maybe_add_subtask, readd_subtask, get_qbclient
 
 from stolos.dag_tools import (
     build_dag, visualize_dag, topological_sort,
@@ -25,6 +21,7 @@ get_tasks_config,
 #     delete,
 #     requeue,
 #     get_job_ids_by_status,
+#     get_qsize
 # )
 # delete, requeue, get_job_ids_by_status
 

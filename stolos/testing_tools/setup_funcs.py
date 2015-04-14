@@ -56,8 +56,8 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
     os.remove(tasks_json_tmpfile)
 
 
-def teardown_zookeeper(func_name):
-    api.get_zkclient().delete('test_stolos/%s' % func_name, recursive=True)
+def teardown_queue_backend(func_name):
+    api.get_qbclient().delete('test_stolos/%s' % func_name, recursive=True)
 
 
 def setup_tasks_json(func_name):
@@ -66,8 +66,8 @@ def setup_tasks_json(func_name):
         tasks_json_tmpfile=tasks_json_tmpfile, **dict(renames))
 
 
-def post_setup_zookeeper(func_name):
-    teardown_zookeeper(func_name)  # must happen after initialize(...)
+def post_setup_queue_backend(func_name):
+    teardown_queue_backend(func_name)  # must happen after initialize(...)
     return dict()
 
 
@@ -133,8 +133,8 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
 
 default_with_setup = with_setup_factory(
     (setup_job_ids, setup_tasks_json),
-    (teardown_tasks_json, teardown_zookeeper),
-    (post_setup_zookeeper, )
+    (teardown_tasks_json, teardown_queue_backend),
+    (post_setup_queue_backend, )
 )
 
 

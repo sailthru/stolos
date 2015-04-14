@@ -1,4 +1,3 @@
-from stolos import get_NS
 from stolos import exceptions
 
 from . import shared
@@ -49,7 +48,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
     `_get` (bool) if True, just return the string value of the state and
                   ignore the (pending, completed, xor failed) choice
     """
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     if isinstance(job_id, (str, unicode)):
         job_ids = [job_id]
         rvaslist = False

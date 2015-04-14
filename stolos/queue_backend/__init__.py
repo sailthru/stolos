@@ -1,15 +1,25 @@
 from stolos import argparse_shared as at
-from stolos import get_NS
 
 import logging
 log = logging.getLogger('stolos.queue_backend')
 
 
-from .modify_job_state import (maybe_add_subtask, readd_subtask)
-maybe_add_subtask, readd_subtask
+from .shared import get_job_path, get_qbclient
+get_job_path, get_qbclient
+
+from .modify_job_state import (
+    maybe_add_subtask, readd_subtask, set_state, inc_retry_count,
+    ensure_parents_completed,
+    _set_state_unsafe  # TODO: get rid of _set_state_unsafe
+)
+maybe_add_subtask, readd_subtask, set_state, inc_retry_count,
+ensure_parents_completed, _set_state_unsafe
 
 from .read_job_state import (check_state)
 check_state
+
+from .locking import (obtain_execute_lock, obtain_add_lock, is_execute_locked)
+obtain_execute_lock, obtain_add_lock, is_execute_locked
 
 
 build_arg_parser = at.build_arg_parser([at.group(
@@ -26,7 +36,3 @@ build_arg_parser = at.build_arg_parser([at.group(
             ' You can supply your own queue backend or choose from the'
             ' following supported options: {known_backends}')),
 )])
-
-
-def get_qbclient():
-    return get_NS().queue_backend

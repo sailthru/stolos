@@ -1,6 +1,5 @@
 from os.path import join
 
-from stolos import get_NS
 from stolos import dag_tools as dt
 from stolos import util
 from stolos import exceptions
@@ -14,7 +13,7 @@ from . import log
 def _queue(app_name, job_id, queue=True, priority=None):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     log.info(
         'Creating and queueing new subtask',
         extra=dict(app_name=app_name, job_id=job_id, priority=priority))
@@ -49,7 +48,7 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
         1 is highest priority 100 is lowest priority.
         Irrelevant if `queue` is False
     """
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     if qbcli.exists(shared.get_job_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice concurrently
@@ -64,7 +63,7 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
 
 
 def _recursively_reset_child_task_state(parent_app_name, job_id):
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     log.debug(
         "recursively setting all descendant tasks to 'pending' and "
         " marking that the parent is not completed",
@@ -82,7 +81,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
 def _check_if_queued(app_name, job_id):
     # TODO: leave this here? or pull it into the QB api?
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     p = join(app_name, 'entries')
     try:
         queued_jobs = {qbcli.get(join(p, x))[0] for x in qbcli.get_children(p)}
@@ -243,7 +242,7 @@ def _set_state_unsafe(
     `job_id` is a subtask identifier
     `pending`, `completed` and `failed` (bool) are mutually exclusive
     """
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     job_path = shared.get_job_path(app_name, job_id)
     state = validate_state(pending, completed, failed, skipped)
     if completed:  # basecase
@@ -271,7 +270,7 @@ def inc_retry_count(app_name, job_id, max_retry):
     Returns False if task exceeded retry limit and True if the increment was
     fine
     """
-    qbcli = get_NS().queue_backend()
+    qbcli = shared.get_qbclient()
     path = join(shared.get_job_path(app_name, job_id), 'retry_count')
     if not qbcli.exists(path):
         qbcli.create(path, '0', makepath=False)
