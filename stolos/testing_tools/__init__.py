@@ -23,7 +23,13 @@ validate_one_skipped_task, validate_n_queued_task,
 cycle_queue, consume_queue, get_qb_status,
 
 # let tests configure their own setup and teardown
-from setup_funcs import with_setup_factory
+from setup_funcs import (
+    with_setup_factory,
+    setup_tasks_json, teardown_tasks_json, teardown_queue_backend,
+    post_setup_queue_backend)
+with_setup_factory,
+setup_tasks_json, teardown_tasks_json, teardown_queue_backend,
+post_setup_queue_backend
 
 # offer some reasonable pre-set defaults
 from setup_funcs import (

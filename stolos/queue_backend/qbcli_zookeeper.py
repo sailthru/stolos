@@ -10,7 +10,7 @@ from stolos import get_NS
 from stolos import argparse_shared as at
 from stolos import util
 from stolos import exceptions
-from .qbcli_baseapi import BaseLock, BaseLockingQueue
+from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
 from . import log
 
 

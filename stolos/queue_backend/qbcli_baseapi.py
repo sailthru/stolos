@@ -1,4 +1,4 @@
-class BaseLockingQueue(object):
+class LockingQueue(object):
     def __init__(self, path):
         raise NotImplemented()
 
@@ -23,7 +23,7 @@ class BaseLockingQueue(object):
         raise NotImplemented()
 
 
-class BaseLock(object):
+class Lock(object):
     def acquire(self, blocking=True, timeout=None):
         raise NotImplemented()
 
@@ -33,11 +33,6 @@ class BaseLock(object):
 
 def delete(path, recursive=False):
     """Remove path from queue backend"""
-    raise NotImplementedError()
-
-
-def get_client():
-    """Start a connection to ZooKeeper"""
     raise NotImplementedError()
 
 
