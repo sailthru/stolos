@@ -1,4 +1,5 @@
 from stolos import argparse_shared as at
+from stolos import get_NS
 
 import logging
 log = logging.getLogger('stolos.queue_backend')
@@ -9,9 +10,6 @@ maybe_add_subtask, readd_subtask
 
 from .read_job_state import (check_state)
 check_state
-
-from .shared import get_qsize
-get_qsize
 
 
 build_arg_parser = at.build_arg_parser([at.group(
@@ -30,6 +28,5 @@ build_arg_parser = at.build_arg_parser([at.group(
 )])
 
 
-
 def get_qbclient():
-    return get_NS().queue_backend.get_client()
+    return get_NS().queue_backend
