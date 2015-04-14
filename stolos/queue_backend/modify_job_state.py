@@ -299,6 +299,9 @@ def ensure_parents_completed(app_name, job_id, timeout):
     If they haven't completed and aren't pending, maybe create the
     parent task in its appropriate queue.  Also decide whether the calling
     process should requeue given job_id or remove itself from queue.
+    Because this needs to happen as one transaction, also return a list of
+    execute locks that the calling code must release after it decides how to
+    handle the current job_id.
 
     Returns a tuple:
         (are_parents_completed, should_job_id_be_consumed_from_queue,

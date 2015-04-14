@@ -630,8 +630,8 @@ def test_race_condition_when_parent_queues_child(
     qb.set_state(app1, job_id1, pending=True)
     lock = qb.obtain_execute_lock(app1, job_id1)
     assert lock
-    qb._maybe_queue_children(
-        parent_app_name=app1, parent_job_id=job_id1)
+    qb.set_state(app1, job_id1, completed=True)
+    qb.set_state(app1, job_id1, pending=True)
     validate_one_queued_task(app2, job_id1)
     validate_zero_queued_task(app1)
 
@@ -657,11 +657,11 @@ def test_run_multiple_given_specific_job_id(
         bash1, job_id1, log, tasks_json_tmpfile):
     p = run_code(
         log, tasks_json_tmpfile, bash1,
-        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 1' % job_id1,
+        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 2' % job_id1,
         async=True)
     p2 = run_code(
         log, tasks_json_tmpfile, bash1,
-        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 1' % job_id1,
+        extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 2' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
     err = p.communicate()[1] + p2.communicate()[1]

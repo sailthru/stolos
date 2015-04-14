@@ -23,7 +23,7 @@ class LockingQueue(BaseLockingQueue):
         self._q.put(value, priority=priority)
 
     def consume(self):
-        if not self._q.consume():
+        if self._q.consume() is None:
             raise UserWarning(
                 "Cannot consume() from queue without first calling q.get()")
 
