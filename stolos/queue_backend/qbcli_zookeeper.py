@@ -114,7 +114,7 @@ def count_children(path):
 
 
 def exists(path):
-    return raw_client().exists(path)
+    return bool(raw_client().exists(path))
 
 
 def set(path, value):

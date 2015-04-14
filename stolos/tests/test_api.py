@@ -1,12 +1,11 @@
 from nose import tools as nt
-from kazoo.exceptions import NoNodeError
 from networkx import MultiDiGraph
 
 import stolos
 from stolos import api
 from stolos import testing_tools as tt
-from stolos import zookeeper_tools as zkt
-from stolos.exceptions import JobAlreadyQueued, InvalidJobId
+from stolos import queue_backend as qb
+from stolos.exceptions import JobAlreadyQueued, InvalidJobId, NoNodeError
 from stolos.configuration_backend import TasksConfigBaseMapping
 nt.assert_equal.im_class.maxDiff = None
 
@@ -18,10 +17,10 @@ def test_check_state(app1, job_id1, job_id2):
     with nt.assert_raises(NoNodeError):
         api.check_state(app1, job_id1, raise_if_not_exists=True)
 
-    zkt.set_state(app1, job_id1, pending=True)
+    qb.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
-    api.get_zkclient().create(
-        zkt.get_job_path(app1, job_id2), None, makepath=True)
+    api.get_qbclient().create(
+        qb.get_job_path(app1, job_id2), None, makepath=True)
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1)
@@ -38,9 +37,9 @@ def test_check_state(app1, job_id1, job_id2):
 @tt.with_setup
 def test_check_state2(app1, job_id1, job_id2, job_id3):
     """Does check_state support multiple job_ids?"""
-    zkt.set_state(app1, job_id1, pending=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, failed=True)
+    qb.set_state(app1, job_id1, pending=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, failed=True)
     nt.assert_list_equal(
         [True, True],
         api.check_state(
@@ -57,7 +56,7 @@ def test_get_qsize(app1, job_id1, job_id2):
         api.get_qsize(app1, queued=True, taken=True)
     tt.enqueue(app1, job_id1, )
     tt.enqueue(app1, job_id2, validate_queued=False)
-    q = api.get_zkclient().LockingQueue(app1)
+    q = api.get_qbclient().LockingQueue(app1)
     itm = q.get(.1)
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=False, taken=True))
@@ -110,14 +109,14 @@ def test_readd_subtask(app1, job_id1, job_id2):
 
 
 @tt.with_setup
-def test_get_zkclient(app1):
-    zk1 = api.get_zkclient()
-    zk2 = api.get_zkclient()
-    nt.assert_equal(id(zk1), id(zk1))
-    nt.assert_equal(hash(zk1), hash(zk2))
+def test_get_qbclient(app1):
+    qb1 = api.get_qbclient()
+    qb2 = api.get_qbclient()
+    nt.assert_equal(id(qb1), id(qb1))
+    nt.assert_equal(hash(qb1), hash(qb2))
 
-    zk1.create(app1, 'A', makepath=True)
-    nt.assert_equal(zk2.get(app1)[0], 'A')
+    qb1.create(app1, 'A', makepath=True)
+    nt.assert_equal(qb2.get(app1)[0], 'A')
 
 
 @tt.with_setup
@@ -211,9 +210,9 @@ def test_delete(app1, job_id1, job_id2):
 
 @tt.with_setup
 def test_requeue(app1, job_id1, job_id2, job_id3):
-    zkt.set_state(app1, job_id1, failed=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, skipped=True)
+    qb.set_state(app1, job_id1, failed=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, skipped=True)
 
     tt.validate_zero_queued_task(app1)
     api.requeue(app1, confirm=False, pending=True)
@@ -228,9 +227,9 @@ def test_requeue(app1, job_id1, job_id2, job_id3):
 
 @tt.with_setup
 def test_requeue2(app1, job_id1, job_id2, job_id3):
-    zkt.set_state(app1, job_id1, failed=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, skipped=True)
+    qb.set_state(app1, job_id1, failed=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, skipped=True)
     api.requeue(app1, confirm=False, all=True, regexp=r'.*_1211_.*')
     tt.validate_zero_queued_task(app1)
 
@@ -240,27 +239,27 @@ def test_requeue2(app1, job_id1, job_id2, job_id3):
 
 @tt.with_setup
 def test_requeue3(app1, job_id1, job_id2, job_id3):
-    zkt.set_state(app1, job_id1, failed=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, skipped=True)
+    qb.set_state(app1, job_id1, failed=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, skipped=True)
     api.requeue(app1, confirm=False, failed=True, regexp=r'.*_1111_.*')
     tt.validate_n_queued_task(app1, job_id1)
 
 
 @tt.with_setup
 def test_requeue4(app1, job_id1, job_id2, job_id3):
-    zkt.set_state(app1, job_id1, failed=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, skipped=True)
+    qb.set_state(app1, job_id1, failed=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, skipped=True)
     api.requeue(app1, confirm=False, all=True)
     tt.validate_n_queued_task(app1, job_id1, job_id2, job_id3)
 
 
 @tt.with_setup
 def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3):
-    zkt.set_state(app1, job_id1, failed=True)
-    zkt.set_state(app1, job_id2, completed=True)
-    zkt.set_state(app1, job_id3, skipped=True)
+    qb.set_state(app1, job_id1, failed=True)
+    qb.set_state(app1, job_id2, completed=True)
+    qb.set_state(app1, job_id3, skipped=True)
     nt.assert_list_equal(
         [],
         api.get_job_ids_by_status(app1, regexp=r'.*_1211_.*'))

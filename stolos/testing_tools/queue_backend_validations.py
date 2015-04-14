@@ -45,13 +45,13 @@ def get_qb_status(app_name, job_id):
         'num_execute_locks': len(
             qbcli.exists(elockpath) and qbcli.get_children(elockpath) or []),
         'in_queue': (
-            any(qbcli.get(join(app_name, 'entries', x))[0] == job_id
+            any(qbcli.get(join(app_name, 'entries', x)) == job_id
                 for x in qbcli.get_children(entriespath))
             if qbcli.exists(entriespath) else False),
         'app_qsize': (
             len(qbcli.get_children(entriespath))
             if qbcli.exists(entriespath) else 0),
-        'state': qbcli.get(path)[0],
+        'state': qbcli.get(path),
     }
 
 

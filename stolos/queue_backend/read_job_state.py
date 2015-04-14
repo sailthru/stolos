@@ -60,7 +60,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
     for job_id in job_ids:
         job_path = shared.get_job_path(app_name, job_id)
         try:
-            gotstate = qbcli.get(job_path)[0]
+            gotstate = qbcli.get(job_path)
         except exceptions.NoNodeError:
             if raise_if_not_exists:
                 raise

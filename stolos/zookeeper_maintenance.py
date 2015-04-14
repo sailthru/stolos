@@ -4,7 +4,7 @@ import re
 import sys
 import kazoo.exceptions
 
-from stolos import zookeeper_tools as zkt, log
+from stolos import queue_backend as qb, log
 
 
 def delete(app_name, job_id, confirm=True,
@@ -29,21 +29,21 @@ def delete(app_name, job_id, confirm=True,
     `dryrun` (bool) don't actually delete nodes
 
     """
-    zk = zkt.get_zkclient()
+    qbcli = qb.get_qbclient()
     if isinstance(job_id, (str, unicode)):
         job_id = set([job_id])
 
     if delete_job_state:  # delete path to each job_id
-        paths_to_delete = [zkt.get_job_path(app_name, j) for j in job_id
+        paths_to_delete = [qb.get_job_path(app_name, j) for j in job_id
                            if j]
 
     if delete_from_queue:
         # (unsafely) delete the job from queue if it's in there
         _qpath = join(app_name, 'entries')
-        for key in zk.get_children(_qpath):
+        for key in qbcli.get_children(_qpath):
             key_fullpath = join(_qpath, key)
             try:
-                queued_job_id = zk.get(key_fullpath)[0]
+                queued_job_id = qbcli.get(key_fullpath)
             except kazoo.exceptions.NoNodeError:
                 continue  # huh - something else deleted it!
             if queued_job_id and queued_job_id in job_id:
@@ -64,7 +64,7 @@ def delete(app_name, job_id, confirm=True,
                 '(dryrun) delete node from zookeeper', extra=dict(node=path))
         else:
             log.info('delete node from zookeeper', extra=dict(node=path))
-            rv = zk.delete(path, recursive=True)
+            rv = qbcli.delete(path, recursive=True)
             if rv is None:
                 rvs[path] = 'deleted'
             elif rv is True:
@@ -89,12 +89,12 @@ def get_job_ids_by_status(app_name, regexp=None, **job_states):
         If no job states are defined, assume all=True
         ie.  get_job_ids_by_status(app_name, pending=True, failed=True)
     """
-    zk = zkt.get_zkclient()
+    qbcli = qb.get_qbclient()
     if not job_states:
         job_states = dict(all=True)  # assume all job states
-    path = zkt.get_job_path(app_name, '')
+    path = qb.get_job_path(app_name, '')
     try:
-        children = zk.get_children(path)
+        children = qbcli.get_children(path)
     except kazoo.exceptions.NoNodeError:
         log.warn("Unrecognized app_name", extra=dict(app_name=app_name))
         return []
@@ -108,7 +108,7 @@ def get_job_ids_by_status(app_name, regexp=None, **job_states):
         log.warn('no job_ids found matching regex and app_name', extra=dict(
             app_name=app_name, regexp=regexp))
 
-    gen = zip(job_ids, zkt.check_state(app_name, job_ids, **job_states))
+    gen = zip(job_ids, qb.check_state(app_name, job_ids, **job_states))
     return [job_id for job_id, inset in gen if inset is True]
 
 
@@ -131,7 +131,7 @@ def requeue(app_name, regexp=None, confirm=True, **job_states):
     else:
         log.info(msg)
     for job_id in IDS:
-        zkt.readd_subtask(app_name, job_id)
+        qb.readd_subtask(app_name, job_id)
 
 
 def promptconfirm(msg):

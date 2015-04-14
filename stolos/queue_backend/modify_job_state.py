@@ -84,7 +84,7 @@ def _check_if_queued(app_name, job_id):
     qbcli = shared.get_qbclient()
     p = join(app_name, 'entries')
     try:
-        queued_jobs = {qbcli.get(join(p, x))[0] for x in qbcli.get_children(p)}
+        queued_jobs = {qbcli.get(join(p, x)) for x in qbcli.get_children(p)}
     except exceptions.NoNodeError:
         queued_jobs = set()
 
@@ -276,7 +276,7 @@ def inc_retry_count(app_name, job_id, max_retry):
         qbcli.create(path, '0', makepath=False)
         cnt = 0
     else:
-        cnt = int(qbcli.get(path)[0])
+        cnt = int(qbcli.get(path))
     if cnt + 1 >= max_retry:
         set_state(app_name, job_id, failed=True)
         log.error(

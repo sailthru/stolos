@@ -16,6 +16,10 @@ class StolosException(Exception):
     pass
 
 
+class NoNodeError(StolosException):
+    pass
+
+
 class CodeError(StolosException):
     pass
 
