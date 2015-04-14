@@ -7,6 +7,11 @@ import kazoo.exceptions
 from stolos import queue_backend as qb, log
 
 
+def get_qsize(app_name, queued=True, taken=True):
+    """Get the number of objects in the queue"""
+    return qb.get_qbclient().LockingQueue(app_name).size()
+
+
 def delete(app_name, job_id, confirm=True,
            delete_from_queue=True, delete_job_state=True, dryrun=False):
     """Delete Zookeeper data for one or more specific jobs.
@@ -56,7 +61,7 @@ def delete(app_name, job_id, confirm=True,
         log.info(
             "About to delete n nodes from zookeeper", extra=dict(
                 n=len(paths_to_delete), first_100_nodes=paths_to_delete[:100]))
-        promptconfirm("Permanently delete nodes?")
+        _promptconfirm("Permanently delete nodes?")
     rvs = {}
     for path in paths_to_delete:
         if dryrun:
@@ -127,14 +132,14 @@ def requeue(app_name, regexp=None, confirm=True, **job_states):
     msg = "Re-add %s jobs for %s with these states: %s." % (
         len(IDS), app_name, ' and '.join(job_states))
     if confirm:
-        promptconfirm("%s  Ok?" % msg)
+        _promptconfirm("%s  Ok?" % msg)
     else:
         log.info(msg)
     for job_id in IDS:
         qb.readd_subtask(app_name, job_id)
 
 
-def promptconfirm(msg):
+def _promptconfirm(msg):
     """Interactively prompt user and require a Y/N response.
     Only useful in an interactive console"""
     rv = None
