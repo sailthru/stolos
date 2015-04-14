@@ -292,10 +292,11 @@ def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3):
 
 def test_not_initialized():
     stolos1 = importlib.import_module('stolos')
+    api1 = importlib.import_module('stolos.api')
     nt.assert_true(hasattr(stolos1, 'Uninitialized'))
     with nt.assert_raises(stolos1.Uninitialized):
         stolos1.get_NS()
-    api.initialize([])
+    api1.initialize([])
     nt.assert_false(hasattr(stolos1, 'Uninitialized'))
 
 
