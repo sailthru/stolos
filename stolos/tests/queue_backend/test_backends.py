@@ -1,20 +1,17 @@
+import inspect
+
 from stolos import testing_tools as tt
+from stolos import get_NS
 
-from .test_conforms_api import conforms_to_baseapi_interface
-from .test_return_values import outputs_expected_return_values
-
-
-TESTS = [
-    conforms_to_baseapi_interface,
-    outputs_expected_return_values,
-]
+from . import test_conforms_api
+from . import test_return_values
 
 
 BACKENDS = {
     'zookeeper': ('--qb_zookeeper_hosts', 'localhost:2181', ),
-    'redis': ('--qb_redis_host', '127.0.0.1',
-              '--qb_redis_port', '6379',
-              '--qb_redis_db', '0'),
+    # 'redis': ('--qb_redis_host', '127.0.0.1',
+              # '--qb_redis_port', '6379',
+              # '--qb_redis_db', '0'),
 }
 
 
@@ -32,11 +29,15 @@ def setup_qb(backend, args):
 with_setup = lambda backend, args: tt.with_setup_factory(
     (tt.setup_job_ids, setup_qb(backend, args), ),
     (),
-    (tt.post_setup_queue_backend, )
+    (tt.post_setup_queue_backend, lambda: dict(qbcli=get_NS().queue_backend))
 )
 
 
-def test_backend(*args, **kwargs):
-    for k, v in BACKENDS:
-        for f in TESTS:
-            yield with_setup(k, v)(f)
+def test_generator(*args, **kwargs):
+    for k, v in BACKENDS.items():
+        for mod in [test_conforms_api, test_return_values]:
+            for fn, f in inspect.getmembers(mod, inspect.isfunction):
+                if not fn.startswith('tests_'):
+                    continue
+                test_func = with_setup(k, v)(f)
+                yield test_func

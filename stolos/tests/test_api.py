@@ -21,7 +21,7 @@ def test_check_state(app1, job_id1, job_id2):
     qb.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
     api.get_qbclient().create(
-        qb.get_job_path(app1, job_id2), None, makepath=True)
+        qb.get_job_path(app1, job_id2), None)
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1)
@@ -116,7 +116,7 @@ def test_get_qbclient(app1):
     nt.assert_equal(id(qb1), id(qb1))
     nt.assert_equal(hash(qb1), hash(qb2))
 
-    qb1.create(app1, 'A', makepath=True)
+    qb1.create(app1, 'A')
     nt.assert_equal(qb2.get(app1)[0], 'A')
 
 

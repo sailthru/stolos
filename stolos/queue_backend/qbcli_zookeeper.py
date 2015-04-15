@@ -2,6 +2,7 @@ import atexit
 from kazoo.client import (
     KazooClient,
     NoNodeError,
+    NodeExistsError,
     Lock as _zkLock, LockingQueue as _zkLockingQueue
 )
 from os.path import join
@@ -124,8 +125,11 @@ def set(path, value):
     return raw_client().set(path, value)
 
 
-def create(path, value, makepath=False):
-    return raw_client().create(path, value, makepath=makepath)
+def create(path, value):
+    try:
+        return raw_client().create(path, value, makepath=True)
+    except NodeExistsError as err:
+        raise exceptions.NodeExistsError("%s: %s" % (path, err))
 
 
 build_arg_parser = at.build_arg_parser([

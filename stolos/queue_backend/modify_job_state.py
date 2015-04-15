@@ -251,7 +251,7 @@ def _set_state_unsafe(
     if qbcli.exists(job_path):
         qbcli.set(job_path, state)
     else:
-        qbcli.create(job_path, state, makepath=True)
+        qbcli.create(job_path, state)
 
     log.debug(
         "Set task state",
@@ -273,7 +273,7 @@ def inc_retry_count(app_name, job_id, max_retry):
     qbcli = shared.get_qbclient()
     path = join(shared.get_job_path(app_name, job_id), 'retry_count')
     if not qbcli.exists(path):
-        qbcli.create(path, '0', makepath=False)
+        qbcli.create(path, '0')
         cnt = 0
     else:
         cnt = int(qbcli.get(path))

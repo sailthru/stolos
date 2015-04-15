@@ -20,6 +20,10 @@ class NoNodeError(StolosException):
     pass
 
 
+class NodeExistsError(StolosException):
+    pass
+
+
 class CodeError(StolosException):
     pass
 

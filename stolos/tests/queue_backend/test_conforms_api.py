@@ -1,7 +1,6 @@
 import nose.tools as nt
 import inspect
 
-from stolos import get_NS
 from stolos.queue_backend import qbcli_baseapi
 
 
@@ -11,19 +10,18 @@ def assert_function_signatures_equal(f1, f2, msg):
     nt.assert_equal(spec, base_spec, msg)
 
 
-def conforms_to_baseapi_interface():
-    qbmodule = get_NS().queue_backend
-    msg = "%s: %%s" % qbmodule.__name__
+def tests_conforms_to_baseapi_interface(qbcli):
+    msg = "%s: %%s" % qbcli.__name__
     for varname in dir(qbcli_baseapi):
         if varname.startswith("_"):
             continue
         base_obj = getattr(qbcli_baseapi, varname)
 
         nt.assert_true(
-            hasattr(qbmodule, varname), msg % "does not define %s" % varname)
+            hasattr(qbcli, varname), msg % "does not define %s" % varname)
 
         if inspect.isclass(base_obj):
-            kls = getattr(qbmodule, varname)
+            kls = getattr(qbcli, varname)
             nt.assert_true(issubclass(kls, base_obj))
             # are class method signatures == in baseapi and the backend?
             _methods = inspect.getmembers(base_obj, inspect.ismethod)
@@ -37,7 +35,7 @@ def conforms_to_baseapi_interface():
                         varname, method_name))
         elif inspect.isfunction(base_obj):
             # are the function signatures are == in baseapi and the backend?
-            f = getattr(qbmodule, varname)
+            f = getattr(qbcli, varname)
             assert_function_signatures_equal(
                 f, base_obj, msg %
                 "%s does not define the correct function signature" % varname)

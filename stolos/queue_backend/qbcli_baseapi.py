@@ -62,10 +62,16 @@ def exists(path):
 
 
 def set(path, value):
+    """Set value at given path
+    If the path does not already exist, raise stolos.exceptions.NoNodeError
+    """
     raise NotImplementedError()
 
 
-def create(path, value, makepath=False):
+def create(path, value):
+    """Set value at given path.
+    If path already exists, raise stolos.exceptions.NodeExistsError
+    """
     raise NotImplementedError()
 
 
