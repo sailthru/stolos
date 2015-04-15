@@ -10,27 +10,31 @@ from . import test_return_values
 BACKENDS = {
     'zookeeper': ('--qb_zookeeper_hosts', 'localhost:2181', ),
     # 'redis': ('--qb_redis_host', '127.0.0.1',
-              # '--qb_redis_port', '6379',
-              # '--qb_redis_db', '0'),
+    #           '--qb_redis_port', '6379',
+    #           '--qb_redis_db', '0'),
 }
 
 
 def setup_qb(backend, args):
-    return lambda func_name: (
-        ('--queue_backend', backend) + args, dict(
-            backend=backend,
-            app1=tt.makepath(func_name, 'app1'),
-            app2=tt.makepath(func_name, 'app2'),
-            app3=tt.makepath(func_name, 'app3'),
-            app4=tt.makepath(func_name, 'app4'),
-        ))
+    def _setup_qb(func_name):
+        return (
+            ('--queue_backend', backend) + args, dict(
+                backend=backend,
+                app1=tt.makepath(func_name, 'app1'),
+                app2=tt.makepath(func_name, 'app2'),
+                app3=tt.makepath(func_name, 'app3'),
+                app4=tt.makepath(func_name, 'app4'),
+            ))
+    return _setup_qb
 
 
-with_setup = lambda backend, args: tt.with_setup_factory(
-    (tt.setup_job_ids, setup_qb(backend, args), ),
-    (),
-    (tt.post_setup_queue_backend, lambda: dict(qbcli=get_NS().queue_backend))
-)
+def with_setup_factory_for_qb(backend, args):
+    return tt.with_setup_factory(
+        (tt.setup_job_ids, setup_qb(backend, args), ),
+        (),
+        (tt.post_setup_queue_backend,
+         lambda: dict(qbcli=get_NS().queue_backend))
+    )
 
 
 def test_generator(*args, **kwargs):
@@ -39,5 +43,5 @@ def test_generator(*args, **kwargs):
             for fn, f in inspect.getmembers(mod, inspect.isfunction):
                 if not fn.startswith('tests_'):
                     continue
-                test_func = with_setup(k, v)(f)
+                test_func = with_setup_factory_for_qb(k, v)(f)
                 yield test_func
