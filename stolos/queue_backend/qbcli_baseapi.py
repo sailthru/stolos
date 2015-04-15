@@ -1,3 +1,6 @@
+from stolos import argparse_shared as _at
+
+
 class LockingQueue(object):
     def __init__(self, path):
         raise NotImplemented()
@@ -36,34 +39,34 @@ def delete(path, recursive=False):
     raise NotImplementedError()
 
 
-def get(self, path):
+def get(path):
     """Get value at given path.
     If path does not exist, throw stolos.exceptions.NoNodeError
     """
     raise NotImplementedError()
 
 
-def get_children(self, path):
+def get_children(path):
     """Get names of child nodes under given path
     If path does not exist, throw stolos.exceptions.NoNodeError
     """
     raise NotImplementedError()
 
 
-def count_children(self, path):
+def count_children(path):
     raise NotImplementedError()
 
 
-def exists(self, path):
+def exists(path):
     raise NotImplementedError()
 
 
-def set(self, path, value):
+def set(path, value):
     raise NotImplementedError()
 
 
-def create(self, path, value, makepath=False):
+def create(path, value, makepath=False):
     raise NotImplementedError()
 
 
-# build_arg_parser = NotImplementedError()
+build_arg_parser = _at.build_arg_parser([])

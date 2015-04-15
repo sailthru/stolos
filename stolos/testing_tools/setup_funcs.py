@@ -18,6 +18,12 @@ TASKS_JSON_READ_FP = join(
     dirname(dirname(abspath(__file__))), 'examples/tasks.json')
 
 
+def makepath(func_name, k=None):
+    if k is not None:
+        return 'test_stolos/%s/%s' % (func_name, k)
+    return 'test_stolos/%s' % func_name
+
+
 def _create_tasks_json(func_name, inject={}):
     """
     Create a new default tasks.json file
@@ -34,9 +40,9 @@ def _create_tasks_json(func_name, inject={}):
     tc1 = simplejson.dumps(tasks_config)
     tc2 = simplejson.dumps(inject)
     renames = [
-        (k, 'test_stolos/%s/%s' % (func_name, k))
+        (k, makepath(func_name, k))
         for k in (x for y in (tasks_config, inject) for x in y)
-        if not k.startswith('test_stolos/%s/' % func_name)]
+        if not k.startswith(makepath(func_name))]
     for k, new_k in renames:
         tc1 = tc1.replace(simplejson.dumps(k), simplejson.dumps(new_k))
         tc2 = tc2.replace(simplejson.dumps(k), simplejson.dumps(new_k))
@@ -56,7 +62,7 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
 
 
 def teardown_queue_backend(func_name):
-    qb.get_qbclient().delete('test_stolos/%s' % func_name, recursive=True)
+    qb.get_qbclient().delete(makepath(func_name), recursive=True)
 
 
 def setup_tasks_json(func_name):
@@ -142,11 +148,11 @@ def inject_into_dag(func_name, inject_dct):
     """Update (add or replace) tasks in dag with new task config.
     Assumes that the config we're using is the JSONMapping
     """
-    if not all(k.startswith('test_stolos/%s/' % func_name)
+    if not all(k.startswith(makepath(func_name))
                for k in inject_dct):
         raise UserWarning(
-            "inject_into_dag can only inject app_names that"
-            " have the correct prefix:  test_stolos/%s/{app_name}" % func_name)
+            "inject_into_dag can only inject app_names that have the"
+            " correct prefix:  %s" % makepath(func_name, '{app_name}'))
     f = _create_tasks_json(func_name, inject=inject_dct)[0]
     _initialize([cb, dt, qb], args=['--tasks_json', f])
 

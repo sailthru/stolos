@@ -24,12 +24,9 @@ cycle_queue, consume_queue, get_qb_status,
 
 # let tests configure their own setup and teardown
 from setup_funcs import (
-    with_setup_factory,
-    setup_tasks_json, teardown_tasks_json, teardown_queue_backend,
-    post_setup_queue_backend)
-with_setup_factory,
-setup_tasks_json, teardown_tasks_json, teardown_queue_backend,
-post_setup_queue_backend
+    with_setup_factory, makepath,
+    post_setup_queue_backend, setup_job_ids)
+with_setup_factory, makepath, post_setup_queue_backend, setup_job_ids
 
 # offer some reasonable pre-set defaults
 from setup_funcs import (
@@ -37,3 +34,7 @@ from setup_funcs import (
     default_with_setup as with_setup,
 )
 inject_into_dag, with_setup, with_setup_factory
+
+
+from with_setup_tools import smart_run
+smart_run
