@@ -41,7 +41,8 @@ def test_generator(*args, **kwargs):
     for k, v in BACKENDS.items():
         for mod in [test_conforms_api, test_return_values]:
             for fn, f in inspect.getmembers(mod, inspect.isfunction):
-                if not fn.startswith('tests_'):
+                if not fn.startswith('QBtest_'):
                     continue
                 test_func = with_setup_factory_for_qb(k, v)(f)
+                test_func.description = 'test_backend.%s' % f.__name__
                 yield test_func
