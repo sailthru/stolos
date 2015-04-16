@@ -594,15 +594,15 @@ def test_child_running_while_parent_pending_but_not_executing(
         app1, app2, job_id1):
     enqueue(app1, job_id1)
     enqueue(app2, job_id1)
-    parents_completed, consume_queue, parent_locks = \
-        qb.ensure_parents_completed(app2, job_id1, timeout=1)
+    parents_completed, consume_queue, parent_lock = \
+        qb.ensure_parents_completed(app2, job_id1)
     # ensure lock is obtained by ensure_parents_completed
     validate_one_queued_executing_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
     nose.tools.assert_equal(parents_completed, False)
     # child should promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, True)
-    nose.tools.assert_equal(len(parent_locks), 1)
+    nose.tools.assert_is_instance(parent_lock, qb.BaseLock)
 
 
 @with_setup
@@ -612,14 +612,14 @@ def test_child_running_while_parent_pending_and_executing(
     enqueue(app2, job_id1)
     lock = qb.obtain_execute_lock(app1, job_id1)
     assert lock
-    parents_completed, consume_queue, parent_locks = \
-        qb.ensure_parents_completed(app2, job_id1, timeout=1)
+    parents_completed, consume_queue, parent_lock = \
+        qb.ensure_parents_completed(app2, job_id1)
     validate_one_queued_executing_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
     nose.tools.assert_equal(parents_completed, False)
     # child should not promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, False)
-    nose.tools.assert_equal(parent_locks, set())
+    nose.tools.assert_is_none(parent_lock)
 
 
 @with_setup

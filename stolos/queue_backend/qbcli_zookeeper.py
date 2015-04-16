@@ -1,10 +1,14 @@
 import atexit
 from kazoo.client import (
     KazooClient,
+    Lock as _zkLock,
+    LockingQueue as _zkLockingQueue
+)
+from kazoo.exceptions import (
     NoNodeError,
     NodeExistsError,
     NotEmptyError,
-    Lock as _zkLock, LockingQueue as _zkLockingQueue
+    LockTimeout,
 )
 from os.path import join
 
@@ -67,7 +71,13 @@ class Lock(BaseLock):
         self._l = _zkLock(client=raw_client(), path=path)
 
     def acquire(self, blocking=True, timeout=None):
-        return self._l.acquire(blocking=blocking, timeout=timeout)
+        try:
+            return self._l.acquire(blocking=blocking, timeout=timeout)
+        except NoNodeError:
+            raise UserWarning(
+                "Timeout of %s seconds is too short to acquire lock" % timeout)
+        except LockTimeout:
+            return False
 
     def release(self):
         if not self._l.release():
@@ -93,9 +103,12 @@ def raw_client():
 def delete(path, recursive=False):
     try:
         raw_client().delete(path, recursive=recursive)
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(
+            "cannot delete non existent path, %s.  err: %s" % (path, err))
     except NotEmptyError as err:
         raise exceptions.NodeExistsError(
-            "Cannot delete path because it has child nodes and you did not"
+            "cannot delete path because it has child nodes and you did not"
             " specify recursive=True.  path: %s  err: %s" % (path, err))
 
 

@@ -24,10 +24,13 @@ def _obtain_lock(typ, app_name, job_id,
         execute locks guarantee only one instance of a job at a time
         add locks guarantee only one process can queue a job at a time
     `safe` (bool) By default, this function is `safe` because it will not
-    create a node for the job_id if it doesn't already exist.
+        create a node for the job_id if it doesn't already exist.
     `raise_on_error` (bool) if False, just return False.
-                     only applicable if `safe` is True.
-    `timeout` and `blocking` are options passed to lock.aquire(...)
+        Otherwise, raise errors if LockAlreadyAcquired or if safe=True
+        and job_id path does not exist
+    `timeout` (int) num seconds to wait client-side to try to acquire lock
+    `blocking` (bool) if True, wait up to `timeout` to acquire lock, or forever
+        if False, return as soon as we confirm that anyone has lock
 
     Either return a lock or [ raise | return False ]
     """
@@ -47,14 +50,12 @@ def _obtain_lock(typ, app_name, job_id,
     path = shared.get_lock_path(typ, app_name, job_id)
     assert path.startswith(_path), "Code Error!"
     l = qbcli.Lock(path)
-    try:
-        l.acquire(timeout=timeout, blocking=blocking)
-    except:
-        if raise_on_error:
+    if not l.acquire(timeout=timeout, blocking=blocking):
+        if raise_on_error:  # TODO: rename to raise_if_acquired
             raise exceptions.LockAlreadyAcquired(
                 '%s Lock already acquired. %s %s' % (typ, app_name, job_id))
         else:
-            log.warn(
+            log.debug(
                 "%s Lock already acquired." % typ,
                 extra=dict(app_name=app_name, job_id=job_id))
             return False

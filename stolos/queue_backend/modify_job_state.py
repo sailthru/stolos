@@ -39,11 +39,10 @@ def _queue(app_name, job_id, queue=True, priority=None):
 
 
 @util.pre_condition(dt.parse_job_id)
-def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
+def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     """Add a subtask to the queue if it hasn't been added yet.
 
     `queue` (bool, optional) - if False, don't add the subtask to queue
-    `timeout` (int, optional) - num seconds to wait for a lock before queueing
     `priority` (int, optional) - prioritize this item in the queue.
         1 is highest priority 100 is lowest priority.
         Irrelevant if `queue` is False
@@ -52,7 +51,7 @@ def maybe_add_subtask(app_name, job_id, timeout=5, queue=True, priority=None):
     if qbcli.exists(shared.get_job_path(app_name, job_id)):
         return False
     # get a lock so we guarantee this task isn't being added twice concurrently
-    lock = obtain_add_lock(app_name, job_id, timeout=timeout, safe=False)
+    lock = obtain_add_lock(app_name, job_id, blocking=False, safe=False)
     if not lock:
         return False
     try:
@@ -116,8 +115,20 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
     """
     # obtain lock
     try:
-        lock = obtain_add_lock(
-            app_name, job_id, timeout=timeout, raise_on_error=True)
+        if _ignore_if_queued:  # don't bother waiting for an add lock.
+            # Assume that ignore_if_queued == True implies the task might get
+            # added to the queue while it is still in the queue.
+            #  At this point,
+            # we assume it makes no difference whether the task
+            # is re-added once
+            # or more.  Since multiple processes might be trying to re-add at
+            # the same time, just let one of them do it and, at least in this
+            # section, raise a failure for the others.
+            lock = obtain_add_lock(
+                app_name, job_id, blocking=False, raise_on_error=True)
+        else:
+            lock = obtain_add_lock(
+                app_name, job_id, timeout=timeout, raise_on_error=True)
     except exceptions.CouldNotObtainLock:
         # call maybe_add_subtask(...) and return
         added = maybe_add_subtask(app_name, job_id)
@@ -131,6 +142,7 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
         # - task currently being added by another process
         # - process that was performing above op died a few seconds ago
         raise
+    assert lock, "Code Error: should have the add lock at this point"
     try:
         if _force:
             queued = False
@@ -291,7 +303,7 @@ def inc_retry_count(app_name, job_id, max_retry):
     return exceeded_limit
 
 
-def ensure_parents_completed(app_name, job_id, timeout):
+def ensure_parents_completed(app_name, job_id):
     """
     Assume that given job_id is pulled from the app_name's queue.
 
@@ -309,7 +321,7 @@ def ensure_parents_completed(app_name, job_id, timeout):
     """
     parents_completed = True
     consume_queue = False
-    parent_locks = set()
+    parent_lock = None
     for parent, pjob_id, dep_grp in dt.get_parents(app_name, job_id, True):
         if check_state(app_name=parent, job_id=pjob_id, completed=True):
             continue
@@ -325,7 +337,7 @@ def ensure_parents_completed(app_name, job_id, timeout):
         # parent will.
 
         # Assume the default is I requeue myself.  Sometimes, this might result
-        # in me cycling through the queue a couple times.
+        # in me cycling through the queue a couple times until parent finishes.
 
         # If parent is running, it will be able to requeue me if I exit in
         # time.  If it doesn't, either I'll requeue myself by default or
@@ -344,17 +356,19 @@ def ensure_parents_completed(app_name, job_id, timeout):
 
         maybe_add_subtask(parent, pjob_id)
 
+        if parent_lock is not None:
+            continue  # we already found a parent that promises to requeue me
+
         elock = obtain_execute_lock(
-            parent, pjob_id,
-            raise_on_error=False, timeout=timeout)
+            parent, pjob_id, raise_on_error=False, blocking=False)
         if elock:
             if not check_state(parent, pjob_id, pending=True):
-                elock.release()  # race condition
+                elock.release()  # race condition: parent just did something!
             else:
                 consume_queue = True
-                parent_locks.add(elock)
+                parent_lock = elock
                 log.info(
                     "I will unqueue myself with the expectation that"
                     " my parent will requeue me", extra=dict(
                         app_name=app_name, job_id=job_id))
-    return parents_completed, consume_queue, parent_locks
+    return parents_completed, consume_queue, parent_lock

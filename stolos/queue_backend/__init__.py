@@ -18,8 +18,8 @@ ensure_parents_completed, _set_state_unsafe
 from .read_job_state import (check_state)
 check_state
 
-from .locking import (obtain_execute_lock, obtain_add_lock, is_execute_locked)
-obtain_execute_lock, obtain_add_lock, is_execute_locked
+from .locking import (obtain_execute_lock, is_execute_locked)
+obtain_execute_lock, is_execute_locked
 
 from .queue_maintenance import (
     delete,
@@ -28,6 +28,9 @@ from .queue_maintenance import (
     get_qsize
 )
 delete, requeue, get_job_ids_by_status, get_qsize
+
+from .qbcli_baseapi import Lock as BaseLock
+BaseLock
 
 
 build_arg_parser = at.build_arg_parser([at.group(

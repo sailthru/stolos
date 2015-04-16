@@ -36,18 +36,16 @@ def main(ns):
     if ns.job_id:
         lock = _handle_manually_given_job_id(ns)
     else:
-        lock = None
         ns.job_id = q.get(timeout=ns.timeout)
         if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,
                                q=q, timeout=ns.timeout):
             return
-    log.info(
-        "Stolos got a job_id.  Checking if it is runnable", extra=dict(
-            app_name=ns.app_name, job_id=ns.job_id))
-    lock = get_lock_if_job_is_runnable(
-        app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout,
-        lock=lock)
+        lock = get_lock_if_job_is_runnable(
+            app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout)
 
+    log.debug(
+        "Stolos got a job_id.", extra=dict(
+            app_name=ns.app_name, job_id=ns.job_id, acquired_lock=bool(lock)))
     if lock is False:
         # infinite loop: some jobs will always requeue if lock is unobtainable
         log.info("Could not obtain a lock.  Will requeue and try again later",
@@ -56,20 +54,8 @@ def main(ns):
             q=q, app_name=ns.app_name, job_id=ns.job_id)
         return
 
-    parents_completed, consume_queue, parent_locks = \
-        qb.ensure_parents_completed(
-            app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout)
-    if parents_completed is False:
-        if consume_queue:
-            q.consume()
-        else:
-            _send_to_back_of_queue(
-                q=q, app_name=ns.app_name, job_id=ns.job_id)
-        lock.release()
-        [l.release() for l in parent_locks]
+    if not parents_completed(ns.app_name, ns.job_id, q=q, lock=lock):
         return
-    else:
-        assert not parent_locks
 
     log.info(
         "Job starting!", extra=dict(app_name=ns.app_name, job_id=ns.job_id))
@@ -80,12 +66,31 @@ def main(ns):
         return
     except Exception as err:
         log.exception(
-            ("Shit!  Unhandled exception in an application! Fix ASAP because"
-             " it is unclear how to handle this failure. Job failed.  %s: %s")
+            ("Job failed!  Unhandled exception in an application!"
+             " Fix ASAP because"
+             " it is unclear how to handle this failure.  %s: %s")
             % (err.__class__.__name__, err), extra=dict(
                 app_name=ns.app_name, job_id=ns.job_id, failed=True))
         return
     _handle_success(ns, q, lock)
+
+
+def parents_completed(app_name, job_id, q, lock):
+    """Ensure parents are completed and if they aren't, return False"""
+    parents_completed, consume_queue, parent_lock = \
+        qb.ensure_parents_completed(app_name=app_name, job_id=job_id)
+    if parents_completed is False:
+        if consume_queue:
+            q.consume()
+            parent_lock.release()
+        else:
+            _send_to_back_of_queue(
+                q=q, app_name=app_name, job_id=job_id)
+        lock.release()
+        return False
+    else:
+        assert parent_lock is None, "Code Error"
+        return True
 
 
 def validate_job_id(app_name, job_id, q, timeout):
@@ -133,9 +138,9 @@ def _handle_manually_given_job_id(ns):
     return lock
 
 
-def get_lock_if_job_is_runnable(app_name, job_id, timeout, lock):
+def get_lock_if_job_is_runnable(app_name, job_id, timeout):
     """Return a lock instance or False.  If returning False,
-    the job is not ready to execute.  If we already have the lock, use that one
+    the job is not ready to execute.
     """
 
     available = qb.check_state(
@@ -155,11 +160,7 @@ def get_lock_if_job_is_runnable(app_name, job_id, timeout, lock):
                     state=qb.check_state(
                         app_name, job_id, _get=True)))
             return False
-    if lock:
-        l = lock
-    else:
-        l = qb.obtain_execute_lock(
-            app_name, job_id, timeout=timeout)
+    l = qb.obtain_execute_lock(app_name, job_id, blocking=False)
     if l is False:
         log.warn('Could not obtain execute lock for task because'
                  ' something is already processing this job_id',
