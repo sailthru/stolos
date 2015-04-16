@@ -219,7 +219,7 @@ def load_obj_from_path(import_path, ld=dict()):
     try:
         return importlib.import_module(import_path)
     except ImportError as err:
-        log.debug("Given import path did not lead to a module."
+        log.debug("Import path was not a module."
                   " Perhaps it points to a python object...",
                   extra=dict(err_msg=err, import_path=import_path))
     log.debug(
@@ -239,8 +239,7 @@ def load_obj_from_path(import_path, ld=dict()):
     except AttributeError:
         _log_raise(
             ("object does not exist in given module."
-             " Your import path is not"
-             " properly defined because the given `obj_name` does not exist"),
+             " Fix your import path."),
             extra=dict(import_path=import_path, obj_name=obj_name, **ld),
             exception_kls=ImportWarning)
     return obj
