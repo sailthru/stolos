@@ -23,14 +23,17 @@ from stolos import log
 def _get_parent_parsers(objects):
     """Internal function to call m.build_arg_parser() for each m in objects"""
     for m in set(objects):
-        p = m.build_arg_parser()
-        if not isinstance(p, argparse.ArgumentParser):
-            msg = (
-                "Failed to initialize Stolos because the initializer"
-                " epected an instance of argparse.ArgumentParser but received"
-                " something else")
-            log.error(msg, extra=dict(parent_argparser=p))
-            raise TypeError("%s.  Received: %s" % (msg, type(p)))
+        if not isinstance(m, argparse.ArgumentParser):
+            p = m.build_arg_parser()
+            if not isinstance(p, argparse.ArgumentParser):
+                msg = (
+                    "Failed to initialize Stolos because the initializer"
+                    " expected an instance of argparse.ArgumentParser but"
+                    " received something else")
+                log.error(msg, extra=dict(unrecognized_object=p))
+                raise TypeError("%s.  Received: %s" % (msg, type(p)))
+        else:
+            p = m
         yield p
 
 
