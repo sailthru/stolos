@@ -3,6 +3,7 @@ from kazoo.client import (
     KazooClient,
     NoNodeError,
     NodeExistsError,
+    NotEmptyError,
     Lock as _zkLock, LockingQueue as _zkLockingQueue
 )
 from os.path import join
@@ -92,29 +93,31 @@ def raw_client():
 def delete(path, recursive=False):
     try:
         raw_client().delete(path, recursive=recursive)
-    except NoNodeError as err:
-        raise exceptions.NoNodeError(err)
+    except NotEmptyError as err:
+        raise exceptions.NodeExistsError(
+            "Cannot delete path because it has child nodes and you did not"
+            " specify recursive=True.  path: %s  err: %s" % (path, err))
 
 
 def get(path):
     try:
         return raw_client().get(path)[0]
     except NoNodeError as err:
-        raise exceptions.NoNodeError(err)
+        raise exceptions.NoNodeError("%s: %s" % (path, err))
 
 
 def get_children(path):
     try:
         return raw_client().get_children(path)
     except NoNodeError as err:
-        raise exceptions.NoNodeError(err)
+        raise exceptions.NoNodeError("%s: %s" % (path, err))
 
 
 def count_children(path):
     try:
         return raw_client().get(path)[1].numChildren
     except NoNodeError as err:
-        raise exceptions.NoNodeError(err)
+        raise exceptions.NoNodeError("%s: %s" % (path, err))
 
 
 def exists(path):
@@ -122,7 +125,11 @@ def exists(path):
 
 
 def set(path, value):
-    return raw_client().set(path, value)
+    try:
+        return raw_client().set(path, value)
+    except NoNodeError as err:
+        raise exceptions.NoNodeError(
+            "Must first create node before setting a new value. %s" % err)
 
 
 def create(path, value):

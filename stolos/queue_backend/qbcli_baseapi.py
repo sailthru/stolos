@@ -54,10 +54,14 @@ def get_children(path):
 
 
 def count_children(path):
+    """Count number of child nodes at given parent path
+    If the path does not already exist, raise stolos.exceptions.NoNodeError
+    """
     raise NotImplementedError()
 
 
 def exists(path):
+    """Return True if path exists (value can be ''), False otherwise"""
     raise NotImplementedError()
 
 
