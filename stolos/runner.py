@@ -35,6 +35,7 @@ def main(ns):
     q = qb.get_qbclient().LockingQueue(ns.app_name)
     if ns.job_id:
         lock = _handle_manually_given_job_id(ns)
+        q.consume = object  # do nothing
     else:
         ns.job_id = q.get(timeout=ns.timeout)
         if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,

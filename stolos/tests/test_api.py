@@ -53,8 +53,7 @@ def test_check_state2(app1, job_id1, job_id2, job_id3):
 
 @tt.with_setup
 def test_get_qsize(app1, job_id1, job_id2):
-    with nt.assert_raises(NoNodeError):
-        api.get_qsize(app1, queued=True, taken=True)
+    nt.assert_equal(api.get_qsize(app1, queued=True, taken=True), 0)
     tt.enqueue(app1, job_id1, )
     tt.enqueue(app1, job_id2, validate_queued=False)
     q = api.get_qbclient().LockingQueue(app1)
