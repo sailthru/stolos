@@ -6,12 +6,19 @@ class LockingQueue(object):
         raise NotImplemented()
 
     def put(self, value, priority=100):
+        """Add item onto queue.
+        Rank items by priority.  Get low priority items before high priority
+        """
         raise NotImplemented()
 
     def consume(self):
+        """Consume value gotten from queue.
+        Raise UserWarning if consume() called before get()
+        """
         raise NotImplemented()
 
     def get(self, timeout=None):
+        """Get an item from the queue or return None"""
         raise NotImplemented()
 
     def size(self, queued=True, taken=True):
@@ -22,6 +29,8 @@ class LockingQueue(object):
             being processed or otherwise locked
         `taken` - Include the entries in the queue that are currently being
             processed or are otherwise locked
+
+        Raise AttributeError if both queued=False and taken=False
         """
         raise NotImplemented()
 

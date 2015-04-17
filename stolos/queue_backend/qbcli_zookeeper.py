@@ -29,7 +29,7 @@ class LockingQueue(BaseLockingQueue):
         self._q.put(value, priority=priority)
 
     def consume(self):
-        if self._q.consume() is None:
+        if not self._q.consume():
             raise UserWarning(
                 "Cannot consume() from queue without first calling q.get()")
 
@@ -47,17 +47,23 @@ class LockingQueue(BaseLockingQueue):
         """
         pq = join(self._path, 'entries')
         pt = join(self._path, 'taken')
+        zk = raw_client()
         if queued:
-            entries = count_children(pq)
+            try:
+                entries = zk.exists(pq).numChildren
+            except AttributeError:
+                return 0
             if taken:
                 return entries
             else:
-                taken = count_children(pt)
+                taken = zk.exists(pt).numChildren
                 return entries - taken
         else:
             if taken:
-                taken = count_children(pt)
-                return taken
+                try:
+                    return zk.exists(pt).numChildren
+                except AttributeError:
+                    return 0
             else:
                 raise AttributeError(
                     "You asked for an impossible situation.  Queue items are"
@@ -128,9 +134,9 @@ def get_children(path):
 
 def count_children(path):
     try:
-        return raw_client().get(path)[1].numChildren
-    except NoNodeError as err:
-        raise exceptions.NoNodeError("%s: %s" % (path, err))
+        return raw_client().exists(path).numChildren
+    except AttributeError:
+        raise exceptions.NoNodeError(path)
 
 
 def exists(path):

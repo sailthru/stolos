@@ -137,5 +137,117 @@ def QBtest_Lock(qbcli, app1, app2):
     lock2.release()
 
 
-def QBtest_LockingQueue(qbcli, app1):
-    raise NotImplementedError("no tests here yet")
+def QBtest_LockingQueue_put_get(qbcli, app1):
+    nt.assert_false(qbcli.exists(app1))
+    # instantiating LockingQueue does not create any objects in backend
+    queue = qbcli.LockingQueue(app1)
+    nt.assert_equal(queue.size(), 0)
+
+    # fail if consuming before you've gotten anything
+    with nt.assert_raises(UserWarning):
+        queue.consume()
+
+    # get nothing from an empty queue (and don't fail!)
+    nt.assert_is_none(queue.get(timeout=0))
+    nt.assert_is_none(queue.get(timeout=1))
+
+    # put item in queue
+    nt.assert_equal(queue.size(), 0)
+    queue.put('a')
+    queue.put('b')
+    queue.put('a')
+    nt.assert_equal(queue.size(), 3)
+
+    nt.assert_equal(queue.get(0), 'a')
+    nt.assert_equal(queue.get(), 'a')
+
+    # Multiple LockingQueue instances can address the same path
+    queue2 = qbcli.LockingQueue(app1)
+    nt.assert_equal(queue2.size(), 3)
+    nt.assert_equal(queue2.get(), 'b')
+    nt.assert_equal(queue.get(), 'a')  # ensure not somehow mutable or linked
+
+
+def QBtest_LockingQueue_put_priority(qbcli, app1):
+    nt.assert_false(qbcli.exists(app1))
+    queue = qbcli.LockingQueue(app1)
+    queue2 = qbcli.LockingQueue(app1)
+
+    queue.put('b', 50)
+    queue.put('c', 60)
+    queue.put('e', 70)
+    queue.put('d', 40)
+    queue2.put('a', 20)
+    queue2.put('f', 80)
+
+    # get in prioritized order, from different LockingQueue objects
+    queue3 = qbcli.LockingQueue(app1)
+    nt.assert_equal(queue.get(), 'a')
+    nt.assert_equal(queue2.get(), 'd')
+    queue.consume()
+    nt.assert_equal(queue.get(), 'b')
+    queue.consume()
+    nt.assert_equal(queue.get(), 'c')
+    queue.consume()
+    queue2.consume()
+    nt.assert_equal(queue3.get(), 'e')
+    queue3.consume()
+    nt.assert_equal(queue2.get(), 'f')
+
+    # insertion order matters, too
+    queue2.put('B')
+    queue2.put('C')
+    queue2.put('A')
+    nt.assert_equal(queue.get(), 'B')
+    queue.consume()
+    nt.assert_equal(queue.get(), 'C')
+    queue.consume()
+    nt.assert_equal(queue.get(), 'A')
+    queue.consume()
+
+
+def QBtest_LockingQueue_consume_size(qbcli, app1):
+    nt.assert_false(qbcli.exists(app1))
+    queue = qbcli.LockingQueue(app1)
+    with nt.assert_raises(UserWarning):
+        queue.consume()
+
+    queue.put('a')
+    queue.put('b')
+    nt.assert_equal(queue.get(), 'a')
+
+    nt.assert_equal(queue.size(), 2)
+    nt.assert_is_none(queue.consume())
+    nt.assert_equal(queue.size(queued=False), 0)
+    nt.assert_equal(queue.size(taken=False), 1)
+
+    nt.assert_equal(queue.get(), 'b')
+    nt.assert_equal(queue.size(queued=False), 1)
+    nt.assert_equal(queue.size(taken=False), 0)
+    nt.assert_equal(queue.size(), 1)
+    nt.assert_is_none(queue.consume())
+    nt.assert_equal(queue.size(), 0)
+
+
+def QBtest_LockingQueue_size(qbcli, app1):
+    nt.assert_false(qbcli.exists(app1))
+    queue = qbcli.LockingQueue(app1)
+    with nt.assert_raises(AttributeError):
+        queue.size(taken=False, queued=False)
+
+    nt.assert_equal(queue.size(), 0)
+    nt.assert_equal(queue.size(taken=True, queued=False), 0)
+    nt.assert_equal(queue.size(taken=False, queued=True), 0)
+    queue.put('a')
+    nt.assert_equal(queue.size(), 1)
+    queue.put('b')
+    queue.put('a')
+    nt.assert_equal(queue.size(), 3)
+    nt.assert_equal(queue.size(taken=True, queued=True), 3)
+
+    # test various parameters of queue.size
+    queue.get()
+    nt.assert_equal(queue.size(taken=True, queued=False), 1)
+    nt.assert_equal(queue.size(queued=False), 1)
+    nt.assert_equal(queue.size(taken=False, queued=True), 2)
+    nt.assert_equal(queue.size(taken=False), 2)
