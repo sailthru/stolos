@@ -111,7 +111,7 @@ def QBtest_delete(qbcli, app1, app2):
     nt.assert_false(qbcli.exists(app2))
 
 
-def QBtest_Lock(qbcli, app1, app2):
+def QBtest_Lock(qbcli, app1):
     lock = qbcli.Lock(app1)
     nt.assert_false(qbcli.exists(app1))
 
@@ -135,6 +135,26 @@ def QBtest_Lock(qbcli, app1, app2):
     lock.release()
     nt.assert_true(lock2.acquire(blocking=False, timeout=1))
     lock2.release()
+
+
+def QBtest_Lock_paths(qbcli, app1, app2):
+    # respects different paths as different locks
+    lock1 = qbcli.Lock(app1)
+    lock2 = qbcli.Lock(app2)
+    nt.assert_true(lock1.acquire(blocking=False))
+    nt.assert_true(lock2.acquire(blocking=False))
+
+
+def QBtest_LockingQueue_put_paths(qbcli, app1, app2):
+    # respects different paths as different queues
+    queue = qbcli.LockingQueue(app1)
+    queue2 = qbcli.LockingQueue(app2)
+
+    queue.put('a')
+    queue2.put('c')
+    nt.assert_equal(queue2.get(), 'c')
+    nt.assert_is_none(queue2.get(0))
+    nt.assert_equal(queue.get(), 'a')
 
 
 def QBtest_LockingQueue_put_get(qbcli, app1):
