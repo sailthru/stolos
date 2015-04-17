@@ -9,9 +9,9 @@ from . import test_return_values
 
 BACKENDS = {
     'zookeeper': ('--qb_zookeeper_hosts', 'localhost:2181', ),
-    # 'redis': ('--qb_redis_host', '127.0.0.1',
-    #           '--qb_redis_port', '6379',
-    #           '--qb_redis_db', '0'),
+    'redis': ('--qb_redis_host', '127.0.0.1',
+              '--qb_redis_port', '6379',
+              '--qb_redis_db', '0'),
 }
 
 
@@ -44,5 +44,5 @@ def test_generator(*args, **kwargs):
                 if not fn.startswith('QBtest_'):
                     continue
                 test_func = with_setup_factory_for_qb(k, v)(f)
-                test_func.description = 'test_backend.%s' % f.__name__
+                test_func.description = 'test_backend.%s.%s' % (k, f.__name__)
                 yield test_func
