@@ -71,9 +71,9 @@ def _load_backend(known_backends, backend_type):
             backend = util.load_obj_from_path(
                 _backend,
                 {'key': '%s_backend' % backend_type, backend_type: _backend})
-        except:
+        except Exception as err:
             log.error(
-                "Could not load %s backend" % backend_type,
+                "Could not load %s backend. err: %s" % (backend_type, err),
                 extra={'%s_backend' % backend_type: _backend})
             raise
         return backend
