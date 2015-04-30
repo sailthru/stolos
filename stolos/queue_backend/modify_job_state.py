@@ -78,20 +78,6 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
             pass  # no need to recurse further down the tree
 
 
-def _check_if_queued(app_name, job_id):
-    # TODO: leave this here? or pull it into the QB api?
-    qbcli = shared.get_qbclient()
-    p = join(app_name, 'entries')
-    try:
-        queued_jobs = {qbcli.get(join(p, x)) for x in qbcli.get_children(p)}
-    except exceptions.NoNodeError:
-        queued_jobs = set()
-
-    if job_id in queued_jobs:
-        return True
-    return False
-
-
 @util.pre_condition(dt.parse_job_id)
 def readd_subtask(app_name, job_id, timeout=5, _force=False,
                   _reset_descendants=True, _ignore_if_queued=False):
@@ -113,6 +99,7 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
     First, validate that the job isn't already queued.
     Then, queue the task
     """
+    qbcli = shared.get_qbclient()
     # obtain lock
     try:
         if _ignore_if_queued:  # don't bother waiting for an add lock.
@@ -147,8 +134,7 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
         if _force:
             queued = False
         else:
-            queued = _check_if_queued(
-                app_name, job_id)
+            queued = qbcli.LockingQueue(app_name).is_queued(job_id)
             if queued and _ignore_if_queued:
                 log.debug(
                     "Job already queued!  We'll handle this properly."

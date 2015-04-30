@@ -71,6 +71,22 @@ class LockingQueue(BaseLockingQueue):
                     "  You cannot have queue entries"
                     " that are both not locked and not waiting.")
 
+    def is_queued(self, value):
+        """
+        Return True if item is in queue or currently being processed.
+        False otherwise
+        """
+        entries = self._q.structure_paths[1]
+        # eek this is aweful
+        try:
+            items = {qbcli.get(join(p, x)) for x in qbcli.get_children(p)}
+        except exceptions.NoNodeError:
+            items = set()
+
+        if value in items:
+            return True
+        return False
+
 
 class Lock(BaseLock):
     def __init__(self, path):
@@ -89,6 +105,12 @@ class Lock(BaseLock):
         if not self._l.release():
             raise UserWarning(
                 "Cannot release() lock if you haven't called acquire()")
+
+    def is_locked(self):
+        try:
+            return bool(count_children(path))
+        except exceptions.NoNodeError:
+            return False
 
 
 @util.cached

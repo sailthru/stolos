@@ -47,6 +47,13 @@ class LockingQueue(BaseLockingQueue):
         """
         raise NotImplemented()
 
+    def is_queued(self, value):
+        """
+        Return True if item is in queue or currently being processed.
+        False otherwise
+        """
+        raise NotImplemented()
+
 
 class Lock(BaseLock):
     def __init__(self, path):
@@ -56,6 +63,15 @@ class Lock(BaseLock):
         raise NotImplemented()
 
     def release(self):
+        raise NotImplemented()
+
+    def is_locked(self):
+        """
+        Return True if path is currently locked by anyone, and False otherwise
+        """
+        # TODO: this is really an exists.
+        # redis calls exists. returns T|F)
+        # return qbcli.Lock.exists(path)
         raise NotImplemented()
 
 

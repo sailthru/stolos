@@ -63,9 +63,7 @@ def _obtain_lock(typ, app_name, job_id,
 
 
 def is_execute_locked(app_name, job_id):
+    """Does anyone currently have the execute lock?"""
     qbcli = shared.get_qbclient()
     path = shared.get_lock_path('execute', app_name, job_id)
-    try:
-        return bool(qbcli.get_children(path))
-    except exceptions.NoNodeError:
-        return False
+    return qbcli.Lock(path).is_locked()

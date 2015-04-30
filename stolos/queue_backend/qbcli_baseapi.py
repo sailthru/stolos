@@ -34,12 +34,25 @@ class LockingQueue(object):
         """
         raise NotImplemented()
 
+    def is_queued(self, value):
+        """
+        Return True if item is in queue or currently being processed.
+        False otherwise
+        """
+        raise NotImplemented()
+
 
 class Lock(object):
     def acquire(self, blocking=True, timeout=None):
         raise NotImplemented()
 
     def release(self):
+        raise NotImplemented()
+
+    def is_locked(self):
+        """
+        Return True if path is currently locked by anyone, and False otherwise
+        """
         raise NotImplemented()
 
 

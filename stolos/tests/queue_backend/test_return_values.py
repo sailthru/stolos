@@ -137,6 +137,10 @@ def QBtest_Lock(qbcli, app1):
     lock2.release()
 
 
+def QBtest_Lock_is_locked(qbcli, app1, app2):
+    raise NotImplementedError("TODO")
+
+
 def QBtest_Lock_paths(qbcli, app1, app2):
     # respects different paths as different locks
     lock1 = qbcli.Lock(app1)
@@ -271,3 +275,7 @@ def QBtest_LockingQueue_size(qbcli, app1):
     nt.assert_equal(queue.size(queued=False), 1)
     nt.assert_equal(queue.size(taken=False, queued=True), 2)
     nt.assert_equal(queue.size(taken=False), 2)
+
+
+def QBtest_LockingQueue_is_queued(qbcli, app1):
+    raise NotImplementedError("TODO")
