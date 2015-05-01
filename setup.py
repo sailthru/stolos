@@ -40,7 +40,7 @@ setup(
 
     extras_require={
         'pyspark': ['pyspark'],
-        'redis': ['redis', 'hiredis'],
+        'redis': ['redis', 'hiredis', 'majorityredis'],
         'testing': ['nose>=1.3.3', 'pep8>=1.5.6', 'pyflakes>=0.8.1'],
         'ui': ['pygraphviz>=1.2'],
     },

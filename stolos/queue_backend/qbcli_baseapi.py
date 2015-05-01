@@ -9,6 +9,7 @@ class LockingQueue(object):
         """Add item onto queue.
         Rank items by priority.  Get low priority items before high priority
         """
+        # TODO: Return values?
         raise NotImplemented()
 
     def consume(self):
@@ -44,9 +45,11 @@ class LockingQueue(object):
 
 class Lock(object):
     def acquire(self, blocking=True, timeout=None):
+        # TODO: docstring
         raise NotImplemented()
 
     def release(self):
+        # TODO: docstring
         raise NotImplemented()
 
     def is_locked(self):
