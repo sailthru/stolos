@@ -44,12 +44,25 @@ class LockingQueue(object):
 
 
 class Lock(object):
+    def __init__(self, path):
+        self._path = path
+
     def acquire(self, blocking=True, timeout=None):
-        # TODO: docstring
+        """
+        Acquire a lock at the Lock's path.
+
+        `blocking` (bool) If False, return immediately if we got lock.
+            If True, wait up to `timeout` seconds to acquire a lock
+        `timeout` (int) number of seconds.
+        """
+        # TODO: check return values & errors
         raise NotImplemented()
 
     def release(self):
-        # TODO: docstring
+        """
+        Release a lock at the Lock's path.
+        """
+        # TODO: check return values & errors
         raise NotImplemented()
 
     def is_locked(self):
