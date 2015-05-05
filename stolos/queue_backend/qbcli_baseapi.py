@@ -53,7 +53,7 @@ class Lock(object):
 
         `blocking` (bool) If False, return immediately if we got lock.
             If True, wait up to `timeout` seconds to acquire a lock
-        `timeout` (int) number of seconds.
+        `timeout` (int) number of seconds.  By default, wait indefinitely
         """
         # TODO: check return values & errors
         raise NotImplemented()
@@ -61,6 +61,10 @@ class Lock(object):
     def release(self):
         """
         Release a lock at the Lock's path.
+        Return True if success.  False if:
+            - did not release a lock
+            - if lock already released
+            - if lock does not exist
         """
         # TODO: check return values & errors
         raise NotImplemented()
