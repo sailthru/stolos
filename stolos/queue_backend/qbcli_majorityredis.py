@@ -1,12 +1,13 @@
-# TODO this module
 from majorityredis import (
     MajorityRedis, exceptions as mrexceptions, retry_condition)
+import random
 import redis
 import time
 
 from stolos import get_NS
 from stolos import argparse_shared as at
 from stolos import util
+import stolos.exceptions
 
 from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
 from . import log
@@ -82,20 +83,19 @@ class Lock(BaseLock):
 
         `blocking` (bool) If False, return immediately if we got lock.
             If True, wait up to `timeout` seconds to acquire a lock
-        `timeout` (int) number of seconds
+        `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        # TODO: see baseapi
-        have_lock = raw_client().Lock.lock(self._path)
-        if have_lock:
-            return True
-        elif blocking:
-            # wait up to timeout or indefinitely to gain access to the lock
-            # get ttl and make decision using that info
-            raise NotImplementedError("TODO")
+        return rawclient().Lock.lock(wait_for=timeout)
 
     def release(self):
-        # TODO: see baseapi
-        return raw_client().Lock.unlock(self._path)
+        """
+        Release a lock at the Lock's path.
+        Return True if success.  False if:
+            - did not release a lock
+            - if lock already released
+            - if lock does not exist
+        """
+        return 50 < raw_client().Lock.unlock(self._path)
 
     def is_locked(self):
         """
@@ -132,36 +132,27 @@ def count_children(path):
 
 def exists(path):
     """Return True if path exists (value can be ''), False otherwise"""
-    raise NotImplementedError()
+    return raw_client().exists(path)
 
 
 def set(path, value):
     """Set value at given path
     If the path does not already exist, raise stolos.exceptions.NoNodeError
     """
-    n = 0
-    rv = False
-    while True:
-        try:
-            rv = raw_client().set(value, h_k, nx=True)  # TODO from here
-        except mrexceptions.NoMajority:
-            pass
-        if rv:
-            break
-        n += 1
-        time.sleep(1)
-        if n > 10:
-            raise RuntimeError(
-                "The Redis queue backend must be unstable because I cannot"
-                "set on the majority of servers")
-    raise NotImplementedError()
+    # TODO: is set necessary?
+    rv = raw_client().set(path, value, retry_condition(10), xx=True)
+    if not rv:
+        raise stolos.exceptions.NoNodeError("Could not set path: %s" % path)
 
 
 def create(path, value):
     """Set value at given path.
     If path already exists, raise stolos.exceptions.NodeExistsError
     """
-    raise NotImplementedError()
+    # TODO: is create necessary?
+    rv = raw_client().set(path, value, retry_condition(10), nx=True)
+    if not rv:
+        raise stolos.exceptions.NoNodeError("Could not create path: %s" % path)
 
 
 build_arg_parser = at.build_arg_parser([
