@@ -1,8 +1,6 @@
 from majorityredis import (
-    MajorityRedis, exceptions as mrexceptions, retry_condition)
-import random
+    MajorityRedis, retry_condition)
 import redis
-import time
 
 from stolos import get_NS
 from stolos import argparse_shared as at
@@ -10,7 +8,6 @@ from stolos import util
 import stolos.exceptions
 
 from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
-from . import log
 
 
 @util.cached
@@ -85,7 +82,7 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        return rawclient().Lock.lock(wait_for=timeout)
+        return raw_client().Lock.lock(wait_for=timeout)
 
     def release(self):
         """
@@ -106,6 +103,8 @@ class Lock(BaseLock):
 
 def delete(path, recursive=False):
     """Remove path from queue backend"""
+    # TODO: how to do recursive?
+    raw_client().delete(path)
     raise NotImplementedError()
 
 
@@ -113,13 +112,17 @@ def get(path):
     """Get value at given path.
     If path does not exist, throw stolos.exceptions.NoNodeError
     """
-    raise NotImplementedError()
+    rv = raw_client().get(path)
+    if rv is None:
+        raise stolos.exceptions.NoNodeError
+    return rv
 
 
 def get_children(path):
     """Get names of child nodes under given path
     If path does not exist, throw stolos.exceptions.NoNodeError
     """
+    # TODO: how to do recursive?
     raise NotImplementedError()
 
 
@@ -127,6 +130,7 @@ def count_children(path):
     """Count number of child nodes at given parent path
     If the path does not already exist, raise stolos.exceptions.NoNodeError
     """
+    # TODO: how to do recursive?
     raise NotImplementedError()
 
 
@@ -139,7 +143,6 @@ def set(path, value):
     """Set value at given path
     If the path does not already exist, raise stolos.exceptions.NoNodeError
     """
-    # TODO: is set necessary?
     rv = raw_client().set(path, value, retry_condition(10), xx=True)
     if not rv:
         raise stolos.exceptions.NoNodeError("Could not set path: %s" % path)
@@ -149,7 +152,6 @@ def create(path, value):
     """Set value at given path.
     If path already exists, raise stolos.exceptions.NodeExistsError
     """
-    # TODO: is create necessary?
     rv = raw_client().set(path, value, retry_condition(10), nx=True)
     if not rv:
         raise stolos.exceptions.NoNodeError("Could not create path: %s" % path)
