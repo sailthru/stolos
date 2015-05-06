@@ -158,8 +158,18 @@ def create(path, value):
 
 
 build_arg_parser = at.build_arg_parser([
-    at.add_argument('--qb_redis_hosts', default=[('127.0.0.1', 6379)]),
-    at.add_argument('--qb_redis_qb_socket_timeout', default='3'),
-    at.add_argument('--qb_redis_n_servers', default=None),
+    at.add_argument(
+        '--qb_redis_hosts', default=[('127.0.0.1', 6379)],
+        type=lambda x: [y.split(':') for y in x.split(',')],
+        help="Redis servers to connect to in form: host1:port1,host2:port2"
+    ),
+    at.add_argument('--qb_redis_qb_socket_timeout', default='5', help=(
+        "number of seconds that the redis client will spend waiting for a"
+        " response from Redis.")),
+    at.add_argument(
+        '--qb_redis_n_servers', required=True, type=int, help=(
+            "The total number of Redis servers that Stolos may connect to."
+            " This number is constant over time.  If you increase it, you may"
+            " have data inconsistency issues")),
 ], description=(
     "These options specify which queue to use to store state about your jobs"))
