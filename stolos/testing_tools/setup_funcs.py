@@ -62,7 +62,7 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
 
 
 def teardown_queue_backend(func_name):
-    qb.get_qbclient().delete(makepath(func_name), recursive=True)
+    qb.get_qbclient().delete(makepath(func_name), _recursive=True)
 
 
 def setup_tasks_json(func_name):
@@ -91,7 +91,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
 
     `setup_funcs` - a list of functions that do things before a test
     `teardown_funcs` - a list of funcitons that do things after a test
-    `post_initialize` - a list of functionis to run during setup, but after
+    `post_initialize` - a list of functions to run during setup, but after
         stolos has been initialized
 
     All functions must receive `func_name` as input.

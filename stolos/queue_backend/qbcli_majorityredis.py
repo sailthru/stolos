@@ -67,7 +67,7 @@ class LockingQueue(BaseLockingQueue):
         Return True if item is in queue or currently being processed.
         False otherwise
         """
-        return self._q.is_queued(value)
+        return self._q.is_queued(item=value)
 
 
 class Lock(BaseLock):

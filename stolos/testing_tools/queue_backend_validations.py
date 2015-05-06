@@ -38,32 +38,23 @@ def get_qb_status(app_name, job_id):
     path = qb.get_job_path(app_name, job_id)
     elockpath = join(path, 'execute_lock')
     alockpath = join(path, 'add_lock')
-    entriespath = join(app_name, 'entries')
     qbcli = api.get_qbclient()
     return {
-        'num_add_locks': len(
-            qbcli.exists(alockpath) and qbcli.get_children(alockpath) or []),
-        'num_execute_locks': len(
-            qbcli.exists(elockpath) and qbcli.get_children(elockpath) or []),
-        'in_queue': (
-            any(qbcli.get(join(app_name, 'entries', x)) == job_id
-                for x in qbcli.get_children(entriespath))
-            if qbcli.exists(entriespath) else False),
-        'app_qsize': (
-            len(qbcli.get_children(entriespath))
-            if qbcli.exists(entriespath) else 0),
+        'is_add_locked': qbcli.Lock(alockpath).is_locked(),
+        'is_execute_locked': qbcli.Lock(elockpath).is_locked(),
+        'in_queue': qbcli.LockingQueue(app_name).is_queued(job_id),
+        'app_qsize': qbcli.LockingQueue(app_name).size(),
         'state': qbcli.get(path),
     }
 
 
 def validate_zero_queued_task(app_name):
     qbcli = api.get_qbclient()
-    if qbcli.exists(join(app_name, 'entries')):
-        nt.assert_equal(
-            0, len(qbcli.get_children(join(app_name, 'entries'))))
+    nt.assert_equal(qbcli.LockingQueue(app_name).size(), 0)
 
 
 def validate_zero_completed_task(app_name):
+    # TODO: figure this one out (count completed)
     qbcli = api.get_qbclient()
     if qbcli.exists(join(app_name, 'all_subtasks')):
         nt.assert_equal(
@@ -72,18 +63,18 @@ def validate_zero_completed_task(app_name):
 
 def validate_one_failed_task(app_name, job_id):
     status = get_qb_status(app_name, job_id)
-    nt.assert_equal(status['num_execute_locks'], 0)
-    nt.assert_equal(status['num_add_locks'], 0)
-    nt.assert_equal(status['in_queue'], False)
+    nt.assert_false(status['is_execute_locked'])
+    nt.assert_false(status['is_add_locked'])
+    nt.assert_false(status['in_queue'])
     # nt.assert_equal(status['app_qsize'], 1)
     nt.assert_equal(status['state'], 'failed')
 
 
 def validate_one_queued_executing_task(app_name, job_id):
     status = get_qb_status(app_name, job_id)
-    nt.assert_equal(status['num_execute_locks'], 1)
-    nt.assert_equal(status['num_add_locks'], 0)
-    nt.assert_equal(status['in_queue'], True)
+    nt.assert_true(status['is_execute_locked'])
+    nt.assert_false(status['is_add_locked'])
+    nt.assert_true(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 1)
     nt.assert_equal(status['state'], 'pending')
 
@@ -94,18 +85,18 @@ def validate_one_queued_task(app_name, job_id):
 
 def validate_one_completed_task(app_name, job_id):
     status = get_qb_status(app_name, job_id)
-    nt.assert_equal(status['num_execute_locks'], 0)
-    nt.assert_equal(status['num_add_locks'], 0)
-    nt.assert_equal(status['in_queue'], False)
+    nt.assert_false(status['is_execute_locked'])
+    nt.assert_false(status['is_add_locked'])
+    nt.assert_false(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 0)
     nt.assert_equal(status['state'], 'completed')
 
 
 def validate_one_skipped_task(app_name, job_id):
     status = get_qb_status(app_name, job_id)
-    nt.assert_equal(status['num_execute_locks'], 0)
-    nt.assert_equal(status['num_add_locks'], 0)
-    nt.assert_equal(status['in_queue'], False)
+    nt.assert_false(status['is_execute_locked'])
+    nt.assert_false(status['is_add_locked'])
+    nt.assert_false(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 0)
     nt.assert_equal(status['state'], 'skipped')
 
@@ -113,8 +104,8 @@ def validate_one_skipped_task(app_name, job_id):
 def validate_n_queued_task(app_name, *job_ids):
     for job_id in job_ids:
         status = get_qb_status(app_name, job_id)
-        nt.assert_equal(status['num_execute_locks'], 0, job_id)
-        nt.assert_equal(status['num_add_locks'], 0, job_id)
-        nt.assert_equal(status['in_queue'], True, job_id)
+        nt.assert_false(status['is_execute_locked'], job_id)
+        nt.assert_false(status['is_add_locked'], job_id)
+        nt.assert_true(status['in_queue'], job_id)
         nt.assert_equal(status['app_qsize'], len(job_ids), job_id)
         nt.assert_equal(status['state'], 'pending', job_id)
