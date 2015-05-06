@@ -17,61 +17,41 @@ def get_qsize(app_name, queued=True, taken=True):
 
 def delete(app_name, job_id, confirm=True,
            delete_from_queue=True, delete_job_state=True, dryrun=False):
-    """Delete Zookeeper data for one or more specific jobs.
+    """Delete data for one or more job_ids.
 
-    In general, this operation is unsafe.  Deleting nodes that another process
-    is currently reading from or otherwise aware of has unknown effects.  If
-    you use this, you should to guarantee that no other processes are accessing
-    the jobs.
+    In general, this operation is unsafe.
+    Deleting nodes that another process is currently reading from or otherwise
+    aware of has unknown effects.  If you use this, you should to guarantee that
+    no other processes are processing the job_id (this includes child and parent
+    jobs).
 
-    It's highly recommended that you don't use this for anything other than
-    clearing out old zookeeper nodes.
+    Fail if trying to delete a queued job
 
     `job_id` (str) either a single job_id or a list of them.
     `delete_job_state` (bool) if True, will attempt to remove knowledge of
-        the node's state, including locks and retry count, from zookeeper.
-    `delete_from_queue` (bool) In general, you should delete_from_queue if
-        you are deleting a node's state, but you can set this to False if
-        you know ahead of time that the job(s) you are deleteing are not
-        queued.
+        the node's state, including locks and retry count
     `dryrun` (bool) don't actually delete nodes
 
     """
     qbcli = shared.get_qbclient()
     if isinstance(job_id, (str, unicode)):
         job_id = set([job_id])
-
-    if delete_job_state:  # delete path to each job_id
-        paths_to_delete = [shared.get_job_path(app_name, j) for j in job_id
-                           if j]
-
-    if delete_from_queue:
-        # (unsafely) delete the job from queue if it's in there
-        _qpath = join(app_name, 'entries')
-        for key in qbcli.get_children(_qpath):
-            key_fullpath = join(_qpath, key)
-            try:
-                queued_job_id = qbcli.get(key_fullpath)
-            except exceptions.NoNodeError:
-                continue  # huh - something else deleted it!
-            if queued_job_id and queued_job_id in job_id:
-                paths_to_delete.append(key_fullpath)
+    if any(qbcli.LockingQueue(app_name).is_queued(j) for j in job_id if j):
+        raise exceptions.JobAlreadyQueued("Cannot delete a queued job")
+    paths_to_delete = [shared.get_job_path(app_name, j) for j in job_id if j]
     if confirm:
-        if delete_from_queue:
-            log.warn(
-                "It is UNSAFE to delete_from_queue if anything is"
-                "currently reading from that queue")
         log.info(
-            "About to delete n nodes from zookeeper", extra=dict(
+            "About to delete n nodes from queue backend", extra=dict(
                 n=len(paths_to_delete), first_100_nodes=paths_to_delete[:100]))
         _promptconfirm("Permanently delete nodes?")
     rvs = {}
     for path in paths_to_delete:
         if dryrun:
             log.info(
-                '(dryrun) delete node from zookeeper', extra=dict(node=path))
+                '(dryrun) delete node from queue backend',
+                extra=dict(node=path))
         else:
-            log.info('delete node from zookeeper', extra=dict(node=path))
+            log.info('delete node from queue backend', extra=dict(node=path))
             rv = qbcli.delete(path, recursive=True)
             if rv is None:
                 rvs[path] = 'deleted'
