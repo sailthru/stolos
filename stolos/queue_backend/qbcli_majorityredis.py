@@ -101,13 +101,6 @@ class Lock(BaseLock):
         return raw_client().exists(self._path)
 
 
-def delete(path, recursive=False):
-    """Remove path from queue backend"""
-    # TODO: how to do recursive?
-    raw_client().delete(path)
-    raise NotImplementedError()
-
-
 def get(path):
     """Get value at given path.
     If path does not exist, throw stolos.exceptions.NoNodeError

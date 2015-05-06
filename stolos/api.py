@@ -21,13 +21,6 @@ get_parents, get_children
 from stolos.configuration_backend import get_tasks_config
 get_tasks_config,
 
-from stolos.queue_backend import (
-    delete,
-    get_qsize
-)
-delete, get_qsize
-
-
 from stolos.util import configure_logging
 configure_logging  # can be used to modify how stolos logs things.
 
@@ -46,3 +39,9 @@ def initialize(args=None):
         Example:  args=['--option1', 'val', ...]
     """
     _initialize([_dt, _cb, _qb], args=args)
+
+
+def get_qsize(app_name, queued=True, taken=True):
+    """Get the number of objects in the queue"""
+    return get_qbclient().LockingQueue(app_name).size(
+        queued=queued, taken=taken)

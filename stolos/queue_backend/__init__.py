@@ -21,12 +21,6 @@ check_state
 from .locking import (obtain_execute_lock, is_execute_locked)
 obtain_execute_lock, is_execute_locked
 
-from .queue_maintenance import (
-    delete,
-    get_qsize
-)
-delete, get_qsize
-
 from .qbcli_baseapi import Lock as BaseLock
 BaseLock
 
