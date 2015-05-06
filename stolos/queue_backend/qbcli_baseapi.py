@@ -88,20 +88,6 @@ def get(path):
     raise NotImplementedError()
 
 
-def get_children(path):
-    """Get names of child nodes under given path
-    If path does not exist, throw stolos.exceptions.NoNodeError
-    """
-    raise NotImplementedError()
-
-
-def count_children(path):
-    """Count number of child nodes at given parent path
-    If the path does not already exist, raise stolos.exceptions.NoNodeError
-    """
-    raise NotImplementedError()
-
-
 def exists(path):
     """Return True if path exists (value can be ''), False otherwise"""
     raise NotImplementedError()

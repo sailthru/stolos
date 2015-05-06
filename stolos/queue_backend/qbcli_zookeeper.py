@@ -76,11 +76,13 @@ class LockingQueue(BaseLockingQueue):
         Return True if item is in queue or currently being processed.
         False otherwise
         """
+        cli = raw_client()
         entries = self._q.structure_paths[1]
         # eek this is aweful
         try:
-            items = {qbcli.get(join(p, x)) for x in qbcli.get_children(p)}
-        except exceptions.NoNodeError:
+            items = {
+                cli.get(join(entries, x)) for x in cli.get_children(entries)}
+        except NoNodeError:
             items = set()
 
         if value in items:
@@ -90,6 +92,7 @@ class LockingQueue(BaseLockingQueue):
 
 class Lock(BaseLock):
     def __init__(self, path):
+        self._path = path
         self._l = _zkLock(client=raw_client(), path=path)
 
     def acquire(self, blocking=True, timeout=None):
@@ -108,8 +111,8 @@ class Lock(BaseLock):
 
     def is_locked(self):
         try:
-            return bool(count_children(path))
-        except exceptions.NoNodeError:
+            return bool(raw_client().exists(self._path).numChildren)
+        except AttributeError:
             return False
 
 
@@ -145,20 +148,6 @@ def get(path):
         return raw_client().get(path)[0]
     except NoNodeError as err:
         raise exceptions.NoNodeError("%s: %s" % (path, err))
-
-
-def get_children(path):
-    try:
-        return raw_client().get_children(path)
-    except NoNodeError as err:
-        raise exceptions.NoNodeError("%s: %s" % (path, err))
-
-
-def count_children(path):
-    try:
-        return raw_client().exists(path).numChildren
-    except AttributeError:
-        raise exceptions.NoNodeError(path)
 
 
 def exists(path):
