@@ -131,18 +131,6 @@ def raw_client():
     return zk
 
 
-def delete(path, recursive=False):
-    try:
-        raw_client().delete(path, recursive=recursive)
-    except NoNodeError as err:
-        raise exceptions.NoNodeError(
-            "cannot delete non existent path, %s.  err: %s" % (path, err))
-    except NotEmptyError as err:
-        raise exceptions.NodeExistsError(
-            "cannot delete path because it has child nodes and you did not"
-            " specify recursive=True.  path: %s  err: %s" % (path, err))
-
-
 def get(path):
     try:
         return raw_client().get(path)[0]
@@ -152,6 +140,18 @@ def get(path):
 
 def exists(path):
     return bool(raw_client().exists(path))
+
+
+def delete(path, recursive=False):
+    """Remove path from queue backend.
+
+    `_recursive` - This is only for tests
+    """
+    try:
+        raw_client().delete(path, recursive=recursive)
+        return True
+    except (NoNodeError, NotEmptyError):
+        return False
 
 
 def set(path, value):

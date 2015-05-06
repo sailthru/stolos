@@ -116,6 +116,22 @@ def exists(path):
     return raw_client().exists(path)
 
 
+def delete(path, _recursive=False):
+    """Remove path from queue backend.
+
+    `_recursive` - This is only for tests
+    """
+    mr = raw_client()
+    if _recursive:
+        # For tests only
+        fail = False
+        for k in set(y for y in (x.keys('%s*' % path) for x in mr._clients)):
+            fail |= not mr.delete(k)
+        return not fail
+    else:
+        return mr.delete(path)
+
+
 def set(path, value):
     """Set value at given path
     If the path does not already exist, raise stolos.exceptions.NoNodeError

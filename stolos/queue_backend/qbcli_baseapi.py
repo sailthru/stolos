@@ -76,11 +76,6 @@ class Lock(object):
         raise NotImplemented()
 
 
-def delete(path, recursive=False):
-    """Remove path from queue backend"""
-    raise NotImplementedError()
-
-
 def get(path):
     """Get value at given path.
     If path does not exist, throw stolos.exceptions.NoNodeError
@@ -90,6 +85,14 @@ def get(path):
 
 def exists(path):
     """Return True if path exists (value can be ''), False otherwise"""
+    raise NotImplementedError()
+
+
+def delete(path, _recursive=False):
+    """Remove path from queue backend.
+
+    `_recursive` - This is only for tests
+    """
     raise NotImplementedError()
 
 
