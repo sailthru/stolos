@@ -23,11 +23,9 @@ get_tasks_config,
 
 from stolos.queue_backend import (
     delete,
-    requeue,
-    get_job_ids_by_status,
     get_qsize
 )
-delete, requeue, get_job_ids_by_status, get_qsize
+delete, get_qsize
 
 
 from stolos.util import configure_logging

@@ -23,11 +23,9 @@ obtain_execute_lock, is_execute_locked
 
 from .queue_maintenance import (
     delete,
-    requeue,
-    get_job_ids_by_status,
     get_qsize
 )
-delete, requeue, get_job_ids_by_status, get_qsize
+delete, get_qsize
 
 from .qbcli_baseapi import Lock as BaseLock
 BaseLock

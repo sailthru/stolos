@@ -191,6 +191,7 @@ def test_topological_sort():
 
 @tt.with_setup
 def test_delete(app1, job_id1, job_id2):
+    # TODO: check for error
     api.maybe_add_subtask(app1, job_id1)
     api.maybe_add_subtask(app1, job_id2)
     tt.validate_n_queued_task(app1, job_id1, job_id2)
@@ -206,87 +207,6 @@ def test_delete(app1, job_id1, job_id2):
 
     # do not raise error if trying to delete nonexistent node
     api.delete(app1, "doesnotexistjobid", confirm=False)
-
-
-@tt.with_setup
-def test_requeue(app1, job_id1, job_id2, job_id3):
-    qb.set_state(app1, job_id1, failed=True)
-    qb.set_state(app1, job_id2, completed=True)
-    qb.set_state(app1, job_id3, skipped=True)
-
-    tt.validate_zero_queued_task(app1)
-    api.requeue(app1, confirm=False, pending=True)
-    tt.validate_zero_queued_task(app1)
-
-    api.requeue(app1, confirm=False, completed=True)
-    tt.validate_one_queued_task(app1, job_id2)
-
-    api.requeue(app1, confirm=False, skipped=True, failed=True)
-    tt.validate_n_queued_task(app1, job_id1, job_id2, job_id3)
-
-
-@tt.with_setup
-def test_requeue2(app1, job_id1, job_id2, job_id3):
-    qb.set_state(app1, job_id1, failed=True)
-    qb.set_state(app1, job_id2, completed=True)
-    qb.set_state(app1, job_id3, skipped=True)
-    api.requeue(app1, confirm=False, all=True, regexp=r'.*_1211_.*')
-    tt.validate_zero_queued_task(app1)
-
-    api.requeue(app1, confirm=False, all=True, regexp=r'.*_1111_.*')
-    tt.validate_n_queued_task(app1, job_id1, job_id3)
-
-
-@tt.with_setup
-def test_requeue3(app1, job_id1, job_id2, job_id3):
-    qb.set_state(app1, job_id1, failed=True)
-    qb.set_state(app1, job_id2, completed=True)
-    qb.set_state(app1, job_id3, skipped=True)
-    api.requeue(app1, confirm=False, failed=True, regexp=r'.*_1111_.*')
-    tt.validate_n_queued_task(app1, job_id1)
-
-
-@tt.with_setup
-def test_requeue4(app1, job_id1, job_id2, job_id3):
-    qb.set_state(app1, job_id1, failed=True)
-    qb.set_state(app1, job_id2, completed=True)
-    qb.set_state(app1, job_id3, skipped=True)
-    api.requeue(app1, confirm=False, all=True)
-    tt.validate_n_queued_task(app1, job_id1, job_id2, job_id3)
-
-
-@tt.with_setup
-def test_get_job_ids_by_status(app1, job_id1, job_id2, job_id3):
-    qb.set_state(app1, job_id1, failed=True)
-    qb.set_state(app1, job_id2, completed=True)
-    qb.set_state(app1, job_id3, skipped=True)
-    nt.assert_list_equal(
-        [],
-        api.get_job_ids_by_status(app1, regexp=r'.*_1211_.*'))
-    nt.assert_list_equal(
-        [u'20140606_1111_profile', u'20140604_1111_profile'],
-        api.get_job_ids_by_status(app1, regexp=r'.*_1111_.*'))
-    nt.assert_list_equal(
-        [u'20140606_2222_profile'],
-        api.get_job_ids_by_status(app1, regexp=r'.*_2222_.*'))
-    nt.assert_list_equal(
-        [u'20140606_1111_profile', u'20140604_1111_profile',
-         u'20140606_2222_profile'],
-        api.get_job_ids_by_status(app1, all=True))
-    nt.assert_list_equal(
-        api.get_job_ids_by_status(app1, all=True),
-        api.get_job_ids_by_status(app1))
-    nt.assert_list_equal(
-        api.get_job_ids_by_status(app1, all=True),
-        api.get_job_ids_by_status(
-            app1, failed=True, completed=True, skipped=True))
-    nt.assert_list_equal(
-        [u'20140606_1111_profile', u'20140606_2222_profile'],
-        api.get_job_ids_by_status(app1, completed=True, failed=True))
-    nt.assert_list_equal(
-        [u'20140606_1111_profile'],
-        api.get_job_ids_by_status(
-            app1, completed=True, failed=True, regexp=r'.*_1111_.*'))
 
 
 def test_not_initialized():
