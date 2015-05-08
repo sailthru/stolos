@@ -4,21 +4,20 @@ from os.path import join
 from stolos import exceptions
 
 
-def QBtest_create_get_children(qbcli, app1):
-    with nt.assert_raises(exceptions.NoNodeError):
-        qbcli.get_children(app1)
+def QBtest_create_exists(qbcli, app1):
+    nt.assert_false(qbcli.exists(app1))
 
     qbcli.create(app1, 'value')
     with nt.assert_raises(exceptions.NodeExistsError):
         qbcli.create(app1, 'value')
-    nt.assert_equal(qbcli.get_children(app1), [])
+    nt.assert_true(qbcli.exists(app1))
 
+    nt.assert_false(qbcli.exists(join(app1, 'nested/node')))
+    nt.assert_false(qbcli.exists(join(app1, 'dir1/node')))
     qbcli.create(join(app1, 'nested/node'), 'value')
     qbcli.create(join(app1, 'dir1/node'), '')
-    nt.assert_items_equal(
-        qbcli.get_children(app1), ['nested', 'dir1'])
-    nt.assert_items_equal(
-        qbcli.get_children(join(app1, 'nested', 'node')), [])
+    nt.assert_true(qbcli.exists(join(app1, 'nested/node')))
+    nt.assert_true(qbcli.exists(join(app1, 'dir1/node')))
 
 
 def QBtest_create_get(qbcli, app1, app2):
@@ -63,26 +62,6 @@ def QBtest_exists(qbcli, app1, app2, app3):
 
     qbcli.create(app3, '')
     nt.assert_true(qbcli.exists(app3))
-
-
-def QBtest_count_children(qbcli, app1, app2):
-    qbcli.create(join(app1, 'a'), '')
-    nt.assert_equal(qbcli.count_children(app1), 1)
-
-    qbcli.create(join(app1, 'b'), '')
-    nt.assert_equal(qbcli.count_children(app1), 2)
-
-    qbcli.create(join(app1, 'c'), '')
-    nt.assert_equal(qbcli.count_children(app1), 3)
-
-    qbcli.set(join(app1, 'c'), 'a')
-    nt.assert_equal(qbcli.count_children(app1), 3)
-
-    qbcli.set(join(app1, ''), 'a')
-    nt.assert_equal(qbcli.count_children(app1), 3)
-
-    with nt.assert_raises(exceptions.NoNodeError):
-        qbcli.count_children(app2)
 
 
 def QBtest_delete(qbcli, app1, app2):

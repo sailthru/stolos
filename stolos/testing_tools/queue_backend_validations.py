@@ -54,11 +54,11 @@ def validate_zero_queued_task(app_name):
 
 
 def validate_zero_completed_task(app_name):
-    # TODO: figure this one out (count completed)
     qbcli = api.get_qbclient()
-    if qbcli.exists(join(app_name, 'all_subtasks')):
-        nt.assert_equal(
-            0, len(qbcli.get_children(join(app_name, 'all_subtasks'))))
+    nt.assert_equal(
+        0,
+        qbcli.LockingQueue(app_name).size(
+            completed=True, taken=False, queued=False))
 
 
 def validate_one_failed_task(app_name, job_id):

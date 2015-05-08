@@ -66,6 +66,8 @@ class LockingQueue(BaseLockingQueue):
         """
         Return True if item is in queue or currently being processed.
         False otherwise
+
+        Redis will not like this operation.  Use sparingly.
         """
         return self._q.is_queued(item=value)
 
