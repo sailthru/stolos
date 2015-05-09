@@ -7,7 +7,7 @@ from stolos import queue_backend as qb  # TODO: remove reliance on this
 from stolos.testing_tools import (
     with_setup, inject_into_dag,
     enqueue, cycle_queue, consume_queue, get_qb_status,
-    validate_zero_queued_task, validate_zero_completed_task,
+    validate_zero_queued_task, validate_not_exists,
     validate_one_failed_task, validate_one_queued_executing_task,
     validate_one_queued_task, validate_one_completed_task,
     validate_one_skipped_task
@@ -84,7 +84,7 @@ def test_bypass_scheduler(bash1, job_id1, log, tasks_json_tmpfile):
         log, tasks_json_tmpfile, bash1,
         '--bypass_scheduler --job_id %s --bash_cmd echo 123' % job_id1)
     validate_zero_queued_task(bash1)
-    validate_zero_completed_task(bash1)
+    validate_not_exists(bash1, job_id1)
 
 
 @with_setup

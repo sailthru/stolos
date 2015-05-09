@@ -81,9 +81,10 @@ class LockingQueue(BaseLockingQueue):
         # eek this is aweful
         try:
             items = {
-                cli.get(join(entries, x)) for x in cli.get_children(entries)}
+                cli.get(join(entries, x))[0]
+                for x in cli.get_children(entries)}
         except NoNodeError:
-            items = set()
+            items = []
 
         if value in items:
             return True

@@ -5,7 +5,7 @@ Useful utilities for testing
 from .queue_backend_validations import (
     enqueue,
     validate_zero_queued_task,
-    validate_zero_completed_task,
+    validate_not_exists,
     validate_one_failed_task,
     validate_one_queued_executing_task,
     validate_one_queued_task,
@@ -16,7 +16,7 @@ from .queue_backend_validations import (
     consume_queue,
     get_qb_status,
 )
-enqueue, validate_zero_queued_task, validate_zero_completed_task,
+enqueue, validate_zero_queued_task, validate_not_exists,
 validate_one_failed_task, validate_one_queued_executing_task,
 validate_one_queued_task, validate_one_completed_task,
 validate_one_skipped_task, validate_n_queued_task,

@@ -9,9 +9,12 @@ from . import test_return_values
 
 BACKENDS = {
     'zookeeper': ('--qb_zookeeper_hosts', 'localhost:2181', ),
-    'redis': ('--qb_redis_host', '127.0.0.1',
-              '--qb_redis_port', '6379',
-              '--qb_redis_db', '0'),
+    'majorityredis': (
+        '--qb_redis_hosts', '127.0.0.1:6369',
+        '--qb_redis_db', '0',
+        '--qb_redis_n_servers', '1',
+        '--qb_redis_socket_timeout', '1',
+    ),
 }
 
 

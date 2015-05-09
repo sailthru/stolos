@@ -56,10 +56,10 @@ class LockingQueue(BaseLockingQueue):
         `taken` - Include the entries in the queue that are currently being
             processed or are otherwise locked
 
-        Raise AttributeError if both queued=False and taken=False
+        Raise AttributeError if all kwargs are False
         """
         if not queued and not taken:
-            raise AttributeError("queued and taken cannot both be False")
+            raise AttributeError("given kwargs cannot all be False")
         return self._q.size(queued=queued, taken=taken)
 
     def is_queued(self, value):
@@ -67,7 +67,7 @@ class LockingQueue(BaseLockingQueue):
         Return True if item is in queue or currently being processed.
         False otherwise
 
-        Redis will not like this operation.  Use sparingly.
+        Redis will not like this operation.  Use sparingly with large queues.
         """
         return self._q.is_queued(item=value)
 
@@ -158,7 +158,8 @@ build_arg_parser = at.build_arg_parser([
         type=lambda x: [y.split(':') for y in x.split(',')],
         help="Redis servers to connect to in form: host1:port1,host2:port2"
     ),
-    at.add_argument('--qb_redis_qb_socket_timeout', default='5', help=(
+    at.add_argument('--qb_redis_db', default=0, type=int),
+    at.add_argument('--qb_redis_socket_timeout', default='5', help=(
         "number of seconds that the redis client will spend waiting for a"
         " response from Redis.")),
     at.add_argument(

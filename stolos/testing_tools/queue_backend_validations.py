@@ -48,17 +48,15 @@ def get_qb_status(app_name, job_id):
     }
 
 
+def validate_not_exists(app_name, job_id):
+    qbcli = api.get_qbclient()
+    path = qb.get_job_path(app_name, job_id)
+    nt.assert_false(qbcli.exists(path))
+
+
 def validate_zero_queued_task(app_name):
     qbcli = api.get_qbclient()
     nt.assert_equal(qbcli.LockingQueue(app_name).size(), 0)
-
-
-def validate_zero_completed_task(app_name):
-    qbcli = api.get_qbclient()
-    nt.assert_equal(
-        0,
-        qbcli.LockingQueue(app_name).size(
-            completed=True, taken=False, queued=False))
 
 
 def validate_one_failed_task(app_name, job_id):
