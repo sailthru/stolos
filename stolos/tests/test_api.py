@@ -189,26 +189,6 @@ def test_topological_sort():
     pass  # tested in dag_tools
 
 
-@tt.with_setup
-def test_delete(app1, job_id1, job_id2):
-    # TODO: check for error
-    api.maybe_add_subtask(app1, job_id1)
-    api.maybe_add_subtask(app1, job_id2)
-    tt.validate_n_queued_task(app1, job_id1, job_id2)
-
-    api.delete(app1, job_id2, confirm=False)
-    tt.validate_one_queued_task(app1, job_id1)
-
-    api.maybe_add_subtask(app1, job_id2)
-    tt.validate_n_queued_task(app1, job_id1, job_id2)
-
-    api.delete(app1, [job_id1, job_id2], confirm=False)
-    tt.validate_zero_queued_task(app1)
-
-    # do not raise error if trying to delete nonexistent node
-    api.delete(app1, "doesnotexistjobid", confirm=False)
-
-
 def test_not_initialized():
     stolos1 = importlib.import_module('stolos')
     api1 = importlib.import_module('stolos.api')

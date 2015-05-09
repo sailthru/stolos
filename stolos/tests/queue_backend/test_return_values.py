@@ -80,14 +80,17 @@ def QBtest_delete(qbcli, app1, app2):
     qbcli.delete(app1)
     nt.assert_false(qbcli.exists(app1))
 
-    # recursive option
+
+def QBtest_delete_recursive(qbcli, app1, app2):
     qbcli.create(join(app2, 'a'), '')
     with nt.assert_raises(exceptions.NodeExistsError):
-        qbcli.delete(app2, recursive=False)
+        qbcli.delete(app2, _recursive=False)
     nt.assert_true(qbcli.exists(app2))
+    nt.assert_true(qbcli.exists(join(app2, 'a')))
 
-    qbcli.delete(app2, recursive=True)
+    qbcli.delete(app2, _recursive=True)
     nt.assert_false(qbcli.exists(app2))
+    nt.assert_false(qbcli.exists(join(app2, 'a')))
 
 
 def QBtest_Lock(qbcli, app1):

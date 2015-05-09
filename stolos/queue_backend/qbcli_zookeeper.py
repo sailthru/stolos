@@ -142,13 +142,13 @@ def exists(path):
     return bool(raw_client().exists(path))
 
 
-def delete(path, recursive=False):
+def delete(path, _recursive=False):
     """Remove path from queue backend.
 
     `_recursive` - This is only for tests
     """
     try:
-        raw_client().delete(path, recursive=recursive)
+        raw_client().delete(path, recursive=_recursive)
         return True
     except (NoNodeError, NotEmptyError):
         return False
