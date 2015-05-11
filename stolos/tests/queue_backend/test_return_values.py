@@ -65,27 +65,21 @@ def QBtest_exists(qbcli, app1, app2, app3):
 
 
 def QBtest_delete(qbcli, app1, app2):
-    with nt.assert_raises(exceptions.NoNodeError):
-        qbcli.delete(app1)
-
-    qbcli.create(app1, 'a')
-    nt.assert_true(qbcli.exists(app1))
-
-    qbcli.delete(app1)
+    # del non-existent node
+    nt.assert_false(qbcli.exists(app1))
+    nt.assert_false(qbcli.delete(app1))
     nt.assert_false(qbcli.exists(app1))
 
+    # del existing node
     qbcli.create(app1, '')
     nt.assert_true(qbcli.exists(app1))
-
-    qbcli.delete(app1)
+    nt.assert_true(qbcli.delete(app1))
     nt.assert_false(qbcli.exists(app1))
+    nt.assert_false(qbcli.delete(app1))
 
 
 def QBtest_delete_recursive(qbcli, app1, app2):
     qbcli.create(join(app2, 'a'), '')
-    with nt.assert_raises(exceptions.NodeExistsError):
-        qbcli.delete(app2, _recursive=False)
-    nt.assert_true(qbcli.exists(app2))
     nt.assert_true(qbcli.exists(join(app2, 'a')))
 
     qbcli.delete(app2, _recursive=True)
@@ -97,25 +91,22 @@ def QBtest_Lock(qbcli, app1):
     lock = qbcli.Lock(app1)
     nt.assert_false(qbcli.exists(app1))
 
-    qbcli.create(app1, '')
     lock2 = qbcli.Lock(app1)
     nt.assert_not_equal(lock, lock2)
 
     # acquire lock 1st time
     nt.assert_true(lock.acquire(timeout=1))
-    nt.assert_true(lock.acquire(timeout=1))
-    nt.assert_true(lock.acquire(blocking=True))
-    nt.assert_true(lock.acquire(blocking=False))
 
     # should not hang
     nt.assert_false(lock2.acquire(blocking=False))
     # should timeout
+    # TODO: with nt.assert_raises(exceptions.Timeout):
     nt.assert_false(lock2.acquire(blocking=True, timeout=1))
 
     with nt.assert_raises(UserWarning):
         lock2.release()
     lock.release()
-    nt.assert_true(lock2.acquire(blocking=False, timeout=1))
+    nt.assert_true(lock2.acquire(blocking=False))
     lock2.release()
 
 
@@ -139,7 +130,6 @@ def QBtest_LockingQueue_put_paths(qbcli, app1, app2):
     queue.put('a')
     queue2.put('c')
     nt.assert_equal(queue2.get(), 'c')
-    nt.assert_is_none(queue2.get(0))
     nt.assert_equal(queue.get(), 'a')
 
 
@@ -154,8 +144,7 @@ def QBtest_LockingQueue_put_get(qbcli, app1):
         queue.consume()
 
     # get nothing from an empty queue (and don't fail!)
-    nt.assert_is_none(queue.get(timeout=0))
-    nt.assert_is_none(queue.get(timeout=1))
+    nt.assert_is_none(queue.get(blocking=False))
 
     # put item in queue
     nt.assert_equal(queue.size(), 0)
