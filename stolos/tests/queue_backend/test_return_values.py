@@ -144,7 +144,7 @@ def QBtest_LockingQueue_put_get(qbcli, app1):
         queue.consume()
 
     # get nothing from an empty queue (and don't fail!)
-    nt.assert_is_none(queue.get(blocking=False))
+    nt.assert_is_none(queue.get())
 
     # put item in queue
     nt.assert_equal(queue.size(), 0)
