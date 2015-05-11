@@ -1,5 +1,6 @@
 import __builtin__
 from majorityredis import (MajorityRedis, retry_condition)
+from majorityredis.exceptions import Timeout
 import redis
 
 from stolos import get_NS
@@ -24,6 +25,7 @@ def raw_client():
 class LockingQueue(BaseLockingQueue):
     def __init__(self, path):
         self._q = raw_client().LockingQueue(path)
+        self._item = None
         self._h_k = None
 
     def put(self, value, priority=100):
@@ -36,26 +38,30 @@ class LockingQueue(BaseLockingQueue):
         """Consume value gotten from queue.
         Raise UserWarning if consume() called before get()
         """
-        # TODO: raise exception if timeout gett
-        if not self._h_k:
+        if self._item is None:
             raise UserWarning("Must call get() before consume()")
         self._q.consume(self._h_k)
         self._h_k = None
+        self._item = None
 
     def get(self, timeout=None):
-        """Get an item from the queue or return None"""
+        """Get an item from the queue or return None.  Do not block forever."""
+        if self._item is not None:
+            return self._item
         if timeout:
             gett = retry_condition(
-                nretry=int(timeout) + 1, backoff=lambda x: 1,
+                nretry=int(timeout) + 2, backoff=lambda x: 1,
                 condition=lambda rv: rv is not None, timeout=timeout
             )(self._q.get)
         else:
             gett = self._q.get
-        rv = gett()
+        try:
+            rv = gett()
+        except Timeout:
+            return
         if rv is None:
             return
-        i, h_k = rv
-        self._h_k = h_k
+        self._item, self._h_k = i, h_k = rv
         return i
 
     def size(self, queued=True, taken=True):

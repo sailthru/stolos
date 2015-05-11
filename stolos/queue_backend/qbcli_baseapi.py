@@ -19,8 +19,7 @@ class LockingQueue(object):
         raise NotImplemented()
 
     def get(self, timeout=None):
-        """Get an item from the queue or return None"""
-        # TODO: raise exception if timeout gett
+        """Get an item from the queue or return None.  Do not block forever."""
         raise NotImplemented()
 
     def size(self, queued=True, taken=True):

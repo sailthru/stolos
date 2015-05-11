@@ -34,7 +34,9 @@ class LockingQueue(BaseLockingQueue):
                 "Cannot consume() from queue without first calling q.get()")
 
     def get(self, timeout=None):
-        # TODO: raise exception if timeout gett
+        """Get an item from the queue or return None."""
+        if timeout is None:
+            timeout = get_NS().qb_zookeeper_timeout
         return self._q.get(timeout=timeout)
 
     def size(self, queued=True, taken=True):
@@ -173,7 +175,10 @@ def create(path, value):
 
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
-        '--qb_zookeeper_hosts', help="The address to your Zookeeper cluster")
+        '--qb_zookeeper_hosts', help="The address to your Zookeeper cluster"),
+    at.add_argument(
+        '--qb_zookeeper_timeout', default=5, type=float,
+        help="Max num secs to wait on response if timeout not specified"),
 ], description=(
     "Options that specify which queue to use to store state about your jobs")
 )
