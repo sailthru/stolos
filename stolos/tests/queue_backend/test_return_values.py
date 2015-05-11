@@ -95,10 +95,10 @@ def QBtest_Lock(qbcli, app1):
     nt.assert_not_equal(lock, lock2)
 
     # acquire lock 1st time
-    nt.assert_true(lock.acquire(timeout=1))
+    nt.assert_true(lock.acquire(blocking=True, timeout=1))
 
     # should not hang
-    nt.assert_false(lock2.acquire(blocking=False))
+    nt.assert_false(lock2.acquire())
     # should timeout
     # TODO: with nt.assert_raises(exceptions.Timeout):
     nt.assert_false(lock2.acquire(blocking=True, timeout=1))
@@ -106,20 +106,27 @@ def QBtest_Lock(qbcli, app1):
     with nt.assert_raises(UserWarning):
         lock2.release()
     lock.release()
-    nt.assert_true(lock2.acquire(blocking=False))
+    nt.assert_true(lock2.acquire())
     lock2.release()
 
 
 def QBtest_Lock_is_locked(qbcli, app1, app2):
-    raise NotImplementedError("TODO")
+    l = qbcli.Lock(app1)
+    nt.assert_false(l.is_locked())
+    nt.assert_true(l.acquire())
+    nt.assert_true(l.is_locked())
+
+    l2 = qbcli.Lock(app1)
+    nt.assert_true(l2.is_locked())
+    nt.assert_false(l2.acquire())
 
 
 def QBtest_Lock_paths(qbcli, app1, app2):
     # respects different paths as different locks
     lock1 = qbcli.Lock(app1)
     lock2 = qbcli.Lock(app2)
-    nt.assert_true(lock1.acquire(blocking=False))
-    nt.assert_true(lock2.acquire(blocking=False))
+    nt.assert_true(lock1.acquire())
+    nt.assert_true(lock2.acquire())
 
 
 def QBtest_LockingQueue_put_paths(qbcli, app1, app2):
@@ -249,4 +256,7 @@ def QBtest_LockingQueue_size(qbcli, app1):
 
 
 def QBtest_LockingQueue_is_queued(qbcli, app1):
-    raise NotImplementedError("TODO")
+    q = qbcli.LockingQueue(app1)
+    nt.assert_false(q.is_queued('abc'))
+    q.put('abc')
+    nt.assert_true(q.is_queued('abc'))
