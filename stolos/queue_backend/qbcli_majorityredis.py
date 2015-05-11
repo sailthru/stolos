@@ -1,5 +1,5 @@
-from majorityredis import (
-    MajorityRedis, retry_condition)
+import __builtin__
+from majorityredis import (MajorityRedis, retry_condition)
 import redis
 
 from stolos import get_NS
@@ -11,7 +11,7 @@ from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
 
 
 @util.cached
-def raw_client(self):
+def raw_client():
     NS = get_NS()
     clients = [
         redis.StrictRedis(
@@ -30,12 +30,13 @@ class LockingQueue(BaseLockingQueue):
         """Add item onto queue.
         Rank items by priority.  Get low priority items before high priority
         """
-        self._q.put(value, priority, retry_condition(10))
+        self._q.put(value, priority, retry_condition(nretry=10))
 
     def consume(self):
         """Consume value gotten from queue.
         Raise UserWarning if consume() called before get()
         """
+        # TODO: raise exception if timeout gett
         if not self._h_k:
             raise UserWarning("Must call get() before consume()")
         self._q.consume(self._h_k)
@@ -43,7 +44,17 @@ class LockingQueue(BaseLockingQueue):
 
     def get(self, timeout=None):
         """Get an item from the queue or return None"""
-        i, h_k = self._q.get()
+        if timeout:
+            gett = retry_condition(
+                nretry=int(timeout) + 1, backoff=lambda x: 1,
+                condition=lambda rv: rv is not None, timeout=timeout
+            )(self._q.get)
+        else:
+            gett = self._q.get
+        rv = gett()
+        if rv is None:
+            return
+        i, h_k = rv
         self._h_k = h_k
         return i
 
@@ -75,6 +86,7 @@ class LockingQueue(BaseLockingQueue):
 class Lock(BaseLock):
     def __init__(self, path):
         self._path = path
+        self._l = raw_client().Lock(threadsafe=True)
 
     def acquire(self, blocking=True, timeout=None):
         """
@@ -84,17 +96,19 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        return raw_client().Lock.lock(wait_for=timeout)
+        # TODO: blocking=False
+        return bool(self._l.lock(self._path, wait_for=timeout))
 
     def release(self):
         """
         Release a lock at the Lock's path.
-        Return True if success.  False if:
+        Return True if success.  Raise UserWarning otherwise, possibly due to:
             - did not release a lock
-            - if lock already released
-            - if lock does not exist
+            - lock already released
+            - lock does not exist (perhaps it was never acquired)
         """
-        return 50 < raw_client().Lock.unlock(self._path)
+        if 50 > self._l.unlock(self._path):
+            raise UserWarning("Did not release lock")
 
     def is_locked(self):
         """
@@ -126,10 +140,11 @@ def delete(path, _recursive=False):
     mr = raw_client()
     if _recursive:
         # For tests only
-        fail = False
-        for k in set(y for y in (x.keys('%s*' % path) for x in mr._clients)):
-            fail |= not mr.delete(k)
-        return not fail
+        success = True
+        for k in __builtin__.set(
+                y for x in mr._clients for y in x.keys('%s*' % path)):
+            success &= mr.delete(k)
+        return success
     else:
         return mr.delete(path)
 
@@ -138,7 +153,7 @@ def set(path, value):
     """Set value at given path
     If the path does not already exist, raise stolos.exceptions.NoNodeError
     """
-    rv = raw_client().set(path, value, retry_condition(10), xx=True)
+    rv = raw_client().set(path, value, xx=True)
     if not rv:
         raise stolos.exceptions.NoNodeError("Could not set path: %s" % path)
 
@@ -147,21 +162,23 @@ def create(path, value):
     """Set value at given path.
     If path already exists, raise stolos.exceptions.NodeExistsError
     """
-    rv = raw_client().set(path, value, retry_condition(10), nx=True)
+    rv = raw_client().set(path, value, nx=True)
     if not rv:
-        raise stolos.exceptions.NoNodeError("Could not create path: %s" % path)
+        raise stolos.exceptions.NodeExistsError(
+            "Could not create path: %s" % path)
 
 
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
-        '--qb_redis_hosts', default=[('127.0.0.1', 6379)],
+        '--qb_redis_hosts', required=True,
         type=lambda x: [y.split(':') for y in x.split(',')],
         help="Redis servers to connect to in form: host1:port1,host2:port2"
     ),
     at.add_argument('--qb_redis_db', default=0, type=int),
-    at.add_argument('--qb_redis_socket_timeout', default='5', help=(
-        "number of seconds that the redis client will spend waiting for a"
-        " response from Redis.")),
+    at.add_argument(
+        '--qb_redis_socket_timeout', default='5', type=float, help=(
+            "number of seconds that the redis client will spend waiting for a"
+            " response from Redis.")),
     at.add_argument(
         '--qb_redis_n_servers', required=True, type=int, help=(
             "The total number of Redis servers that Stolos may connect to."

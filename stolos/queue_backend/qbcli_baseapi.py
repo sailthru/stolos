@@ -20,6 +20,7 @@ class LockingQueue(object):
 
     def get(self, timeout=None):
         """Get an item from the queue or return None"""
+        # TODO: raise exception if timeout gett
         raise NotImplemented()
 
     def size(self, queued=True, taken=True):
@@ -61,10 +62,10 @@ class Lock(object):
     def release(self):
         """
         Release a lock at the Lock's path.
-        Return True if success.  False if:
+        Return True if success.  Raise UserWarning otherwise, possibly due to:
             - did not release a lock
-            - if lock already released
-            - if lock does not exist
+            - lock already released
+            - lock does not exist (perhaps it was never acquired)
         """
         # TODO: check return values & errors
         raise NotImplemented()

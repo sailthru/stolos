@@ -34,6 +34,7 @@ class LockingQueue(BaseLockingQueue):
                 "Cannot consume() from queue without first calling q.get()")
 
     def get(self, timeout=None):
+        # TODO: raise exception if timeout gett
         return self._q.get(timeout=timeout)
 
     def size(self, queued=True, taken=True):
