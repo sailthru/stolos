@@ -1,4 +1,3 @@
-import importlib
 from nose import tools as nt
 from networkx import MultiDiGraph
 
@@ -189,16 +188,6 @@ def test_topological_sort():
     pass  # tested in dag_tools
 
 
-def test_not_initialized():
-    stolos1 = importlib.import_module('stolos')
-    api1 = importlib.import_module('stolos.api')
-    nt.assert_true(hasattr(stolos1, 'Uninitialized'))
-    with nt.assert_raises(stolos1.Uninitialized):
-        stolos1.get_NS()
-    api1.initialize([])
-    nt.assert_false(hasattr(stolos1, 'Uninitialized'))
-
-
 @tt.with_setup
 def test_initialize():
     with nt.assert_raises(SystemExit):
@@ -209,6 +198,7 @@ def test_initialize():
     tj2 = stolos.get_NS().tasks_json
     nt.assert_equal(tj, 'a')
     nt.assert_equal(tj2, 'b')
+    nt.assert_false(hasattr(stolos, 'Uninitialized'))
 
 
 @tt.with_setup
