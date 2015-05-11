@@ -28,7 +28,7 @@ def cycle_queue(app_name):
 
 def consume_queue(app_name):
     q = api.get_qbclient().LockingQueue(app_name)
-    item = q.get(timeout=1)
+    item = q.get()
     if item is not None:
         q.consume()
     return item

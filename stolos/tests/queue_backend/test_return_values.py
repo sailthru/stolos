@@ -241,7 +241,7 @@ def QBtest_LockingQueue_size(qbcli, app1):
     nt.assert_equal(queue.size(taken=True, queued=True), 3)
 
     # test various parameters of queue.size
-    queue.get()
+    nt.assert_equal(queue.get(), 'a')
     nt.assert_equal(queue.size(taken=True, queued=False), 1)
     nt.assert_equal(queue.size(queued=False), 1)
     nt.assert_equal(queue.size(taken=False, queued=True), 2)
