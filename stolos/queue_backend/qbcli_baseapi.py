@@ -50,6 +50,7 @@ class Lock(object):
     def acquire(self, blocking=False, timeout=None):
         """
         Acquire a lock at the Lock's path.
+        Return True if acquired, False otherwise
 
         `blocking` (bool) If False, return immediately if we got lock.
             If True, wait up to `timeout` seconds to acquire a lock

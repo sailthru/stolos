@@ -100,6 +100,14 @@ class Lock(BaseLock):
         self._l = _zkLock(client=raw_client(), path=path)
 
     def acquire(self, blocking=False, timeout=None):
+        """
+        Acquire a lock at the Lock's path.
+        Return True if acquired, False otherwise
+
+        `blocking` (bool) If False, return immediately if we got lock.
+            If True, wait up to `timeout` seconds to acquire a lock
+        `timeout` (int) number of seconds.  By default, wait indefinitely
+        """
         try:
             return self._l.acquire(blocking=blocking, timeout=timeout)
         except NoNodeError:
