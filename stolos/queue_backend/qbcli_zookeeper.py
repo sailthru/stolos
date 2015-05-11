@@ -99,7 +99,7 @@ class Lock(BaseLock):
         self._path = path
         self._l = _zkLock(client=raw_client(), path=path)
 
-    def acquire(self, blocking=True, timeout=None):
+    def acquire(self, blocking=False, timeout=None):
         try:
             return self._l.acquire(blocking=blocking, timeout=timeout)
         except NoNodeError:

@@ -2,6 +2,7 @@ import __builtin__
 from majorityredis import (MajorityRedis, retry_condition)
 from majorityredis.exceptions import Timeout
 import redis
+import sys
 
 from stolos import get_NS
 from stolos import argparse_shared as at
@@ -94,7 +95,7 @@ class Lock(BaseLock):
         self._path = path
         self._l = raw_client().Lock(threadsafe=True)
 
-    def acquire(self, blocking=True, timeout=None):
+    def acquire(self, blocking=False, timeout=None):
         """
         Acquire a lock at the Lock's path.
 
@@ -102,7 +103,8 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        # TODO: blocking=False
+        if blocking and timeout is None:
+            timeout = sys.maxsize
         return bool(self._l.lock(self._path, wait_for=timeout))
 
     def release(self):

@@ -42,7 +42,7 @@ def main(ns):
                                q=q, timeout=ns.timeout):
             return
         lock = get_lock_if_job_is_runnable(
-            app_name=ns.app_name, job_id=ns.job_id, timeout=ns.timeout)
+            app_name=ns.app_name, job_id=ns.job_id)
 
     log.debug(
         "Stolos got a job_id.", extra=dict(
@@ -134,12 +134,12 @@ def _handle_manually_given_job_id(ns):
         raise UserWarning(msg)
     lock = qb.obtain_execute_lock(
         ns.app_name, ns.job_id, safe=False, raise_on_error=True,
-        timeout=ns.timeout)
+        blocking=False)
     qb.set_state(ns.app_name, ns.job_id, pending=True)
     return lock
 
 
-def get_lock_if_job_is_runnable(app_name, job_id, timeout):
+def get_lock_if_job_is_runnable(app_name, job_id):
     """Return a lock instance or False.  If returning False,
     the job is not ready to execute.
     """

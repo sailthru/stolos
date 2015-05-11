@@ -47,7 +47,7 @@ class Lock(object):
     def __init__(self, path):
         self._path = path
 
-    def acquire(self, blocking=True, timeout=None):
+    def acquire(self, blocking=False, timeout=None):
         """
         Acquire a lock at the Lock's path.
 

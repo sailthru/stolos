@@ -79,7 +79,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
 
 @util.pre_condition(dt.parse_job_id)
-def readd_subtask(app_name, job_id, timeout=5, _force=False,
+def readd_subtask(app_name, job_id, _force=False,
                   _reset_descendants=True, _ignore_if_queued=False):
     """
     Queue a new task if it isn't already in the queue.
@@ -115,7 +115,7 @@ def readd_subtask(app_name, job_id, timeout=5, _force=False,
                 app_name, job_id, blocking=False, raise_on_error=True)
         else:
             lock = obtain_add_lock(
-                app_name, job_id, timeout=timeout, raise_on_error=True)
+                app_name, job_id, blocking=False, raise_on_error=True)
     except exceptions.CouldNotObtainLock:
         # call maybe_add_subtask(...) and return
         added = maybe_add_subtask(app_name, job_id)

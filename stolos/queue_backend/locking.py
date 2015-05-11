@@ -16,8 +16,8 @@ def obtain_execute_lock(app_name, job_id, *args, **kwargs):
         'execute', app_name=app_name, job_id=job_id, *args, **kwargs)
 
 
-def _obtain_lock(typ, app_name, job_id,
-                 timeout=None, blocking=True, raise_on_error=False, safe=True):
+def _obtain_lock(typ, app_name, job_id, timeout=None,
+                 blocking=False, raise_on_error=False, safe=True):
     """Try to acquire a lock.
 
     `typ` (str) either "execute" or "add"  - defines the type of lock to create
