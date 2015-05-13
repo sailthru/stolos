@@ -382,7 +382,8 @@ These two functions can be quite complex:
 Why perform a "Bubble Up" operation at all?
 --------------
 
-In a purely "Bubble Down" system, executing `App_B` first means we
+If Stolos was purely a "Bubble Down" system (like many task dependency
+schedulers), executing `App_B` first means we
 would have to wait indefinitely until `App_A` successfully completed
 and submitted a `job_id` to the queue.  This can pose many problems: we
 don't know if `App_A` will ever run, so we sit and wait; waiting
@@ -393,12 +394,35 @@ scenarios where there aren't enough resources to execute `App_A`;
 queue prioritization scheme and other complex algorithms to manage
 scaling and resource contention.
 
-Secondly, if the system supports a "Bubble Up" approach, we can simply
-pick and run any app in a dependency graph and expect that it will
-be queued to execute as soon as possible to do so.
+If a task dependency system, such as Stolos, supports a "Bubble Up" approach,
+we can simply pick and run any app in a dependency graph and expect that it
+will be queued to execute as soon as possible to do so.  This avoids the above
+mentioned problems.
 
-If Stolos is used properly, "Bubble up" will never queue particular jobs that
-would otherwise be ignored.
+Additionally, if Stolos is used properly, "Bubble up" will never queue
+particular jobs that would otherwise be ignored.
+
+
+Do I need to choose between "Bubble Up" and "Bubble Down" modes?
+--------------
+
+Stolos performs "Bubble Up" and "Bubble Down" operations simultaneously,
+and as a user, you do not need to choose whether to set Stolos into "Bubble Up"
+mode or "Bubble Down" mode, as both work by default.
+
+The key question you do need to answer is how do you want to start the jobs in
+your dependency graph.  You can start by queueing jobs at the very top of a
+tree and then "bubble down" to all of your child jobs.  You could also start by
+queueing the last node in your tree, or you can start jobs from somewhere in
+the middle.  In the latter two cases, jobs would "Bubble Up" and then "Bubble
+Down" as described earlier in this section.
+
+You can even start jobs from the top and the bottom of a tree at the same time,
+though there is not much point to that.  If you have multiple dependency trees
+defined in the graph, you can start some from the top (and bubble down) and
+others from the bottom (and bubble up).  It really doesn't matter how you queue
+jobs because whater you choose to do, Stolos will eventually run all parent and
+then child jobs from your chosen starting point.
 
 
 Concept: Job State
