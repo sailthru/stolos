@@ -41,8 +41,17 @@ def main(ns):
         if not validate_job_id(app_name=ns.app_name, job_id=ns.job_id,
                                q=q, timeout=ns.timeout):
             return
-        lock = get_lock_if_job_is_runnable(
-            app_name=ns.app_name, job_id=ns.job_id)
+        try:
+            lock = get_lock_if_job_is_runnable(
+                app_name=ns.app_name, job_id=ns.job_id)
+        except exceptions.NoNodeError:
+            q.consume()
+            log.exception(
+                "Job failed. The job is queued, so why does its state not"
+                " exist?  The Queue backend may be in an inconsistent state."
+                " Consuming this job",
+                extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+            return
 
     log.debug(
         "Stolos got a job_id.", extra=dict(
@@ -195,7 +204,8 @@ def _handle_failure(ns, q, lock):
     else:
         _send_to_back_of_queue(
             q=q, app_name=ns.app_name, job_id=ns.job_id)
-    lock.release()
+    if lock:
+        lock.release()
     log.warn("Job failed", extra=dict(
         job_id=ns.job_id, app_name=ns.app_name, failed=True))
 
