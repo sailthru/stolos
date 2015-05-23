@@ -35,7 +35,7 @@ except ImportError:  # python 2
                 if not hasattr(_cached, 'cache'):
                     _cached.cache = {}
                     cached.CACHES[
-                        (func.__module__, func.func_name)] = _cached.cache
+                        (func.__module__, func.__name__)] = _cached.cache
                 params = inspect.getcallargs(func, *args, **kwargs)
                 # drop certain keywords from cache key
                 if isinstance(ignore_kwargs, str):
@@ -52,7 +52,7 @@ except ImportError:  # python 2
                     elif isinstance(params[key], argparse.Namespace):
                         params[key] = hash(
                             tuple(sorted(params[key].__dict__.items())))
-                key = (func.func_name, hash(tuple(sorted(params.items()))))
+                key = (func.__name__, hash(tuple(sorted(params.items()))))
                 if key not in _cached.cache:
                     if memoize:
                         log.debug('STORE %s' % str(key))
@@ -149,7 +149,7 @@ def pre_condition(validation_func):
                 if k in kws2)
             assert validation_func(*validation_args), (
                 "validation_func %s did not return True"
-                % validation_func.func_name)
+                % validation_func.__name__)
             return func(*args, **kwargs)
         return _decorator
     return __decorator

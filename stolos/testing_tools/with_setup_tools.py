@@ -49,7 +49,7 @@ def with_setup(setup=None, teardown=None, params=False):
         if setup:
             def setup_wrapped():
                 if params:
-                    rv = setup(func.func_name)
+                    rv = setup(func.__name__)
                 else:
                     rv = setup()
                 if rv is not None:
