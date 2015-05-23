@@ -3,10 +3,6 @@ import inspect
 from stolos import testing_tools as tt
 from stolos import get_NS
 
-from . import test_conforms_api
-from . import test_return_values
-
-
 BACKENDS = {
     'zookeeper': (
         '--qb_zookeeper_hosts', 'localhost:2181',
@@ -30,6 +26,12 @@ def setup_qb(backend, args):
                 app2=tt.makepath(func_name, 'app2'),
                 app3=tt.makepath(func_name, 'app3'),
                 app4=tt.makepath(func_name, 'app4'),
+                item1="%s-%s" % (func_name, 'a'),
+                item2="%s-%s" % (func_name, 'b'),
+                item3="%s-%s" % (func_name, 'c'),
+                item4="%s-%s" % (func_name, 'd'),
+                item5="%s-%s" % (func_name, 'e'),
+                item6="%s-%s" % (func_name, 'f'),
             ))
     return _setup_qb
 
@@ -45,10 +47,15 @@ def with_setup_factory_for_qb(backend, args):
 
 def test_generator(*args, **kwargs):
     for k, v in BACKENDS.items():
-        for mod in [test_conforms_api, test_return_values]:
+        for mod_name in ['test_conforms_api', 'test_return_values']:
+            mod = __import__(mod_name, globals(), locals(), ['object'], -1)
             for fn, f in inspect.getmembers(mod, inspect.isfunction):
                 if not fn.startswith('QBtest_'):
                     continue
+                # prefix the func name with the identifier for this backend
+                fn = "%s__%s" % (k, fn)
+                # wrap the test func with setup and teardown for nose
+                f.__name__ = fn
                 test_func = with_setup_factory_for_qb(k, v)(f)
-                test_func.description = 'test_backend.%s.%s' % (k, f.__name__)
+                test_func.description = 'test_backend.%s.%s' % (k, fn)
                 yield test_func
