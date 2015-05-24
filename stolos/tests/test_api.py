@@ -163,9 +163,10 @@ def test_create_job_id(app1, job_id1):
 
 
 @tt.with_setup
-def test_parse_job_id(app1, job_id1):
+def test_parse_job_id(func_name, app1, job_id1):
     nt.assert_dict_equal(
-        {'date': 20140606, 'collection_name': 'profile', 'client_id': 1111},
+        {'date': 20140606, 'collection_name': 'profile-%s' % func_name,
+         'client_id': 1111},
         api.parse_job_id(app1, job_id1))
     nt.assert_equal(
         job_id1,

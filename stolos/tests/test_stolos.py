@@ -89,9 +89,7 @@ def test_bypass_scheduler(bash1, job_id1, log, tasks_json_tmpfile):
 
 @with_setup
 def test_no_tasks(app1, app2, log, tasks_json_tmpfile):
-    """
-    The script shouldn't fail if it doesn't find any queued tasks
-    """
+    # The script shouldn't fail if it doesn't find any queued tasks
     run_code(log, tasks_json_tmpfile, app1)
     validate_zero_queued_task(app1)
     validate_zero_queued_task(app2)
@@ -160,12 +158,10 @@ def test_create_parent_task_after_child_completed(app1, app3, job_id1,
 
 @with_setup
 def test_should_not_add_queue_while_consuming_queue(app1, job_id1):
-    """
-    This test guards from doubly queuing jobs
-    This protects from simultaneous operations on root and leaf nodes
-    ie (parent and child) for the following operations:
-    adding, readding or a mix of both
-    """
+    # This test guards from doubly queuing jobs
+    # This protects from simultaneous operations on root and leaf nodes
+    # ie (parent and child) for the following operations:
+    # adding, readding or a mix of both
     enqueue(app1, job_id1)
 
     q = qb.get_qbclient().LockingQueue(app1)
@@ -337,8 +333,8 @@ def test_rerun_push_tasks(app1, app2, job_id1):
 
 @with_setup
 def test_complex_dependencies_pull_push(
-        depends_on1, log, tasks_json_tmpfile):
-    job_id = '20140601_1'
+        depends_on1, depends_on_job_id1, log, tasks_json_tmpfile):
+    job_id = depends_on_job_id1
     enqueue(depends_on1, job_id)
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
 
@@ -354,8 +350,9 @@ def test_complex_dependencies_pull_push(
 
 
 @with_setup
-def test_complex_dependencies_readd(depends_on1, log, tasks_json_tmpfile):
-    job_id = '20140601_1'
+def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
+                                    log, tasks_json_tmpfile):
+    job_id = depends_on_job_id1
 
     # mark everything completed
     parents = list(api.topological_sort(api.get_parents(depends_on1, job_id)))
@@ -499,10 +496,10 @@ def test_retry_failed_task(
 
 
 @with_setup
-def test_valid_if_or(app2):
+def test_valid_if_or(app2, job_id1):
     """Invalid tasks should be automatically completed.
     This is a valid_if_or test  (aka passes_filter )... bad naming sorry!"""
-    job_id = '20140606_3333_content'
+    job_id = job_id1.replace('profile', 'content')
     enqueue(app2, job_id, validate_queued=False)
     validate_one_skipped_task(app2, job_id)
 
@@ -542,10 +539,9 @@ def test_valid_if_or_func3(app3, job_id1, job_id2, job_id3):
 
 
 @with_setup
-def test_valid_task(app2):
+def test_valid_task(app2, job_id1):
     """Valid tasks should be automatically completed"""
-    job_id = '20140606_3333_profile'
-    enqueue(app2, job_id)
+    enqueue(app2, job_id1, validate_queued=True)
 
 
 @with_setup
@@ -693,10 +689,10 @@ def test_run_failing_spark_given_specific_job_id(
 
 
 @with_setup
-def test_failing_task(bash1, log, tasks_json_tmpfile):
+def test_failing_task(bash1, job_id1, log, tasks_json_tmpfile):
     _, err = run_code(
         log, tasks_json_tmpfile, bash1,
-        ' --job_id 20101010_-1_profile --bash_cmd notacommand...fail',
+        ' --job_id %s --bash_cmd notacommand...fail' % job_id1,
         capture=True)
     nose.tools.assert_regexp_matches(
         err, "Bash job failed")
@@ -711,8 +707,9 @@ def test_failing_task(bash1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_invalid_queued_job_id(app4, log, tasks_json_tmpfile):
-    job_id = '0011_i_dont_work_123_w_234'
+def test_invalid_queued_job_id(app4, depends_on_job_id1,
+                               log, tasks_json_tmpfile):
+    job_id = depends_on_job_id1  # this job_id does not match the app
     # manually bypass the decorator that validates job_id
     qb._set_state_unsafe(app4, job_id, pending=True)
     q = qb.get_qbclient().LockingQueue(app4)

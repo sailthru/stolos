@@ -46,6 +46,13 @@ def _create_tasks_json(func_name, inject={}):
     for k, new_k in renames:
         tc1 = tc1.replace(simplejson.dumps(k), simplejson.dumps(new_k))
         tc2 = tc2.replace(simplejson.dumps(k), simplejson.dumps(new_k))
+    # hacky: change the job_ids that may be mentioned in tasks.json
+    hack_renames = [
+        (x, '%s-%s' % (x, func_name)) for x in
+        ['profile', 'purchase'] + ['testID%s' % i for i in range(1, 7)]]
+    for k, new_k in hack_renames:
+        tc1 = tc1.replace(k, new_k)
+        tc2 = tc2.replace(k, new_k)
 
     tc3 = simplejson.loads(tc1)
     tc3.update(simplejson.loads(tc2))
@@ -62,6 +69,7 @@ def teardown_tasks_json(func_name, tasks_json_tmpfile):
 
 
 def teardown_queue_backend(func_name):
+    qb.get_qbclient().delete(func_name, _recursive=True)
     qb.get_qbclient().delete(makepath(func_name), _recursive=True)
 
 
@@ -78,9 +86,10 @@ def post_setup_queue_backend(func_name):
 
 def setup_job_ids(func_name):
     return ((), dict(
-        job_id1='20140606_1111_profile',
-        job_id2='20140606_2222_profile',
-        job_id3='20140604_1111_profile',
+        job_id1='20140606_1111_profile-%s' % func_name,
+        job_id2='20140606_2222_profile-%s' % func_name,
+        job_id3='20140604_1111_profile-%s' % func_name,
+        depends_on_job_id1='20140601_testID1-%s' % func_name,
     ))
 
 

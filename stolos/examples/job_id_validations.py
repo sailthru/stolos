@@ -13,8 +13,8 @@ JOB_ID_VALIDATIONS = {
     ) and int(date),
     'client_id': lambda client_id: int(client_id),
     'collection_name': lambda collection_name: (
-        bool(collection_name in set(
+        any(collection_name.startswith(x) for x in set(
             ['client', 'profile', 'purchase', 'content'])) and collection_name
     ),
-    'testID': lambda test_id: int(test_id)
+    'testID': lambda test_id: str(test_id)
 }

@@ -48,32 +48,32 @@
         "collection_name": ["profile", "purchase"],
         "date": [20140601],
         "client_id": [876, 1011, 9020],
-        "testID": [1]
+        "testID": ["testID1"]
         }, {
         "app_name": ["app1"],
         "job_id": ["20140601_999_purchase"],
-        "testID": [1]
+        "testID": ["testID1"]
       }],
       "depgrp2": {
         "app_name": ["depends_on2"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [876, 1011, 9020],
-        "testID": [2]
+        "testID": ["testID2"]
       },
       "depgrp3": {
         "app_name": ["app1"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [876],
-        "testID": [3]
+        "testID": ["testID3"]
       },
       "depgrp4": {
         "app_name": ["app1"],
         "collection_name": ["profile"],
         "date": [20140601],
         "client_id": [444],
-        "testID": [3]
+        "testID": ["testID3"]
       }
     }
   },
@@ -83,14 +83,14 @@
     "depends_on": {
       "dep1": {
         "app_name": ["app1"],
-        "testID": [1, 2, 3],
+        "testID": ["testID1", "testID2", "testID3"],
         "client_id": [555, 9],
         "collection_name": ["profile"]
       },
       "dep2": {
         "app_name": ["app1"],
         "date": [20140715, 20140714],
-        "testID": [5,6],
+        "testID": ["testID5", "testID6"],
         "client_id": [555],
         "collection_name": ["profile"]
       }
@@ -103,7 +103,7 @@
       "dep1": [
         {"app_name": ["depends_on1"],
          "date": [20140601],
-         "testID": [1]
+         "testID": ["testID1"]
         }, {
          "app_name": [
            "app1",
@@ -112,7 +112,7 @@
          "client_id": [101, 102],
          "collection_name": ["profile"],
          "date": [20140601],
-         "testID": [1]
+         "testID": ["testID1"]
         }
       ]
     }
