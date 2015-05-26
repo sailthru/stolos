@@ -3,7 +3,7 @@ import subprocess
 
 from stolos import api
 from stolos import exceptions
-from stolos import queue_backend as qb  # TODO: remove reliance on this
+from stolos import queue_backend as qb
 from stolos.testing_tools import (
     with_setup, inject_into_dag,
     enqueue, cycle_queue, consume_queue, get_qb_status,
@@ -17,7 +17,6 @@ from stolos.testing_tools import (
 CMD = (
     'STOLOS_TASKS_JSON={tasks_json}'
     ' STOLOS_APP_NAME={app_name}'
-    ' STOLOS_QB_ZOOKEEPER_HOSTS=localhost:2181'
     ' python -m stolos.runner '
     ' {extra_opts}'
 )
