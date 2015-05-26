@@ -39,7 +39,7 @@ def setup_qb(backend, args):
 def with_setup_factory_for_qb(backend, args):
     return tt.with_setup_factory(
         (tt.setup_job_ids, setup_qb(backend, args), ),
-        (),
+        (tt.teardown_queue_backend, ),
         (tt.post_setup_queue_backend,
          lambda: dict(qbcli=get_NS().queue_backend))
     )
@@ -55,7 +55,6 @@ def test_generator(*args, **kwargs):
                 # prefix the func name with the identifier for this backend
                 fn = "%s__%s" % (k, fn)
                 # wrap the test func with setup and teardown for nose
-                f.__name__ = fn
                 test_func = with_setup_factory_for_qb(k, v)(f)
                 test_func.description = 'test_backend.%s.%s' % (k, fn)
                 yield test_func

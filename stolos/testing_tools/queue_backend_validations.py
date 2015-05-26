@@ -4,7 +4,6 @@ TODO: make these tests generic to any queue backend somehow
 """
 from stolos import api
 import nose.tools as nt
-from os.path import join
 from stolos import queue_backend as qb
 
 
