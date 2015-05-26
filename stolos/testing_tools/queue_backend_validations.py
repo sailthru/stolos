@@ -36,8 +36,8 @@ def consume_queue(app_name):
 
 def get_qb_status(app_name, job_id):
     path = qb.get_job_path(app_name, job_id)
-    elockpath = join(path, 'execute_lock')
-    alockpath = join(path, 'add_lock')
+    elockpath = qb.get_lock_path('execute', app_name, job_id)
+    alockpath = qb.get_lock_path('add', app_name, job_id)
     qbcli = api.get_qbclient()
     return {
         'is_add_locked': qbcli.Lock(alockpath).is_locked(),

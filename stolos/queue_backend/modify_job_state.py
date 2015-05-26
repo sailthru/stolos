@@ -57,7 +57,7 @@ def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     try:
         _queue(app_name, job_id, queue=queue, priority=priority)
     finally:
-            lock.release()
+        lock.release()
     return True
 
 

@@ -4,8 +4,8 @@ import logging
 log = logging.getLogger('stolos.queue_backend')
 
 
-from .shared import get_job_path, get_qbclient
-get_job_path, get_qbclient
+from .shared import get_job_path, get_qbclient, get_lock_path
+get_job_path, get_qbclient, get_lock_path
 
 from .modify_job_state import (
     maybe_add_subtask, readd_subtask, set_state, inc_retry_count,
