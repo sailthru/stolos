@@ -114,7 +114,7 @@ def with_setup_factory(setup_funcs=(), teardown_funcs=(),
     def setup_func(func_name):
         initializer_args = []
         available_kwargs = dict(
-            log=util.configure_logging(True, log=logging.getLogger(
+            log=util.configure_logging(False, log=logging.getLogger(
                 'stolos.tests.%s' % func_name)),
             func_name=func_name,
         )
