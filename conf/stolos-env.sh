@@ -22,6 +22,7 @@ export STOLOS_QB_REDIS_DB=0
 export STOLOS_QB_REDIS_HOSTS="localhost:6379"
 export STOLOS_QB_REDIS_N_SERVERS=1
 export STOLOS_QB_REDIS_SOCKET_TIMEOUT="5"
+export STOLOS_QB_REDIS_HISTORY_PREFIX="test_stolos"
 
 # You can define your own custom configuration backend
 # export STOLOS_QUEUE_BACKEND="mymodule.myqueue_backend"

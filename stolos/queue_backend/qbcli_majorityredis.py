@@ -20,7 +20,8 @@ def raw_client():
             host=host, port=port, socket_timeout=NS.qb_redis_socket_timeout)
         for host, port in NS.qb_redis_hosts]
     return MajorityRedis(
-        clients, NS.qb_redis_n_servers or len(NS.qb_redis_hosts))
+        clients, NS.qb_redis_n_servers or len(NS.qb_redis_hosts),
+        getset_history_prefix=NS.qb_redis_history_prefix)
 
 
 class LockingQueue(BaseLockingQueue):
@@ -193,5 +194,10 @@ build_arg_parser = at.build_arg_parser([
             "The total number of Redis servers that Stolos may connect to."
             " This number is constant over time.  If you increase it, you may"
             " have data inconsistency issues")),
+    at.add_argument(
+        '--qb_redis_history_prefix', default='stolos', help=(
+            "majorityredis stores the history of read and write operations"
+            " in a key prefixed by the given value. You probably don't need to"
+            " modify the default value.")),
 ], description=(
     "These options specify which queue to use to store state about your jobs"))
