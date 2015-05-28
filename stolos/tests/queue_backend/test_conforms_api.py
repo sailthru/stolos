@@ -2,6 +2,7 @@ import nose.tools as nt
 import inspect
 
 from stolos.queue_backend import qbcli_baseapi
+from . import with_setup
 
 
 def assert_function_signatures_equal(f1, f2, msg):
@@ -10,7 +11,8 @@ def assert_function_signatures_equal(f1, f2, msg):
     nt.assert_equal(spec, base_spec, msg)
 
 
-def QBtest_conforms_to_baseapi_interface(qbcli):
+@with_setup
+def test_conforms_to_baseapi_interface(qbcli):
     msg = "%s: %%s" % qbcli.__name__
     for varname in dir(qbcli_baseapi):
         if varname.startswith("_"):
