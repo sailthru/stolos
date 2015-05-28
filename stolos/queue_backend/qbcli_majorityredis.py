@@ -21,7 +21,7 @@ def raw_client():
         for host, port in NS.qb_redis_hosts]
     return MajorityRedis(
         clients, NS.qb_redis_n_servers or len(NS.qb_redis_hosts),
-        getset_history_prefix=NS.qb_redis_history_prefix)
+        getset_history_prefix=NS.qb_redis_history_prefix, threadsafe=True)
 
 
 class LockingQueue(BaseLockingQueue):
@@ -94,7 +94,7 @@ class LockingQueue(BaseLockingQueue):
 class Lock(BaseLock):
     def __init__(self, path):
         self._path = path
-        self._l = raw_client().Lock(threadsafe=True)
+        self._l = raw_client().Lock()
 
     def acquire(self, blocking=False, timeout=None):
         """
