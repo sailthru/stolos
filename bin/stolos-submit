@@ -5,24 +5,27 @@ from stolos import log
 
 
 def main(ns):
-    api.initialize()
-    if ns.readd:
-        api.readd_subtask(ns.app_name, ns.job_id)
-    else:
-        rv = api.maybe_add_subtask(ns.app_name, ns.job_id)
-        if not rv:
-            log.warn("Did not add subtask")
+    api.initialize([])
+    for job_id in ns.job_id:
+        for app_name in ns.app_name:
+            if ns.readd:
+                api.readd_subtask(app_name, job_id)
+            else:
+                rv = api.maybe_add_subtask(app_name, job_id)
+                if not rv:
+                    log.warn("Did not add subtask")
 
 
 build_arg_parser = at.build_arg_parser([
-    at.add_argument('--job_id', required=True),
-    at.app_name(required=True, choices=list(api.get_tasks_config().keys())),
-    at.qb_zookeeper_hosts,
+    at.add_argument('-j', '--job_id', required=True, nargs='+'),
+    at.app_name(nargs='+'),
     at.add_argument(
         '--readd', action='store_true', help=(
             "Try to add this to the queue if it isn't already.  Assume we've"
             " tried to add the task already")),
-])
+], description=(
+    "Enqueue a particular job into an application's queue.  This script"
+    " assumes you have configured Stolos options via environment variables"))
 
 
 if __name__ == '__main__':
