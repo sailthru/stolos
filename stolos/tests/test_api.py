@@ -43,11 +43,15 @@ def test_check_state2(app1, job_id1, job_id2, job_id3):
     nt.assert_list_equal(
         [True, True],
         api.check_state(
-            app1, [job_id1, job_id2], pending=True, completed=True))
+            app1, [job_id1, job_id2], pending=True, completed=True,
+            raise_if_not_exists=True
+        ))
     nt.assert_list_equal(
         [True, True],
         api.check_state(
-            app1, [job_id1, job_id2], all=True))
+            app1, [job_id1, job_id2], all=True,
+            raise_if_not_exists=True
+        ))
 
 
 @tt.with_setup
