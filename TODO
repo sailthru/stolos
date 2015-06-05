@@ -1,17 +1,6 @@
-- make missing job_id identifiers just assume we depend on all of them.
+- in tasks.json, make missing job_id identifiers just assume we depend on all of them.
   - dag_tools tests for this
 - make job_id_validations file optional.  raise error if it's not a python path
   - consider util.load_... use a filepath instead of a python path?
-- is set vs create a necessary distinction?
-- are get_children and all the recursive operations necessary?
-  - can we just have this for applications
-
-Lock and LockingQueue
-
-majorityredis - errors due to connection or server errors cannot be mixed with
-expectable errors returned from server?  dunno.
-  -  qbcli.create may cause confusion here.
-
-majorityredis
-
-  - support setnx and a set that fails if key doesn't exist
+  - need to modify dag_tools code
+- remove qbcli.create.   set vs create is not a necessary distinction.
