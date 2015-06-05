@@ -153,7 +153,8 @@ def delete(path, _recursive=False):
         success = True
         for k in __builtin__.set(
                 y for x in mr._clients for y in x.keys('*%s*' % path)):
-            success &= mr.delete(k)
+            if (("%s/" % path) in k) or k.endswith(path):
+                success &= mr.delete(k)
         return success
     else:
         return mr.delete(path)
