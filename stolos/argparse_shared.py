@@ -24,6 +24,8 @@ def build_arg_parser(*args, **kwargs):
     disable --help by default"""
     if 'add_help' not in kwargs:
         kwargs['add_help'] = False
+    if 'prog' not in kwargs:
+        kwargs['prog'] = 'stolos'
     return _build_arg_parser(*args, **kwargs)
 
 
