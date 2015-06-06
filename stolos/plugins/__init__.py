@@ -6,6 +6,9 @@ Everything needed to create a stolos plugin is available here.
 
 # publicly visible to plugins
 from stolos import argparse_shared as at
+from stolos.configuration_backend import (
+    TasksConfigBaseMapping, TasksConfigBaseSequence)
+TasksConfigBaseSequence, TasksConfigBaseMapping
 from stolos import api
 at, api
 

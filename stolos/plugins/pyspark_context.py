@@ -4,7 +4,7 @@ from pyspark import SparkConf, SparkContext
 import sys
 import os
 
-from stolos.plugins import api, log_and_raise
+from stolos.plugins import api, log_and_raise, TasksConfigBaseMapping
 from . import log
 
 
@@ -164,7 +164,7 @@ def validate_uris(app_name, uris):
 
 def validate_spark_conf(app_name, conf):
     # spark_conf - Is it a dict of str: str pairs?
-    if hasattr(conf, 'items'):
+    if not isinstance(conf, (dict, TasksConfigBaseMapping)):
         log_and_raise(
             ("pyspark app improperly configured:"
              " spark_conf must be a key:value mapping."),
