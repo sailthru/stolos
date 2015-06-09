@@ -118,6 +118,7 @@ def _validate_sample_size(str_i):
 
 _build_arg_parser = at.build_arg_parser([at.group(
     'Spark Job Options: How should given module.main process data?',
+    at.app_name,
     at.group(
         "Preprocess data",
         at.add_argument(
