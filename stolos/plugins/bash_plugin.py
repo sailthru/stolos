@@ -59,7 +59,7 @@ def get_bash_cmd(app_name):
     If they don't exist, return empty string"""
     dg = api.get_tasks_config()
     meta = dg[app_name]
-    job_type = meta['job_type']
+    job_type = meta.get('job_type', 'bash')
     try:
         assert job_type == 'bash'
     except AssertionError:

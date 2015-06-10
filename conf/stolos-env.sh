@@ -12,12 +12,12 @@ export STOLOS_JOB_ID_VALIDATIONS="stolos.examples.job_id_validations"
 # Queue Backend:
 #
 
-# export STOLOS_QUEUE_BACKEND="zookeeper"  # enabled by default
-# export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
-# export STOLOS_QB_ZOOKEEPER_TIMEOUT=5
+export STOLOS_QUEUE_BACKEND="zookeeper"  # enabled by default
+export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
+export STOLOS_QB_ZOOKEEPER_TIMEOUT=5
 
 # Redis queue backend
-export STOLOS_QUEUE_BACKEND="majorityredis"
+# export STOLOS_QUEUE_BACKEND="majorityredis"
 export STOLOS_QB_REDIS_DB=0
 export STOLOS_QB_REDIS_HOSTS="localhost:6379"
 export STOLOS_QB_REDIS_N_SERVERS=1

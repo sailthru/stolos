@@ -109,7 +109,6 @@ def test_create_child_task_after_one_parent_completed(
     injected_app = app3
     dct = {
         injected_app: {
-            "job_type": "bash",
             "depends_on": {"app_name": [app1, app2]},
         },
     }
@@ -141,10 +140,8 @@ def test_create_parent_task_after_child_completed(app1, app3, job_id1,
     child_injapp = 'test_stolos/%s/testX' % func_name
     dct = {
         injected_app: {
-            "job_type": "bash",
         },
         child_injapp: {
-            "job_type": "bash",
             "depends_on": {"app_name": [injected_app]}
         }
     }

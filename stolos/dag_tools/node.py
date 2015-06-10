@@ -138,7 +138,13 @@ def get_job_id_template(app_name, template=None):
 def get_job_type(app_name):
     """Lookup the job_type in tasks graph"""
     dg = cb.get_tasks_config()
-    return dg[app_name]['job_type']
+    try:
+        return dg[app_name]['job_type']
+    except KeyError:
+        log.debug(
+            "No job_type specified for given app_name."
+            " Assuming job_type='bash'", extra=dict(app_name=app_name))
+        return 'bash'
 
 
 def get_task_names():

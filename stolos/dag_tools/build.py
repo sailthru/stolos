@@ -224,22 +224,11 @@ def validate_if_or(app_name1, metadata, dg, tasks_conf, ld):
 
 
 def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
-
-    # job_type  -  Is this a recognized job_type and does it exist?
-    _log_raise_if(
-        not metadata.get('job_type'),
-        ("Invalid job_type. All tasks must define one."
-         " Valid job_types are 'pyspark' or 'bash'"), extra=dict(
-             job_type=metadata.get('job_type', 'no job_type specified'), **ld),
-        exception_kls=DAGMisconfigured)
-
-    if metadata.get('job_type') not in ['pyspark', 'bash']:
+    if metadata.get('job_type', 'bash') not in ['pyspark', 'bash']:
         log.warn(
             ("Unrecognized job_type.  The default Stolos supported job_types"
-             " are: 'pyspark' or 'bash'"),
-            extra=dict(
-                job_type=metadata.get('job_type', 'no job_type specified'),
-                **ld))
+             " are: 'bash' or 'pyspark'"),
+            extra=dict(job_type=metadata['job_type'], **ld))
 
 
 def validate_dag(dg, tasks_conf):

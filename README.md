@@ -600,7 +600,6 @@ Great! You've installed and configured Stolos.  Let's run an application.
 cat > $TASKS_JSON <<EOF
 {
     "myapp": {
-        "job_type": "bash",
         "job_id": "{num}",
         "bash_cmd": "echo 123"
     }
@@ -714,9 +713,8 @@ expose how to define the apps and their relationships with other apps.
 There are a few different configuration options each app may define.  Here is
 a list of configuration options:
 
-- *`job_type`* - (required) Select which plugin this particular app uses
-  to execute your code.  The `job_type` choice also adds other configuration
-  options based on how the respective Stolos plugin works.
+- *`job_type`* - (optional) Select which plugin this particular app uses
+  to execute your code.  The default `job_type` is `bash`.
 - *`depends_on`* - (optional) A designation that a (`app_name`, `job_id`)
   can only be queued to run if certain parent `job_id`s have completed.
 - *`job_id`* - (optional) A template describing what identifiers compose
@@ -732,12 +730,11 @@ Here is a minimum viable configuration for an app:
 
     {
         "app_name": {
-            "job_type": "bash"
+          "bash_cmd": "echo 123"
         }
     }
 
-As you can see, there's not much to it.  You would need to define a
-command-line like "--bash_cmd echo 123" for this example to run properly.
+As you can see, there's not much to it.
 
 Here is an example of a simple App_Ai` --> `App_Bi` relationship.
 Also notice that the `bash_cmd` performs string interpolation so
@@ -745,11 +742,9 @@ applications can receive dynamically determined command-line parameters.
 
     {
         "App1": {
-            "job_type": "bash",
             "bash_cmd": "echo {app_name} is Running App 1 with {job_id}"
         },
         "App2": {
-            "job_type": "bash",
             "bash_cmd": "echo Running App 2. job_id contains date={date}"
             "depends_on": {"app_name": ["App1"]}
         }
@@ -762,11 +757,9 @@ identified by `{date}_{client_id}_purchaseRevenue`
 
     {
         "preprocess": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}"
         },
         "modelBuild": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
                 "app_name": ["preprocess"],
@@ -782,11 +775,9 @@ this example, the completion of a `preprocess` job identified by
 
     {
         "preprocess": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}"
         },
         "modelBuild"": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
                 "app_name": ["preprocess"],
@@ -808,11 +799,9 @@ Functions](README.md#configuration-defining-dependencies-with-a-two-way-function
 
     {
         "preprocess": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}"
         },
         "modelBuild": {
-            "job_type": "bash",
             "job_id": "{client_id}_{target}"
             "depends_on": {
                 "app_name": ["preprocess"],
@@ -840,7 +829,6 @@ the declaration of different dependency groups specifies OR logic.
 
     {
         "preprocess": {
-            "job_type": "bash",
             "job_id": "{date}_{client_id}"
         },
         "modelBuild": {
@@ -915,8 +903,8 @@ recognized by Stolos.  One can extend Stolos to support custom `job_type`s.
 You may wish to do this if you determine that it is more convenient have
 similar apps re-use the same start-up and tear-down logic.  Keep in mind that
 plugins generally violate Stolos's rule that it is ignorant of your runtime
-environment, network topology, infrastructure, etc.  Therefore, in Stolos, a
-plugin should be completely isolated from the rest of the Stolos codebase.
+environment, network topology, infrastructure, etc.  As a best practice,
+try to make your plugin completely isolated from the rest of Stolos's codebase.
 Refer to the developer documentation for writing custom plugins.
 
 

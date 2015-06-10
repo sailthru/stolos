@@ -5,20 +5,6 @@ DIR="$( dirname "$( cd "$( dirname "$0" )" && pwd )")"
 set -e
 set -u
 
-echo -n Is a local Zookeeper Server running and available?
-ans=`pgrep -f '\-Dzookeeper' >/dev/null && echo yes || echo no`
-echo ...$ans
-echo -n Is a local Redis Server running and available?
-ans2=`pgrep -f 'redis-server' && echo yes || echo no`
-echo ...$ans2
-
-if [ "$ans" = "no" -o "$ans2" = "no" ] ; then
-  echo \\n
-  echo CANNOT RUN TESTS!\\n
-  echo Tests require that you have a Zookeeper and Redis server
-  exit 1
-fi
-
 echo "\nrunning code linter"
 echo pep8...
 pep8 $DIR/stolos --ignore=E402 --exclude=.ropeproject

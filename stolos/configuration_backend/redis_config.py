@@ -101,12 +101,12 @@ def set_config(app_name, app_conf, cli,
     `redis_key_prefix` if redis keys used by Stolos have a prefix, specify it
 
         >> app_name = 'myapp1'
-        >> app_conf = {"job_type": "bash"}
+        >> app_conf = {"bash_cmd": "echo 123"}
         >> cli = redis.StrictRedis()
         >> set_config(app_name, app_conf, cli, delete_first=True)
         [True]
         >> cli.hgetall("%s%s" % ('', app_name))
-        {"'job_type'": "'bash'"}
+        {"'bash_cmd'": "'echo 123'"}
 
     """
     key = '%s%s' % (redis_key_prefix, app_name)

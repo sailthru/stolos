@@ -1,47 +1,38 @@
 {
   "app1": {
      "pymodule": "stolos.examples.tasks.test_task",
-     "job_type": "bash",
      "bash_cmd": "echo {app_name}"
  },
  "app2": {
      "pymodule": "stolos.examples.tasks.test_task",
      "depends_on": {"app_name": ["app1"]},
      "valid_if_or": {"collection_name": ["profile", "purchase"]},
-     "job_type": "bash",
      "bash_cmd": "echo {app_name}"
  },
  "app3": {
-     "job_type": "bash",
      "valid_if_or": {
        "_func": "stolos.examples.valid_if_or_example.func"
      }
  },
  "app4": {
-     "job_type": "bash",
      "depends_on": {
        "app_name": ["app1", "app2", "app3"]
      }
  },
  "custom_job_id1": {
-     "job_type": "bash",
      "job_id": "{date}_{client_id}_{unvalidated_field}"
  },
  "bash1": {
-     "job_type": "bash"
  },
  "bash2": {
      "depends_on": {"app_name": ["bash1"]},
-     "job_type": "bash",
      "bash_cmd": "echo 123"
  },
 
  "depends_on2": {
-     "job_type": "bash"
  },
   "depends_on1": {
     "job_id": "{date}_{testID}",
-    "job_type": "bash",
     "depends_on": {
       "depgrp1": [{
         "app_name": ["app2", "app1"],
@@ -78,7 +69,6 @@
     }
   },
   "fanout1": {
-    "job_type": "bash",
     "job_id": "{date}_{testID}",
     "depends_on": {
       "dep1": {
@@ -98,7 +88,6 @@
   },
   "topological_sort1": {
     "job_id": "{date}_{testID}",
-    "job_type": "bash",
     "depends_on": {
       "dep1": [
         {"app_name": ["depends_on1"],
