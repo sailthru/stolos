@@ -9,6 +9,11 @@ from stolos.exceptions import JobAlreadyQueued, InvalidJobId, NoNodeError
 from stolos.configuration_backend import TasksConfigBaseMapping
 # nt.assert_equal.im_class.maxDiff = None
 
+try:
+    nt.assert_count_equal = nt.assert_items_equal
+except:
+    pass  # python 3 vs 2 compatibility
+
 
 @tt.with_setup
 def test_check_state1(app1, job_id1, job_id2):
@@ -20,7 +25,7 @@ def test_check_state1(app1, job_id1, job_id2):
     qb.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
     api.get_qbclient().create(
-        qb.get_job_path(app1, job_id2), None)
+        qb.get_job_path(app1, job_id2), '')
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1)
@@ -126,7 +131,7 @@ def test_get_qbclient(app1):
 def test_get_tasks_config():
     tc = api.get_tasks_config()
     nt.assert_is_instance(tc, TasksConfigBaseMapping)
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         tc,
         ['test_stolos/test_get_tasks_config/depends_on2',
          'test_stolos/test_get_tasks_config/custom_job_id1',
@@ -162,7 +167,7 @@ def test_build_dag():
     dag = api.build_dag()
     nt.assert_is_instance(dag, MultiDiGraph)
     tc = api.get_tasks_config()
-    nt.assert_items_equal(tc.keys(), dag.node.keys())
+    nt.assert_count_equal(tc.keys(), dag.node.keys())
 
 
 @tt.with_setup

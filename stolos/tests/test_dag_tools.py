@@ -5,6 +5,10 @@ from stolos import dag_tools
 from stolos import exceptions
 
 # nt.assert_equal.im_class.maxDiff = None
+try:
+    nt.assert_count_equal = nt.assert_items_equal
+except:
+    pass  # python 3 vs 2 compatibility
 
 
 @tt.with_setup
@@ -118,22 +122,22 @@ def test_autofill_get_parents(autofill1, autofill2, autofill_getparents):
 def test_get_children(func_name, app1, app2, app4, depends_on1,
                       depends_on2, bash1, bash2):
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(
             depends_on2, '20140601_876_profile-%s' % func_name)),
         [(depends_on1, u'20140601_testID2-%s' % func_name, u'depgrp2')])
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(bash2, '20140601_9899_purchase')),
         []
     )
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(bash1, '20140601_9899_purchase')),
         [(bash2, '20140601_9899_purchase', 'default')]
     )
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(
             app1, '20140601_999_purchase-%s' % func_name)),
         [
@@ -143,7 +147,7 @@ def test_get_children(func_name, app1, app2, app4, depends_on1,
         ]
     )
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(
             app1, '20140601_876_purchase-%s' % func_name)),
         [
@@ -236,25 +240,25 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
     )
 
     # test the basic inheritance scenario
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(bash2, '20140501_876_profile', True)),
         [(bash1, '20140501_876_profile', 'default')]
     )
 
     # test invalid job_id
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(depends_on1, '20140101_999999', True)),
         []
     )
 
     # test invalid metadata in job_id
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(depends_on1, '20140601_999', True)),
         []
     )
 
     # test depends_on for one of the dependency groups
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(
             depends_on1, '20140601_testID2-%s' % func_name, True)),
         [
@@ -265,7 +269,7 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
 
     # test depends_on for one of the dependency groups
     # also tests that get_parents returns a stable ordering
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(depends_on1, depends_on_job_id1, True)),
         [
             (app1, '20140601_1011_profile-%s' % func_name, u'depgrp1'),
@@ -286,7 +290,7 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
 
     # test depends_on when multiple dependency groups map to the same job_id
     # I guess it's okay if they map to the same id?
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(
             depends_on1, '20140601_testID3-%s' % func_name, True)),
         [(app1, '20140601_444_profile-%s' % func_name, u'depgrp4'),
@@ -295,7 +299,7 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
     )
 
     # test the filter_deps option
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(
             depends_on1, '20140601_testID3-%s' % func_name, True,
             filter_deps=['depgrp4'])),
@@ -311,12 +315,12 @@ def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
 @tt.with_setup
 def test_fan_out_tasks(app1, app2, app4, fanout1, func_name):
     # test for Many-to-Many relationships between parent and child tasks
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(
             'test_stolos/test_fan_out_tasks/fanout1', '20140715_8')),
         [])
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_parents(
             'test_stolos/test_fan_out_tasks/fanout1',
             '20140715_testID5-%s' % func_name, True)),
@@ -325,7 +329,7 @@ def test_fan_out_tasks(app1, app2, app4, fanout1, func_name):
             (app1, '20140715_555_profile-%s' % func_name, u'dep2'),
         ])
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(
             'test_stolos/test_fan_out_tasks/app1',
             '20140715_9_profile-%s' % func_name, True,)),
@@ -336,7 +340,7 @@ def test_fan_out_tasks(app1, app2, app4, fanout1, func_name):
          (fanout1, '20140715_testID3-%s' % func_name, u'dep1'),
          ])
 
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.get_children(
             app1, '20140715_555_profile-%s' % func_name, True,)),
         [
@@ -355,7 +359,7 @@ def test_fan_out_tasks(app1, app2, app4, fanout1, func_name):
 @tt.with_setup
 def test_topological_sort(topological_sort1, app1, app2, depends_on1, bash2,
                           depends_on_job_id1, func_name):
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         list(dag_tools.topological_sort(dag_tools.get_parents(
             topological_sort1, depends_on_job_id1, True,))),
         [

@@ -20,13 +20,28 @@ from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
 from . import log
 
 
+def tobytes(value):
+    """implicitly try to convert values to byte strings
+    maintain python 2 and 3 compatibility"""
+    if not isinstance(value, bytes):
+        value = value.encode('utf8')
+    return value
+
+
+def frombytes(value):
+    """implicitly try to convert bytes to utf8"""
+    if value is None:
+        return value
+    return value.decode('utf8')
+
+
 class LockingQueue(BaseLockingQueue):
     def __init__(self, path):
         self._path = path
         self._q = _zkLockingQueue(client=raw_client(), path=path)
 
     def put(self, value, priority=100):
-        self._q.put(value, priority=priority)
+        self._q.put(tobytes(value), priority=priority)
 
     def consume(self):
         if not self._q.consume():
@@ -37,7 +52,7 @@ class LockingQueue(BaseLockingQueue):
         """Get an item from the queue or return None."""
         if timeout is None:
             timeout = get_NS().qb_zookeeper_timeout
-        return self._q.get(timeout=timeout)
+        return frombytes(self._q.get(timeout=timeout))
 
     def size(self, queued=True, taken=True):
         """
@@ -89,7 +104,7 @@ class LockingQueue(BaseLockingQueue):
         except NoNodeError:
             items = []
 
-        if value in items:
+        if tobytes(value) in items:
             return True
         return False
 
@@ -146,7 +161,7 @@ def raw_client():
 
 def get(path):
     try:
-        return raw_client().get(path)[0]
+        return frombytes(raw_client().get(path)[0])
     except NoNodeError as err:
         raise exceptions.NoNodeError("%s: %s" % (path, err))
 
@@ -169,7 +184,7 @@ def delete(path, _recursive=False):
 
 def set(path, value):
     try:
-        return raw_client().set(path, value)
+        return raw_client().set(path, tobytes(value))
     except NoNodeError as err:
         raise exceptions.NoNodeError(
             "Must first create node before setting a new value. %s" % err)
@@ -177,7 +192,7 @@ def set(path, value):
 
 def create(path, value):
     try:
-        return raw_client().create(path, value, makepath=True)
+        return raw_client().create(path, tobytes(value), makepath=True)
     except NodeExistsError as err:
         raise exceptions.NodeExistsError("%s: %s" % (path, err))
 

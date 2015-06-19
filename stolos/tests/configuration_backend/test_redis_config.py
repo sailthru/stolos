@@ -5,6 +5,11 @@ from stolos.configuration_backend.redis_config import (
 from stolos.configuration_backend.json_config import (
     JSONMapping, JSONSequence)
 
+try:
+    nt.assert_count_equal = nt.assert_items_equal
+except:
+    pass  # python 3 vs 2 compatibility
+
 REDIS_PREFIX = 'test_stolos/%s/%s'
 
 
@@ -54,7 +59,7 @@ def test_get_item(app1, td):
     nt.assert_is_instance(td[app1], JSONMapping)
     nt.assert_is_instance(td[app1], JSONMapping)
     # are returned values of the correct type?
-    nt.assert_items_equal(td[app1].keys(), ['key1', 2, 3])
+    nt.assert_count_equal(td[app1].keys(), ['key1', 2, 3])
 
     nt.assert_is_instance(
         td[app1][3], JSONSequence)
@@ -91,7 +96,7 @@ def test_set_config(app1, cli, td):
     nt.assert_equal(1, td[app1]['key1'])
 
     # verify set_config adds new keys
-    nt.assert_items_equal(td[app1].keys(), ['key1'] + dct.keys())
+    nt.assert_count_equal(td[app1].keys(), ['key1'] + list(dct.keys()))
     nt.assert_equal('1', td[app1]['1'])
     nt.assert_equal(2, td[app1][2])
     nt.assert_equal(1.1, td[app1][1.1])

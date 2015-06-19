@@ -49,7 +49,7 @@ def run_code(log, tasks_json_tmpfile, app_name, extra_opts='',
              " \nSTDOUT:\n%s \nSTDERR:\n %s"
              % (stdout, stderr))
     if capture:
-        return stdout, stderr
+        return stdout.decode('utf8'), stderr.decode('utf8')
 
 
 @with_setup
