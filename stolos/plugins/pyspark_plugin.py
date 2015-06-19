@@ -1,4 +1,5 @@
 import functools
+import inspect
 import simplejson
 import importlib
 
@@ -61,8 +62,7 @@ def apply_data_transform(ns, sc, log_details, pjob_id, module):
     `textFile` parameter, pass the textFile instance.  Otherwise, just map
     module.main on the RDD
     """
-    func_args = (module.main.func_code
-                 .co_varnames[:module.main.func_code.co_argcount])
+    func_args = inspect.getargspec(module.main).args
     if 'sc' in func_args:
         log.info(
             'passing spark context to a module.main function',

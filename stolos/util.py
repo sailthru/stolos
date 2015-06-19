@@ -141,12 +141,11 @@ def pre_condition(validation_func):
     def __decorator(func):
         @functools.wraps(func)
         def _decorator(*args, **kwargs):
-            kws2 = dict(zip(func.func_code.co_varnames, args))
+            kws2 = dict(zip(inspect.getargspec(func).args, args))
             kws2.update(kwargs)
-            nargs = validation_func.func_code.co_argcount
+            vf = inspect.getargspec(validation_func)
             validation_args = (
-                kws2[k] for k in validation_func.func_code.co_varnames[:nargs]
-                if k in kws2)
+                kws2[k] for k in vf.args if k in kws2)
             assert validation_func(*validation_args), (
                 "validation_func %s did not return True"
                 % validation_func.__name__)
