@@ -241,3 +241,20 @@ def load_obj_from_path(import_path, ld=dict()):
             extra=dict(import_path=import_path, obj_name=obj_name, **ld),
             exception_kls=ImportWarning)
     return obj
+
+
+def tobytes(value):
+    """implicitly try to convert values to byte strings
+    mainly for python 2 and 3 compatibility"""
+    if not isinstance(value, bytes):
+        value = value.encode('utf8')
+    return value
+
+
+def frombytes(value):
+    """implicitly try to convert bytes to utf8
+    mainly for python 2 and 3 compatibility
+    """
+    if value is None:
+        return value
+    return value.decode('utf8')

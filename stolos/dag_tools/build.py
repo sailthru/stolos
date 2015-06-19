@@ -150,8 +150,8 @@ def _validate_dep_grp_with_job_id_validations(dep_grp, ld, tasks_conf):
                 _log_raise((
                     "Invalid data at <app_name>.depends_on.<key>.[nth_value]."
                     " The job_id_validation function complained that the"
-                    " value was invalid. Error details: "
-                ) + err.message,
+                    " value was invalid. Error details: %s"
+                ) % err.message,
                     extra=dict(key='%s.%s' % (k, v), value=vv, **ld),
                     exception_kls=DAGMisconfigured)
 
