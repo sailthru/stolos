@@ -3,10 +3,10 @@ from stolos import get_NS
 
 
 # All possible job states, as stored in the queue backend
-PENDING = 'pending'
-COMPLETED = 'completed'
-FAILED = 'failed'
-SKIPPED = 'skipped'
+PENDING = b'pending'
+COMPLETED = b'completed'
+FAILED = b'failed'
+SKIPPED = b'skipped'
 
 
 def get_job_path(app_name, job_id, *args):
