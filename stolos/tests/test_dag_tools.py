@@ -4,7 +4,7 @@ from stolos import testing_tools as tt
 from stolos import dag_tools
 from stolos import exceptions
 
-nt.assert_equal.im_class.maxDiff = None
+# nt.assert_equal.im_class.maxDiff = None
 
 
 @tt.with_setup

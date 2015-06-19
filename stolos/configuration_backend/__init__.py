@@ -17,24 +17,6 @@ from .tasks_config_base import TasksConfigBaseMapping, TasksConfigBaseSequence
 TasksConfigBaseMapping, TasksConfigBaseSequence
 
 
-build_arg_parser = at.build_arg_parser([at.group(
-    "Application Dependency Configuration",
-    at.backend(
-        backend_type='configuration',
-        default='json',
-        known_backends={
-            "json": "stolos.configuration_backend.json_config.JSONMapping",
-            "redis": "stolos.configuration_backend.redis_config.RedisMapping"},
-        help=(
-            "Where do you store the application dependency data?"
-            ' This option defines which configuration backend Stolos uses'
-            ' to access the directed graph defining how your applications'
-            ' depend on each other.'
-            ' You can supply your own configuration backend or choose from the'
-            ' following supported options: {known_backends}')),
-)])
-
-
 def _ensure_type(value, mapping_kls, seq_kls):
     """
     Code that backends can use to ensure dict and list values they may
@@ -60,3 +42,21 @@ def get_tasks_config():
     """
     ns = stolos.get_NS()
     return ns.configuration_backend()
+
+
+build_arg_parser = at.build_arg_parser([at.group(
+    "Application Dependency Configuration",
+    at.backend(
+        backend_type='configuration',
+        default='json',
+        known_backends={
+            "json": "stolos.configuration_backend.json_config.JSONMapping",
+            "redis": "stolos.configuration_backend.redis_config.RedisMapping"},
+        help=(
+            "Where do you store the application dependency data?"
+            ' This option defines which configuration backend Stolos uses'
+            ' to access the directed graph defining how your applications'
+            ' depend on each other.'
+            ' You can supply your own configuration backend or choose from the'
+            ' following supported options: {known_backends}')),
+)])

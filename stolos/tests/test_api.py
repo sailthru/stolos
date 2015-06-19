@@ -7,7 +7,7 @@ from stolos import testing_tools as tt
 from stolos import queue_backend as qb
 from stolos.exceptions import JobAlreadyQueued, InvalidJobId, NoNodeError
 from stolos.configuration_backend import TasksConfigBaseMapping
-nt.assert_equal.im_class.maxDiff = None
+# nt.assert_equal.im_class.maxDiff = None
 
 
 @tt.with_setup
