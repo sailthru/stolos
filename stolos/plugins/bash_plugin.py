@@ -1,6 +1,7 @@
 from argparse import REMAINDER
 from os import kill
 from signal import alarm, signal, SIGALRM, SIGKILL
+import six
 from subprocess import PIPE, Popen
 import sys
 
@@ -67,7 +68,7 @@ def get_bash_cmd(app_name):
             "App is not a bash job", extra=dict(
                 app_name=app_name, job_type=job_type))
     rv = meta.get('bash_cmd', '')
-    if not isinstance(rv, (str, unicode)):
+    if not isinstance(rv, six.string_types):
         log_and_raise(
             "App config for bash plugin is misconfigured:"
             " bash_cmd is not a string", dict(app_name=app_name))

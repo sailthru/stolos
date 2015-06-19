@@ -1,6 +1,7 @@
 import atexit
 import functools
 from pyspark import SparkConf, SparkContext
+import six
 import sys
 import os
 
@@ -141,12 +142,12 @@ def validate_env(app_name, env):
              " env, if supplied, must be a key: value mapping"),
             dict(app_name=app_name))
     for k, v in env.items():
-        if not isinstance(k, (str, unicode)):
+        if not isinstance(k, six.string_types):
             log_and_raise(
                 ("pyspark app misconfigured:"
                  "invalid key.  expected string"),
                 dict(app_name=app_name, key=k))
-        if not isinstance(v, (str, unicode)):
+        if not isinstance(v, six.string_types):
             log_and_raise(
                 ("pyspark app misconfigured:"
                  "invalid value.  expected string"),
@@ -158,7 +159,7 @@ def validate_uris(app_name, uris):
     msg = ("pyspark app misconfigured:"
            " %s, if supplied, must be a list of hadoop-compatible filepaths"
            ) % key
-    if not all(isinstance(x, (unicode, str)) for x in uris):
+    if not all(isinstance(x, six.string_types) for x in uris):
         log_and_raise(msg, extra=dict(app_name=app_name))
 
 
@@ -171,12 +172,13 @@ def validate_spark_conf(app_name, conf):
             dict(app_name=app_name))
 
     for k, v in conf.items():
-        if not isinstance(k, (unicode, str)):
+        if not isinstance(k, six.string_types):
             log_and_raise(
                 "pyspark app improperly configured:"
                 " Key in spark_conf must be a string",
                 dict(app_name=app_name, key=k, key_type=type(k)))
-        if not isinstance(v, (str, unicode, int, bool, float, long)):
+        if not isinstance(v, six.string_types + six.integer_types +
+                          (bool, float)):
             log_and_raise(
                 ("pyspark app improperly configured:"
                  "Value for given key in spark_conf must be an"

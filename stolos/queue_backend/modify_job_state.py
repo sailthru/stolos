@@ -1,4 +1,5 @@
 from os.path import join
+import six
 
 from stolos import dag_tools as dt
 from stolos import util
@@ -19,7 +20,7 @@ def _queue(app_name, job_id, queue=True, priority=None):
         extra=dict(app_name=app_name, job_id=job_id, priority=priority))
     if dt.passes_filter(app_name, job_id):
         # hack: zookeeper doesn't like unicode
-        if isinstance(job_id, unicode):
+        if isinstance(job_id, six.string_types):
             job_id = str(job_id)
         set_state(app_name, job_id, pending=True)
         if queue:

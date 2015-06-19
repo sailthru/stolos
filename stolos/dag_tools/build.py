@@ -1,5 +1,7 @@
+from functools import reduce
 import networkx as nx
 import os
+import six
 import tempfile
 
 from stolos.exceptions import _log_raise, _log_raise_if, DAGMisconfigured
@@ -372,7 +374,7 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
     except (KeyError, TypeError):
         raise DAGMisconfigured(
             "You defined a dependency but forgot to include the app_name")
-    if isinstance(parent, (unicode, str)):
+    if isinstance(parent, six.string_types):
         dg.add_edge(parent, app_name, key=dep_name, label=dep_name)
     elif isinstance(parent, cb.TasksConfigBaseSequence):
         for _parent in parent:
