@@ -694,7 +694,7 @@ def test_run_multiple_given_specific_job_id(
         extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 2' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
-    err = p.communicate()[1] + p2.communicate()[1]
+    err = (p.communicate()[1] + p2.communicate()[1]).decode('utf8')
     statuses = [p.poll(), p2.poll()]
     # one job succeeds.  one job fails
     nose.tools.assert_regexp_matches(err, 'successfully completed job')
