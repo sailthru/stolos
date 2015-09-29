@@ -285,7 +285,11 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
                 ...
             }
     """
-    parent = dep_grp['app_name']
+    try:
+        parent = dep_grp['app_name']
+    except (KeyError, TypeError) as err:
+        raise DAGMisconfigured(
+            "You defined a dependency but forgot to include the app_name")
     if isinstance(parent, (unicode, str)):
         dg.add_edge(parent, app_name, key=dep_name, label=dep_name)
     elif isinstance(parent, cb.TasksConfigBaseSequence):
