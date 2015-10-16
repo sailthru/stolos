@@ -736,7 +736,7 @@ Here is a minimum viable configuration for an app:
 
 As you can see, there's not much to it.
 
-Here is an example of a simple App_Ai` --> `App_Bi` relationship.
+Here is an example of a simple `App_Ai` --> `App_Bi` relationship.
 Also notice that the `bash_cmd` performs string interpolation so
 applications can receive dynamically determined command-line parameters.
 
