@@ -131,11 +131,12 @@ class Lock(BaseLock):
 @util.cached
 def raw_client():
     """Start a connection to ZooKeeper"""
-    qb_zookeeper_hosts = get_NS().qb_zookeeper_hosts
+    ns = get_NS()
     log.debug(
         "Connecting to ZooKeeper",
-        extra=dict(qb_zookeeper_hosts=qb_zookeeper_hosts))
-    zk = KazooClient(qb_zookeeper_hosts)
+        extra=dict(qb_zookeeper_hosts=ns.qb_zookeeper_hosts,
+                   qb_zookeeper_timeout=ns.qb_zookeeper_timeout))
+    zk = KazooClient(ns.qb_zookeeper_hosts, ns.qb_zookeeper_timeout)
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
     zk.start()
