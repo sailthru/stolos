@@ -10,7 +10,7 @@ from stolos import configuration_backend as cb
 from stolos import get_NS
 
 from .build import build_dag
-from .node import (parse_job_id, get_job_id_template)
+from .node import (parse_job_id, get_job_id_template, get_valid_job_id_values)
 from . import log
 
 
@@ -284,17 +284,23 @@ def _iter_job_ids(dep_group, group_name, parent_app_name, ld):
         yield (parent_app_name, jid)
 
 
-def get_children(node, job_id, include_dependency_group=True):
+def get_children(app_name, job_id, include_dependency_group=True):
     dg = build_dag()
-    child_apps = ((k, vv) for k, v in dg.succ[node].items() for vv in v)
-    child_apps = list(child_apps)
+    child_apps = [(k, vv) for k, v in dg.succ[app_name].items() for vv in v]
     for child, group_name in child_apps:
-        grp = dg.node[child]['depends_on']
+        depends_on = dg.node[child]['depends_on']
+        # 2 types of depends_on definitions:
+        # 1) dict with app_name
+        # 2) named dependency groups:
+        #     2a) dict without app_name that defines a list of dicts (AND)
+        #     2b) dict without app_name that defines a single dict (OR)
         if group_name != get_NS().dependency_group_default_name:
-            grp = grp[group_name]
+            depends_on = depends_on[group_name]
+
         kwargs = dict(
-            func=_generate_job_ids, kwarg_name='grp', list_or_value=grp,
-            node=node, job_id=job_id, child=child, group_name=group_name)
+            func=_generate_job_ids,
+            kwarg_name='depends_on', list_or_value=depends_on,
+            app_name=app_name, job_id=job_id, child=child, group_name=group_name)
         for rv in flatmap_with_kwargs(**kwargs):
             if include_dependency_group:
                 yield rv + (group_name, )
@@ -302,24 +308,27 @@ def get_children(node, job_id, include_dependency_group=True):
                 yield rv
 
 
-def _generate_job_ids(node, job_id, child, group_name, grp):
-    # ignore dependency groups that have nothing to do with the parent node
-    if node not in grp['app_name']:
+def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
+    # ignore dependency groups that have nothing to do with the parent app_name
+    if app_name not in depends_on['app_name']:
         return []
 
-    if len(grp) == 1:
-        return [(child, job_id)]
+    # if len(depends_on) == 1:
+        # # child depends only on one parent, so it must be the parent we've
+        # # called get_children on!
+        # return [(child, job_id)]
 
     # check that the job_id applies to this group
-    pjob_id = parse_job_id(node, job_id)  # parent data
+    pjob_id = parse_job_id(app_name, job_id)  # parent data
     ctemplate, cparsed_template = get_job_id_template(child)  # child data
 
     # check if parent job_ids are hardcoded into configuration
-    if 'job_id' in grp:
-        if job_id in grp['job_id']:
+    if 'job_id' in depends_on:
+        if job_id in depends_on['job_id']:
             kwargs = dict()
             kwargs.update(pjob_id)
-            kwargs.update({k: v[0] for k, v in grp.items() if len(v) == 1})
+            kwargs.update({k: v[0] for k, v in depends_on.items()
+                           if len(v) == 1})
             cjob_id = ctemplate.format(**kwargs)
             return [(child, cjob_id)]
         return []
@@ -327,28 +336,35 @@ def _generate_job_ids(node, job_id, child, group_name, grp):
     # check if the parent job_id template is compatible with this dep_grp
     for k, v in pjob_id.items():
         # is the parent's job_id identifier defined anywhere?
-        if k not in grp and k not in cparsed_template:
+        if k not in depends_on and k not in cparsed_template:
             return []
         # is the identifier appropriately missing from the dep_grp?
-        if k in grp and v not in grp[k]:
+        if k in depends_on and v not in depends_on[k]:
             return []
     # check if the child's job_id template is compatible with this dep_grp
     for k in cparsed_template:
         # is child's job_id identifier appropriately missing from the dep_grp?
-        if k in grp and k in pjob_id and pjob_id[k] not in grp[k]:
+        if k in depends_on and k in pjob_id and pjob_id[k] not in depends_on[k]:
             return []
         # is identifier defined anywhere?
-        if k not in grp and k not in pjob_id:
+        if (
+                k not in depends_on and
+                k not in pjob_id and
+                k not in get_valid_job_id_values(child, raise_err=False)
+                ):
             return []
     return _generate_job_ids2(
-        grp, pjob_id, cparsed_template, ctemplate, group_name, child)
+        depends_on, pjob_id, cparsed_template, ctemplate, group_name, child)
 
 
-def _generate_job_ids2(grp, pjob_id,
+def _generate_job_ids2(depends_on, pjob_id,
                        cparsed_template, ctemplate, group_name, child):
     so_far = set()
-    for job_id_data in crossproduct([grp.get(_key) or [pjob_id[_key]]
-                                     for _key in cparsed_template]):
+    valid_job_id_values = get_valid_job_id_values(child, raise_err=False)
+    job_id_components = [
+        depends_on.get(_key) or valid_job_id_values.get(_key) or [pjob_id[_key]]
+        for _key in cparsed_template]
+    for job_id_data in crossproduct(job_id_components):
         cjob_id = ctemplate.format(
             dependency_group_name=group_name,
             **dict(zip(cparsed_template, job_id_data)))

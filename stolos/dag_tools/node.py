@@ -80,6 +80,27 @@ def _validate_job_id_identifiers(
     return rv
 
 
+def get_valid_job_id_values(app_name, raise_err=True):
+    """Return contents of "valid_job_id_values" for given app_name.
+
+    `raise_err` - If False, return {} if valid_job_id_values does not exist
+    """
+    app_data = cb.get_tasks_config()[app_name]
+    try:
+        return app_data['valid_job_id_values']
+    except KeyError:
+        msg = (
+                'Expected to find `valid_job_id_values` defined in task'
+                ' configuration for given app_name.  This is required when the'
+                ' task introduces a new job_id component that is not'
+                ' inherited from a parent node.')
+        if raise_err:
+            log.exception(msg, extra=dict(app_name=app_name))
+            raise DAGMisconfigured("%s  app_name: %s" % (msg, app_name))
+        return {}
+
+
+
 def passes_filter(app_name, job_id):
     """Determine if this job matches certain criteria that state it is a
     valid job for this app_name.

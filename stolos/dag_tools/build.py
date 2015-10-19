@@ -308,34 +308,35 @@ def _add_edges(dg, app_name, dep_name, dep_grp, log_details):
 
 
 def _build_dict_deps(dg, app_name, deps):
-    """Build edges between dependent nodes
+    """Build edges between dependent nodes by looking at listed dependencies
 
     `dg` (nx.MultiDiGraph instance) - the Tasks configuration as a graph
     `app_name` (str) - the name of a scheduled application
     `deps` (obj) - the dependencies for given `app_name`.  Should be a subclass
-        of cb.TasksConfigBaseMapping
+        of cb.TasksConfigBaseMapping, and is the value of given app_name's
+        "depends_on" field
     """
     log_details = dict(app_name=app_name, key='depends_on', deps=dict(deps))
-    if "app_name" in deps:
+    if isinstance(deps, cb.TasksConfigBaseMapping) and "app_name" in deps:
         _add_edges(
             dg, app_name=app_name,
             dep_name=get_NS().dependency_group_default_name,
             dep_grp=deps, log_details=log_details)
     else:
-        for dep_name, dep_grp in deps.items():
-            if isinstance(dep_grp, cb.TasksConfigBaseMapping):
+        for dep_name, dep_data in deps.items():
+            if isinstance(dep_data, cb.TasksConfigBaseMapping):
                 _add_edges(
                     dg=dg, app_name=app_name, dep_name=dep_name,
-                    dep_grp=dep_grp, log_details=log_details)
-            elif isinstance(dep_grp, cb.TasksConfigBaseSequence):
-                for _dep_grp in dep_grp:
+                    dep_grp=dep_data, log_details=log_details)
+            elif isinstance(dep_data, cb.TasksConfigBaseSequence):
+                for _dep_grp in dep_data:
                     _add_edges(
                         dg=dg, app_name=app_name, dep_name=dep_name,
                         dep_grp=_dep_grp, log_details=log_details)
             else:
                 _log_raise(
                     "Unrecognized dependency.  Expected a list or dict",
-                    dict(dep_name=dep_name, dep_grp=dep_grp, **log_details),
+                    dict(dep_name=dep_name, dep_data=dep_data, **log_details),
                     exception_kls=DAGMisconfigured)
 
 
