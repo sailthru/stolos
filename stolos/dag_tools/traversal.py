@@ -341,6 +341,11 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
         # is the identifier appropriately missing from the dep_grp?
         if k in depends_on and v not in depends_on[k]:
             return []
+        # is parent identifier defined in child valid_job_id_values different
+        # than parent's given job id?
+        _child_job_id_vals = get_valid_job_id_values(child, raise_err=False)
+        if k in _child_job_id_vals and v not in _child_job_id_vals[k]:
+            return []
     # check if the child's job_id template is compatible with this dep_grp
     for k in cparsed_template:
         # is child's job_id identifier appropriately missing from the dep_grp?
