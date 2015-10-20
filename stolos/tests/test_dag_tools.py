@@ -87,6 +87,75 @@ def test_get_children(func_name, app1, app2, app4, depends_on1,
 
 
 @tt.with_setup
+def test_get_children_with_complicated_job_ids(valid1, valid2, valid3, valid3b,
+                                               valid4):
+    nt.assert_items_equal(
+        list(dag_tools.get_children("valid1", "20151015_2")),
+        [
+            ('valid4', '20151015_101', 'default'),
+            ('valid3b', '20151015_101', 'another_way_to_state_same_thing'),
+            ('valid3b', '20151015_102', 'another_way_to_state_same_thing'),
+            ('valid3', '20151015_101', 'default'),
+            ('valid3', '20151015_102', 'default')
+        ]
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_children("valid1", "20151015_3")),
+        []
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_children("valid2", "20151015_101")),
+        [
+            ('valid4', '20151015_101', 'default'),
+            ('valid3b', '20151015_101', 'another_way_to_state_same_thing'),
+            ('valid3', '20151015_101', 'default')
+        ]
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_children("valid2", "20151015_103")),
+        []
+    )
+    raise NotImplementedError("expect this fail")
+
+
+@tt.with_setup
+def test_get_parents_with_complicated_job_ids():
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid3", "20151015_100")),
+        []
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid3", "20151015_101")),
+        [
+            ('valid1', '201501015_1'),
+            ('valid1', '201501015_2'),
+            ('valid2', '201501015_101')
+        ]
+    )
+    # valid3b should be same as valid3
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid3b", "20151015_100")),
+        list(dag_tools.get_parents("valid3", "20151015_100")),
+    )
+
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid4", "20151015_100")),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid4", "20151015_102")),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents("valid4", "20151015_101")),
+        [
+            ('valid1', '201501015_1'),
+            ('valid1', '201501015_2'),
+            ('valid2', '201501015_101')
+        ]
+    )
+    raise NotImplementedError('expect fail')
+
+
+@tt.with_setup
 def test_get_parents(app1, app2, depends_on1, depends_on2, bash1, bash2,
                      depends_on_job_id1, func_name):
 

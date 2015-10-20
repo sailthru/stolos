@@ -105,5 +105,44 @@
         }
       ]
     }
+  },
+  "valid1": {
+    "job_id": "{date}_{testID}"
+  },
+  "valid2": {
+    "job_id": "{date}_{client_id}"
+  },
+  "valid3": {
+    "job_id": "{date}_{client_id}",
+    "valid_job_id_values": {
+      "client_id": [101, 102]
+    },
+    "depends_on": {
+      "app_name": ["valid1", "valid2"],
+      "testID": ["1", "2"]
+    }
+  },
+  "valid3b": {
+    "job_id": "{date}_{client_id}",
+    "valid_job_id_values": {
+      "client_id": [101, 102]
+    },
+    "depends_on": {
+      "another_way_to_state_same_thing": [
+        {"app_name": ["valid1"], "testID": ["1", "2"]},
+        {"app_name": ["valid2"]}
+      ]
+    }
+  },
+  "valid4": {
+    "job_id": "{date}_{client_id}",
+    "valid_job_id_values": {
+      "client_id": [101, 102]
+    },
+    "depends_on": {
+      "app_name": ["valid1", "valid2"],
+      "testID": ["1", "2"],
+      "client_id": [101]
+    }
   }
 }
