@@ -271,12 +271,16 @@ def visualize_dag(dg=None, plot_nx=False, plot_graphviz=True, write_dot=True,
     import webbrowser
     if not dg:
         dg = build_dag()
+    dg = nx.relabel_nodes(
+        dg,
+        {x: "%s\n%s" % (x, node.get_job_id_template(x)[0]) for x in dg.node})
     if plot_nx:
         nx.draw_graphviz(dg, prog=prog)
     if write_dot or plot_graphviz:
         tmpf = tempfile.mkstemp(suffix='.dot', prefix='stolos_dag_')[1]
         nx.write_dot(dg, tmpf)
         os.popen('{1} {0} -Tpng > {0}.png'.format(tmpf, prog))
+        print("saved to %s.png" % tmpf)
         if plot_graphviz:
             webbrowser.open(tmpf + '.png')
 
