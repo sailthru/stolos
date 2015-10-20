@@ -14,7 +14,7 @@ The goals of Stolos are the following:
     application may run many times with different input parameters.
   - Provide an elegant way to define and reason about job dependencies.
   - Built for fault tolerance and scalability.
-  - Applications are completely decoupled form and know nothing about Stolos.
+  - Applications are completely decoupled from and know nothing about Stolos.
 
 ![](/screenshot.png?raw=true)
 
