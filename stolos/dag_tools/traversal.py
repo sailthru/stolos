@@ -52,9 +52,10 @@ def get_parents(app_name, job_id, include_dependency_group=False,
     ld = dict(  # log details
         app_name=app_name, job_id=job_id)
     for group_name, dep_group in _get_grps(app_name, filter_deps, ld):
-        if not dep_group_and_job_id_compatible(dep_group, parsed_job_id):
+        if not dep_group_and_job_id_compatible(dep_group, parsed_job_id,
+                                               child_app_name=app_name):
             log.debug(
-                'ignoring dependency group in call to get_parents',
+                "ignore possible parents whose job_id can't match given child",
                 extra=dict(dependency_group_name=group_name, **ld))
             continue
 
@@ -77,24 +78,27 @@ def get_parents(app_name, job_id, include_dependency_group=False,
                 yield rv
 
 
-def dep_group_and_job_id_compatible(dep_group, pjob_id):
+def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
     """Check if the dependency group for this app could possibly have
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
     if isinstance(dep_group, cb.TasksConfigBaseSequence):  # recursive AND
-        return all(dep_group_and_job_id_compatible(dg, pjob_id)
+        return all(dep_group_and_job_id_compatible(dg, pjob_id, child_app_name)
                    for dg in dep_group)
 
     if pjob_id is None:
         return True  # all dependency groups are compatible
 
+    cj = get_valid_job_id_values(child_app_name, raise_err=False)
     for parent in dep_group['app_name']:
         _, parent_template = get_job_id_template(parent)
 
+        # did this job_id come from this parent?
         for k, v in pjob_id.items():
             if k not in dep_group and k not in parent_template:
-                return False
+                if (k not in cj) or (v not in cj[k]):
+                    return False
             if k in dep_group and v not in dep_group[k]:
                 return False
     return True
