@@ -40,7 +40,6 @@ def get_parents(app_name, job_id, include_dependency_group=False,
         dependency group
 
     """
-    build_dag()  # run validations
     if job_id:
         parsed_job_id = parse_job_id(app_name, job_id)
         filter_deps = set(filter_deps)
@@ -304,7 +303,8 @@ def get_children(app_name, job_id, include_dependency_group=True):
         kwargs = dict(
             func=_generate_job_ids,
             kwarg_name='depends_on', list_or_value=depends_on,
-            app_name=app_name, job_id=job_id, child=child, group_name=group_name)
+            app_name=app_name, job_id=job_id, child=child,
+            group_name=group_name)
         for rv in flatmap_with_kwargs(**kwargs):
             if include_dependency_group:
                 yield rv + (group_name, )
@@ -337,7 +337,7 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
             return [(child, cjob_id)]
         return []
     # check if the parent job_id template is compatible with this dep_grp
-    child_valid_job_id_vals = get_valid_job_id_values(child, raise_err=False)
+    chld_valid_job_id_vals = get_valid_job_id_values(child, raise_err=False)
     for k, v in pjob_id.items():
         # is the parent's job_id identifier defined anywhere?
         if k not in depends_on and k not in cparsed_template:
@@ -348,14 +348,14 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
         # is parent identifier defined in child valid_job_id_values different
         # than parent's given job id?
 
-        if k in child_valid_job_id_vals and v not in child_valid_job_id_vals[k]:
+        if k in chld_valid_job_id_vals and v not in chld_valid_job_id_vals[k]:
             return []
 
     # check that child's valid_job_id_values are defined if parent doesn't
     # completely define a child's job_id components.
     required_valid_job_id_values = set(cparsed_template).difference(pjob_id)
     _log_raise_if(
-        any(x not in child_valid_job_id_vals
+        any(x not in chld_valid_job_id_vals
             for x in required_valid_job_id_values),
         "valid_job_id_values must be defined on child app_name if you have a"
         " parent whose job_id template is not a superset of the child's",
@@ -367,14 +367,15 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
     # check if the child's job_id template is compatible with this dep_grp
     for k in cparsed_template:
         # is child's job_id identifier appropriately missing from the dep_grp?
-        if k in depends_on and k in pjob_id and pjob_id[k] not in depends_on[k]:
+        if k in depends_on and k in pjob_id and \
+                pjob_id[k] not in depends_on[k]:
             return []
         # is identifier defined anywhere?
         if (
                 k not in depends_on and
                 k not in pjob_id and
                 k not in get_valid_job_id_values(child, raise_err=False)
-                ):
+        ):
             return []
     return _generate_job_ids2(
         depends_on, pjob_id, cparsed_template, ctemplate, group_name, child)

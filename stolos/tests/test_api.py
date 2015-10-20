@@ -138,7 +138,13 @@ def test_get_tasks_config():
          'test_stolos/test_get_tasks_config/app3',
          'test_stolos/test_get_tasks_config/app1',
          'test_stolos/test_get_tasks_config/bash1',
-         'test_stolos/test_get_tasks_config/app4'])
+         'test_stolos/test_get_tasks_config/app4',
+         'test_stolos/test_get_tasks_config/valid1',
+         'test_stolos/test_get_tasks_config/valid2',
+         'test_stolos/test_get_tasks_config/valid3',
+         'test_stolos/test_get_tasks_config/valid3b',
+         'test_stolos/test_get_tasks_config/valid4',
+         ])
 
 
 @tt.with_setup

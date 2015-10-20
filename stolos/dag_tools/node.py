@@ -90,15 +90,14 @@ def get_valid_job_id_values(app_name, raise_err=True):
         return app_data['valid_job_id_values']
     except KeyError:
         msg = (
-                'Expected to find `valid_job_id_values` defined in task'
-                ' configuration for given app_name.  This is required when the'
-                ' task introduces a new job_id component that is not'
-                ' inherited from a parent node.')
+            'Expected to find `valid_job_id_values` defined in task'
+            ' configuration for given app_name.  This is required when the'
+            ' task introduces a new job_id component that is not'
+            ' inherited from a parent node.')
         if raise_err:
             log.exception(msg, extra=dict(app_name=app_name))
             raise DAGMisconfigured("%s  app_name: %s" % (msg, app_name))
         return {}
-
 
 
 def passes_filter(app_name, job_id):

@@ -33,6 +33,9 @@
  },
   "depends_on1": {
     "job_id": "{date}_{testID}",
+    "valid_job_id_values": {
+      "testID": []
+    },
     "depends_on": {
       "depgrp1": [{
         "app_name": ["app2", "app1"],
@@ -70,6 +73,7 @@
   },
   "fanout1": {
     "job_id": "{date}_{testID}",
+    "valid_job_id_values": {"testID": []},
     "depends_on": {
       "dep1": {
         "app_name": ["app1"],
