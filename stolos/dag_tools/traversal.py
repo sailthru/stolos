@@ -332,8 +332,8 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
             cjob_id = ctemplate.format(**kwargs)
             return [(child, cjob_id)]
         return []
-
     # check if the parent job_id template is compatible with this dep_grp
+    child_valid_job_id_vals = get_valid_job_id_values(child, raise_err=False)
     for k, v in pjob_id.items():
         # is the parent's job_id identifier defined anywhere?
         if k not in depends_on and k not in cparsed_template:
@@ -343,9 +343,23 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
             return []
         # is parent identifier defined in child valid_job_id_values different
         # than parent's given job id?
-        _child_job_id_vals = get_valid_job_id_values(child, raise_err=False)
-        if k in _child_job_id_vals and v not in _child_job_id_vals[k]:
+
+        if k in child_valid_job_id_vals and v not in child_valid_job_id_vals[k]:
             return []
+
+    # check that child's valid_job_id_values are defined if parent doesn't
+    # completely define a child's job_id components.
+    required_valid_job_id_values = set(cparsed_template).difference(pjob_id)
+    _log_raise_if(
+        any(x not in child_valid_job_id_vals
+            for x in required_valid_job_id_values),
+        "valid_job_id_values must be defined on child app_name if you have a"
+        " parent whose job_id template is not a superset of the child's",
+        extra=dict(
+            child_app_name=child, parent_app_name=app_name,
+            required_valid_job_id_values=required_valid_job_id_values),
+        exception_kls=DAGMisconfigured)
+
     # check if the child's job_id template is compatible with this dep_grp
     for k in cparsed_template:
         # is child's job_id identifier appropriately missing from the dep_grp?
@@ -366,9 +380,20 @@ def _generate_job_ids2(depends_on, pjob_id,
                        cparsed_template, ctemplate, group_name, child):
     so_far = set()
     valid_job_id_values = get_valid_job_id_values(child, raise_err=False)
-    job_id_components = [
-        depends_on.get(_key) or valid_job_id_values.get(_key) or [pjob_id[_key]]
-        for _key in cparsed_template]
+
+    # Compile a list of lists, where each sublist contains the possible values
+    # for a particular job_id component
+    job_id_components = []
+    for _key in cparsed_template:
+        if _key in depends_on:
+            job_id_components.append(depends_on[_key])
+        elif _key in valid_job_id_values and \
+                pjob_id.get(_key) not in valid_job_id_values[_key]:
+            job_id_components.append(valid_job_id_values[_key].to_list())
+        else:
+            job_id_components.append([pjob_id[_key]])
+
+    # Build job_ids using crossproduct of all components
     for job_id_data in crossproduct(job_id_components):
         cjob_id = ctemplate.format(
             dependency_group_name=group_name,

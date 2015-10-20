@@ -231,6 +231,27 @@ def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
             extra=dict(job_type=metadata['job_type'], **ld))
 
 
+def validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld):
+    dct = metadata.get('valid_job_id_values', {})
+    _log_raise_if(
+        not isinstance(dct, cb.TasksConfigBaseMapping),
+        "`valid_job_id_values` must be a mapping of key:[value] pairs",
+        extra=ld, exception_kls=DAGMisconfigured)
+    for k, v in dct.items():
+        _log_raise_if(
+            not isinstance(v, cb.TasksConfigBaseSequence),
+            "Values in `valid_job_id_values.<key>` must be sequences",
+            extra=dict(key='valid_job_id_values.%s' % k, **ld),
+            exception_kls=DAGMisconfigured)
+    extra_keys = set(dct).difference(node.get_job_id_template(app_name1))
+    _log_raise_if(
+        extra_keys,
+        ("`valid_job_id_values` keys must be a subset of app_name's"
+         " given job_id components"),
+        extra=dict(extra_keys=extra_keys, **ld),
+        exception_kls=DAGMisconfigured)
+
+
 def validate_dag(dg, tasks_conf):
     assert nx.algorithms.dag.is_directed_acyclic_graph(dg)
 
@@ -239,6 +260,7 @@ def validate_dag(dg, tasks_conf):
         validate_depends_on(app_name1, metadata, dg, tasks_conf, ld)
         validate_if_or(app_name1, metadata, dg, tasks_conf, ld)
         validate_job_type(app_name1, metadata, dg, tasks_conf, ld)
+        validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld)
 
 
 def visualize_dag(dg=None, plot_nx=False, plot_graphviz=True, write_dot=True,
