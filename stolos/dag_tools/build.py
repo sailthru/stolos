@@ -52,6 +52,7 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
                     child_job_id_template=child_template,
                     **ld),
                 exception_kls=DAGMisconfigured)
+
         # for every parent, does the dependency group define enough information
         # to support a bubble-up or bubble-down operation?
         required_keys = set(
@@ -65,12 +66,23 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
                  missing_job_id_identifiers=missing_keys,
                  job_id_template=_template, **ld),
             exception_kls=DAGMisconfigured)
+
+    # look at the key:value pairs in <app_name>.depends_on
     for k, v in dep_grp.items():
-        _log_raise_if(
-            len(set(v)) != len(v),
-            "You have duplicate metadata in dependency group metadata",
-            extra=dict(key=k, value=v, **ld),
-            exception_kls=DAGMisconfigured)
+        # dups in values?
+        if isinstance(v, cb.TasksConfigBaseSequence):
+            _log_raise_if(
+                len(set(v)) != len(v),
+                "You have duplicate metadata in dependency group metadata",
+                extra=dict(key=k, value=v, **ld),
+                exception_kls=DAGMisconfigured)
+        else:
+            _log_raise_if(
+                v != 'all',
+                ("The value of a depends_on.<key> must be a list of values"
+                 " or the exact string 'all'"),
+                extra=dict(key=k, value=v, **ld),
+                exception_kls=DAGMisconfigured)
 
 
 def _validate_dependency_groups_part2(dep_name, dep_grp, ld, tasks_conf):
@@ -93,25 +105,44 @@ def _validate_dep_grp_with_job_id_validations(dep_grp, ld):
     """Do the user defined job_id validations, if they exist,
     apply to each individual value of the relevant key in the dep group?"""
     for k, v in dep_grp.items():
-        func = get_NS().job_id_validations.get(k)
-        if not func:
+
+        # don't do validation on depends_on."app_name" field here,
+        # and not for the depends_on."job_id" either
+        # These fields are the only two fields in depends_on that are
+        # not job_id components
+        if k in ["app_name", "job_id"]:
             continue
+
+        func = get_NS().job_id_validations.get(k)
+
+        # ensure that job_id validations are fully specified for keys in
+        # depends_on sections
+        _log_raise_if(
+            not func,
+            "You introduced a new job_id component in a"
+            " <app_name>.depends_on.<key> subsection, and you must inform"
+            " Stolos how to parse the component", extra=dict(
+                key=k, value=v, **ld), exception_kls=DAGMisconfigured)
+
         for vv in v:
             try:
                 res = func(vv)
             except Exception as err:
                 _log_raise((
-                    "The job_id_validation you created did not like a value"
-                    " in your task configuration. Your error was: "
+                    "Invalid data at <app_name>.depends_on.<key>.[nth_value]."
+                    " The job_id_validation function complained that the"
+                    " value was invalid. Error details: "
                 ) + err.message,
                     extra=dict(key='%s.%s' % (k, v), value=vv, **ld),
                     exception_kls=DAGMisconfigured)
 
             _log_raise_if(
                 vv != res,
-                ("The job_id_validation you created modified a value"
-                 " in your task configuration."),
-                extra=dict(key='%s.%s' % (k, v), value=vv, **ld),
+                ("A job_id_validation func just returned a modified"
+                 " value.  It should return input unmodified or fail."),
+                extra=dict(
+                    key='%s.%s' % (k, v), value=vv, job_id_validation=func,
+                    **ld),
                 exception_kls=DAGMisconfigured)
 
 
@@ -240,11 +271,17 @@ def validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld):
         extra=dict(type_valid_job_id_values=type(dct), z=dct, **ld),
         exception_kls=DAGMisconfigured)
     for k, v in dct.items():
-        _log_raise_if(
-            not isinstance(v, cb.TasksConfigBaseSequence),
-            "Values in `valid_job_id_values.<key>` must be sequences",
-            extra=dict(key='valid_job_id_values.%s' % k, **ld),
-            exception_kls=DAGMisconfigured)
+        msg = ("Value of `valid_job_id_values.<key>` must be a sequence or"
+               " a string denoting a number range of form:  \"min:max\"")
+        extra = dict(key='valid_job_id_values.%s' % k, **ld)
+        if isinstance(v, (str, unicode)):
+            _log_raise_if(
+                not all(x.isdigit() for x in v.split(':', 2)),
+                msg, extra=extra, exception_kls=DAGMisconfigured)
+        else:
+            _log_raise_if(
+                not isinstance(v, cb.TasksConfigBaseSequence),
+                msg, extra=extra, exception_kls=DAGMisconfigured)
     extra_keys = set(dct).difference(node.get_job_id_template(app_name1)[1])
     _log_raise_if(
         extra_keys,

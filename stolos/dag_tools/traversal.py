@@ -51,12 +51,20 @@ def get_parents(app_name, job_id, include_dependency_group=False,
     ld = dict(  # log details
         app_name=app_name, job_id=job_id)
     for group_name, dep_group in _get_grps(app_name, filter_deps, ld):
+
         if not dep_group_and_job_id_compatible(dep_group, parsed_job_id,
                                                child_app_name=app_name):
             log.debug(
                 "ignore possible parents whose job_id can't match given child",
                 extra=dict(dependency_group_name=group_name, **ld))
             continue
+        # TODO: assuming _get_grps returns list of ANDed dep groups,
+        # then I need to expand list into one metadata per app_name if "all"
+        # appears in any value
+        # 1. does _get_grps AND dep groups?
+        # 2. is value == "all"?
+        # 3. if yes, split into list
+        # 4. where in the code will converting sequence to list break things?
 
         kwargs = dict(
             group_name=group_name, app_name=app_name, job_id=job_id, ld=ld,
@@ -300,6 +308,9 @@ def get_children(app_name, job_id, include_dependency_group=True):
         if group_name != get_NS().dependency_group_default_name:
             depends_on = depends_on[group_name]
 
+        depends_on = postprocess_dependency_group(
+            parent_app_name=app_name, child_depends_on=depends_on)
+
         kwargs = dict(
             func=_generate_job_ids,
             kwarg_name='depends_on', list_or_value=depends_on,
@@ -310,6 +321,24 @@ def get_children(app_name, job_id, include_dependency_group=True):
                 yield rv + (group_name, )
             else:
                 yield rv
+
+
+def postprocess_dependency_group(parent_app_name, child_depends_on):
+    """
+    Given a dict from <app_name>.depends_on or a list of dicts containing
+    metadata about app dependencies (ie [{"app_name": ["app1"]}, ...]),
+
+    Postprocess that each dict to convert any <app_name>.depends_on.<key>=="all
+    definitions, if they exist, into proper sequences.
+    """
+    if isinstance(child_depends_on, cb.TasksConfigBaseSequence):
+        return [
+            postprocess_dependency_group(parent_app_name, dct)
+            for dct in child_depends_on]
+
+    return {
+        k: v == 'all' and get_valid_job_id_values(parent_app_name)[k] or v
+        for k, v in child_depends_on.items()}
 
 
 def _generate_job_ids(app_name, job_id, child, group_name, depends_on):

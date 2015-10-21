@@ -87,7 +87,7 @@ def get_valid_job_id_values(app_name, raise_err=True):
     """
     app_data = cb.get_tasks_config()[app_name]
     try:
-        return app_data['valid_job_id_values']
+        vals = app_data['valid_job_id_values']
     except KeyError:
         msg = (
             'Expected to find `valid_job_id_values` defined in task'
@@ -98,6 +98,17 @@ def get_valid_job_id_values(app_name, raise_err=True):
             log.exception(msg, extra=dict(app_name=app_name))
             raise DAGMisconfigured("%s  app_name: %s" % (msg, app_name))
         return {}
+    assert isinstance(vals, cb.TasksConfigBaseMapping), "expected a mapping"
+    try:
+        return {
+            k: not isinstance(v, (list, cb.TasksConfigBaseSequence)) and
+            range(*(int(x) for x in v.split(':', 2))) or v or []
+            for k, v in vals.items()}
+    except:
+        log.error(
+            "Failed to parse config data for app_name.valid_job_id_values",
+            extra=dict(app_name=app_name))
+        raise
 
 
 def passes_filter(app_name, job_id):
