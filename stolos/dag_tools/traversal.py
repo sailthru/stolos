@@ -10,7 +10,7 @@ from stolos import configuration_backend as cb
 from stolos import get_NS
 
 from .build import build_dag
-from .node import (parse_job_id, get_job_id_template, get_valid_job_id_values)
+from .node import (parse_job_id, get_job_id_template, get_autofill_values)
 from . import log
 
 
@@ -107,9 +107,9 @@ def parse_values(app_name, dep_group):
     If "all" is any of the values, return a list where each app_name has a copy
     of the input dep_group dict, and the "all" values populated
 
-    TODO: If it's too hard to figure out what "all" means, just fail
-    we could make this smart enough to infer valid_job_id_values from
-    grandparents where possible
+    Don't try too hard to figure out what "all" means.
+    We could make this smart enough to infer autofill_values from
+    grandparents where possible, but not really necessary for now.
     """
     if "all" not in dep_group.values():
         return [dep_group]
@@ -123,7 +123,7 @@ def parse_values(app_name, dep_group):
     dep_grps = []
     for parent_app_name in dep_group['app_name']:
         try:
-            valid_job_id_values = get_valid_job_id_values(parent_app_name)
+            autofill_values = get_autofill_values(parent_app_name)
         except:
             log.error(err_msg, extra=dict(
                 parent_app_name=parent_app_name, child_app_name=app_name))
@@ -132,7 +132,7 @@ def parse_values(app_name, dep_group):
         dep_grps.append({k: list(v) for k, v in dep_group.items()})
         for k in replace_keys:
             try:
-                new_v = valid_job_id_values[k]
+                new_v = autofill_values[k]
             except KeyError:
                 log.error(err_msg, extra=dict(
                     parent_app_name=parent_app_name, child_app_name=app_name))
@@ -150,7 +150,7 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
     if pjob_id is None:
         return True  # all dependency groups are compatible
 
-    cj = get_valid_job_id_values(child_app_name, raise_err=False)
+    cj = get_autofill_values(child_app_name, raise_err=False)
     for parent in dep_group['app_name']:
         _, parent_template = get_job_id_template(parent)
 
@@ -225,21 +225,21 @@ def _get_parent_job_ids(group_name, depends_on,
             so_far = set()
 
             _, cparsed_template = get_job_id_template(child_app_name)
-            valid_job_id_values = get_valid_job_id_values(
+            autofill_values = get_autofill_values(
                 child_app_name, raise_err=False)
             pjob_id = parse_job_id(child_app_name, child_job_id)
 
-            # TODO: this is from get_children's crossproduct...
+            # TODO: refactor. this is from get_children's crossproduct...
             job_id_data = []
             for _key in cparsed_template:
                 if _key in depends_on:
                     # depend on explicitly defined job_id values
                     job_id_data.append(depends_on[_key])
-                elif _key in valid_job_id_values and \
-                        pjob_id.get(_key) not in valid_job_id_values[_key]:
-                        # infer job_id values from valid_job_id_values
+                elif _key in autofill_values and \
+                        pjob_id.get(_key) not in autofill_values[_key]:
+                        # infer job_id values from autofill_values
                     job_id_data.append(
-                        valid_job_id_values[_key].to_list())
+                        autofill_values[_key].to_list())
                 else:
                     # inherit job_id
                     job_id_data.append([pjob_id[_key]])
@@ -351,7 +351,7 @@ def postprocess_dependency_group(parent_app_name, child_depends_on):
             for dct in child_depends_on]
 
     return {
-        k: v == 'all' and get_valid_job_id_values(parent_app_name)[k] or v
+        k: v == 'all' and get_autofill_values(parent_app_name)[k] or v
         for k, v in child_depends_on.items()}
 
 
@@ -380,7 +380,7 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
             return [(child, cjob_id)]
         return []
     # check if the parent job_id template is compatible with this dep_grp
-    chld_valid_job_id_vals = get_valid_job_id_values(child, raise_err=False)
+    child_autofill_values = get_autofill_values(child, raise_err=False)
     for k, v in pjob_id.items():
         # is the parent's job_id identifier defined anywhere?
         if k not in depends_on and k not in cparsed_template:
@@ -388,23 +388,23 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
         # is the identifier appropriately missing from the dep_grp?
         if k in depends_on and v not in depends_on[k]:
             return []
-        # is parent identifier defined in child valid_job_id_values different
+        # is parent identifier defined in child autofill_values different
         # than parent's given job id?
 
-        if k in chld_valid_job_id_vals and v not in chld_valid_job_id_vals[k]:
+        if k in child_autofill_values and v not in child_autofill_values[k]:
             return []
 
-    # check that child's valid_job_id_values are defined if parent doesn't
+    # check that child's autofill_values are defined if parent doesn't
     # completely define a child's job_id components.
-    required_valid_job_id_values = set(cparsed_template).difference(pjob_id)
+    required_autofill_values = set(cparsed_template).difference(pjob_id)
     _log_raise_if(
-        any(x not in chld_valid_job_id_vals
-            for x in required_valid_job_id_values),
-        "valid_job_id_values must be defined on child app_name if you have a"
+        any(x not in child_autofill_values
+            for x in required_autofill_values),
+        "autofill_values must be defined on child app_name if you have a"
         " parent whose job_id template is not a superset of the child's",
         extra=dict(
             child_app_name=child, parent_app_name=app_name,
-            required_valid_job_id_values=required_valid_job_id_values),
+            required_autofill_values=required_autofill_values),
         exception_kls=DAGMisconfigured)
 
     # check if the child's job_id template is compatible with this dep_grp
@@ -417,7 +417,7 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
         if (
                 k not in depends_on and
                 k not in pjob_id and
-                k not in get_valid_job_id_values(child, raise_err=False)
+                k not in get_autofill_values(child, raise_err=False)
         ):
             return []
     return _generate_job_ids2(
@@ -427,7 +427,7 @@ def _generate_job_ids(app_name, job_id, child, group_name, depends_on):
 def _generate_job_ids2(depends_on, pjob_id,
                        cparsed_template, ctemplate, group_name, child):
     so_far = set()
-    valid_job_id_values = get_valid_job_id_values(child, raise_err=False)
+    autofill_values = get_autofill_values(child, raise_err=False)
 
     # Compile a list of lists, where each sublist contains the possible values
     # for a particular job_id component
@@ -435,9 +435,9 @@ def _generate_job_ids2(depends_on, pjob_id,
     for _key in cparsed_template:
         if _key in depends_on:
             job_id_components.append(depends_on[_key])
-        elif _key in valid_job_id_values and \
-                pjob_id.get(_key) not in valid_job_id_values[_key]:
-            job_id_components.append(valid_job_id_values[_key].to_list())
+        elif _key in autofill_values and \
+                pjob_id.get(_key) not in autofill_values[_key]:
+            job_id_components.append(autofill_values[_key].to_list())
         else:
             job_id_components.append([pjob_id[_key]])
 

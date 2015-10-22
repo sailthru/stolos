@@ -33,7 +33,7 @@
  },
   "depends_on1": {
     "job_id": "{date}_{testID}",
-    "valid_job_id_values": {
+    "autofill_values": {
       "testID": []
     },
     "depends_on": {
@@ -73,7 +73,7 @@
   },
   "fanout1": {
     "job_id": "{date}_{testID}",
-    "valid_job_id_values": {"testID": []},
+    "autofill_values": {"testID": []},
     "depends_on": {
       "dep1": {
         "app_name": ["app1"],
@@ -118,7 +118,7 @@
   },
   "valid3": {
     "job_id": "{date}_{client_id}",
-    "valid_job_id_values": {
+    "autofill_values": {
       "client_id": [101, 102]
     },
     "depends_on": {
@@ -128,7 +128,7 @@
   },
   "valid3b": {
     "job_id": "{date}_{client_id}",
-    "valid_job_id_values": {
+    "autofill_values": {
       "client_id": [101, 102]
     },
     "depends_on": {
@@ -140,7 +140,7 @@
   },
   "valid4": {
     "job_id": "{date}_{client_id}",
-    "valid_job_id_values": {
+    "autofill_values": {
       "client_id": [101, 102]
     },
     "depends_on": {
@@ -152,11 +152,11 @@
 
   "all_test1": {
     "job_id": "{date}_{client_id}",
-    "valid_job_id_values": {"client_id": [1, 2]}
+    "autofill_values": {"client_id": [1, 2]}
   },
   "all_test2": {
     "job_id": "{date}_{client_id}",
-    "valid_job_id_values": {"client_id": [2, 3]}
+    "autofill_values": {"client_id": [2, 3]}
   },
   "all_test3": {
     "job_id": "{date}_{client_id}",

@@ -57,7 +57,7 @@ def _validate_dep_grp_metadata(dep_grp, ld, tasks_conf, dep_name):
         # to support a bubble-up or bubble-down operation?
         required_keys = set(
             child_template).difference(parent_template).difference(
-                tasks_conf[ld['app_name']].get('valid_job_id_values', {}))
+                tasks_conf[ld['app_name']].get('autofill_values', {}))
         missing_keys = required_keys.difference(dep_grp)
         _log_raise_if(
             missing_keys,
@@ -98,10 +98,11 @@ def _validate_dependency_groups_part2(dep_name, dep_grp, ld, tasks_conf):
         exception_kls=DAGMisconfigured)
     _validate_dep_grp_metadata(
         dep_grp, ld=ld, tasks_conf=tasks_conf, dep_name=dep_name)
-    _validate_dep_grp_with_job_id_validations(dep_grp, ld=ld)
+    _validate_dep_grp_with_job_id_validations(
+        dep_grp, ld=ld, tasks_conf=tasks_conf)
 
 
-def _validate_dep_grp_with_job_id_validations(dep_grp, ld):
+def _validate_dep_grp_with_job_id_validations(dep_grp, ld, tasks_conf):
     """Do the user defined job_id validations, if they exist,
     apply to each individual value of the relevant key in the dep group?"""
     for k, v in dep_grp.items():
@@ -123,6 +124,22 @@ def _validate_dep_grp_with_job_id_validations(dep_grp, ld):
             " <app_name>.depends_on.<key> subsection, and you must inform"
             " Stolos how to parse the component", extra=dict(
                 key=k, value=v, **ld), exception_kls=DAGMisconfigured)
+
+        # skip rest of validations if "all" is used
+        if v == "all":
+            # assert that autofill_values exists on all parents
+
+            msg = (
+                " You requested that child depends on \"all\" values for some"
+                " part of its parent job_id_template.  If you do this,"
+                " the parent must define"
+                " <parent_app_name>.autofill_values.<key>")
+            for parent in dep_grp['app_name']:
+                _log_raise_if(
+                    k not in tasks_conf[parent].get('autofill_values', {}),
+                    msg, extra=dict(parent_app_name=parent, key=k, **ld),
+                    exception_kls=DAGMisconfigured)
+            continue
 
         for vv in v:
             try:
@@ -263,17 +280,17 @@ def validate_job_type(app_name1, metadata, dg, tasks_conf, ld):
             extra=dict(job_type=metadata['job_type'], **ld))
 
 
-def validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld):
-    dct = metadata.get('valid_job_id_values', {})
+def validate_autofill_values(app_name1, metadata, dg, tasks_conf, ld):
+    dct = metadata.get('autofill_values', {})
     _log_raise_if(
         dct and not isinstance(dct, cb.TasksConfigBaseMapping),
-        "`valid_job_id_values` must be a mapping of key:[value] pairs",
-        extra=dict(type_valid_job_id_values=type(dct), z=dct, **ld),
+        "`autofill_values` must be a mapping of key:[value] pairs",
+        extra=dict(type_autofill_values=type(dct), z=dct, **ld),
         exception_kls=DAGMisconfigured)
     for k, v in dct.items():
-        msg = ("Value of `valid_job_id_values.<key>` must be a sequence or"
+        msg = ("Value of `autofill_values.<key>` must be a sequence or"
                " a string denoting a number range of form:  \"min:max\"")
-        extra = dict(key='valid_job_id_values.%s' % k, **ld)
+        extra = dict(key='autofill_values.%s' % k, **ld)
         if isinstance(v, (str, unicode)):
             _log_raise_if(
                 not all(x.isdigit() for x in v.split(':', 2)),
@@ -285,7 +302,7 @@ def validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld):
     extra_keys = set(dct).difference(node.get_job_id_template(app_name1)[1])
     _log_raise_if(
         extra_keys,
-        ("The set of `valid_job_id_values` keys must be a subset of app_name's"
+        ("The set of `autofill_values` keys must be a subset of app_name's"
          " given job_id components"),
         extra=dict(extra_keys=extra_keys, **ld),
         exception_kls=DAGMisconfigured)
@@ -299,7 +316,7 @@ def validate_dag(dg, tasks_conf):
         validate_depends_on(app_name1, metadata, dg, tasks_conf, ld)
         validate_if_or(app_name1, metadata, dg, tasks_conf, ld)
         validate_job_type(app_name1, metadata, dg, tasks_conf, ld)
-        validate_valid_job_id_values(app_name1, metadata, dg, tasks_conf, ld)
+        validate_autofill_values(app_name1, metadata, dg, tasks_conf, ld)
 
 
 def visualize_dag(dg=None, plot_nx=False, plot_graphviz=True, write_dot=True,

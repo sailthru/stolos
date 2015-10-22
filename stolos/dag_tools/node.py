@@ -80,17 +80,17 @@ def _validate_job_id_identifiers(
     return rv
 
 
-def get_valid_job_id_values(app_name, raise_err=True):
-    """Return contents of "valid_job_id_values" for given app_name.
+def get_autofill_values(app_name, raise_err=True):
+    """Return contents of "autofill_values" for given app_name.
 
-    `raise_err` - If False, return {} if valid_job_id_values does not exist
+    `raise_err` - If False, return {} if autofill_values does not exist
     """
     app_data = cb.get_tasks_config()[app_name]
     try:
-        vals = app_data['valid_job_id_values']
+        vals = app_data['autofill_values']
     except KeyError:
         msg = (
-            'Expected to find `valid_job_id_values` defined in task'
+            'Expected to find `autofill_values` defined in task'
             ' configuration for given app_name.  This is required when the'
             ' task introduces a new job_id component in its job_id_template'
             ' that does not exist on a parent node, and also when the app'
@@ -108,7 +108,7 @@ def get_valid_job_id_values(app_name, raise_err=True):
             for k, v in vals.items()}
     except:
         log.error(
-            "Failed to parse config data for app_name.valid_job_id_values",
+            "Failed to parse config data for app_name.autofill_values",
             extra=dict(app_name=app_name))
         raise
 
