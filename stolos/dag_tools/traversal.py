@@ -30,7 +30,7 @@ def topological_sort(lst):
 
 
 def get_parents(app_name, job_id, include_dependency_group=False,
-                filter_deps=(), _filter_parents=()):
+                filter_deps=()):
     """Return an iterator over all parent (app_name, job_id) pairs
     Given a child app_name and job_id
 
@@ -40,6 +40,8 @@ def get_parents(app_name, job_id, include_dependency_group=False,
         dependency group
 
     """
+    ld = dict(app_name=app_name, job_id=job_id)  # log details
+
     if job_id:
         parsed_job_id = parse_job_id(app_name, job_id)
         filter_deps = set(filter_deps)
@@ -48,41 +50,96 @@ def get_parents(app_name, job_id, include_dependency_group=False,
     else:
         parsed_job_id = None
 
-    ld = dict(  # log details
-        app_name=app_name, job_id=job_id)
     for group_name, dep_group in _get_grps(app_name, filter_deps, ld):
+        # dep_group is either a dict or list if dicts, where dicts contain
+        # depends_on metadata.
+        # ie.  group_name, dep_group = ("default", {"app_name": ["a", "b"]})
 
-        if not dep_group_and_job_id_compatible(dep_group, parsed_job_id,
-                                               child_app_name=app_name):
+        dep_group = convert_dep_grp_to_parsed_list(app_name, dep_group)
+
+        compatible = all(dep_group_and_job_id_compatible(
+            grp, parsed_job_id, child_app_name=app_name)
+            for grp in dep_group)
+        if not compatible:
             log.debug(
                 "ignore possible parents whose job_id can't match given child",
                 extra=dict(dependency_group_name=group_name, **ld))
             continue
-        # TODO: assuming _get_grps returns list of ANDed dep groups,
-        # then I need to expand list into one metadata per app_name if "all"
-        # appears in any value
-        # 1. does _get_grps AND dep groups?
-        # 2. is value == "all"?
-        # 3. if yes, split into list
-        # 4. where in the code will converting sequence to list break things?
 
-        kwargs = dict(
-            group_name=group_name, app_name=app_name, job_id=job_id, ld=ld,
-            include_dependency_group=include_dependency_group
-        )
-        if isinstance(dep_group, cb.TasksConfigBaseSequence):
-            gen = _get_parents_handle_subgroups(
-                group_name, dep_group, _filter_parents, ld, kwargs)
-            for rv in gen:
-                yield rv
-        else:
-            _get_parents_validate_app_name(
-                app_names=dep_group['app_name'], ld=ld,
-                _filter_parents=_filter_parents)
-            for rv in _get_parents(dep_group=dep_group,
-                                   _filter_parents=_filter_parents,
-                                   **kwargs):
-                yield rv
+        for subgrp in dep_group:
+
+            for rv in _get_parent_job_ids(
+                    group_name, subgrp,
+                    child_app_name=app_name, child_job_id=job_id, ld=ld):
+                if include_dependency_group:
+                    yield rv + (group_name, )
+                else:
+                    yield rv
+
+
+def convert_dep_grp_to_parsed_list(app_name, dep_group):
+    """Convert depends_on data into an expanded list of depends_on dicts, where
+    the "all" values have been populated with a list of values determined by
+    each parent app_name
+
+    `dep_group` either a dict or a list of dicts in form:
+        [{"app_name": ["a", "b"], "testID": "all", ...}]
+        --> this input would return
+            [{"app_name": ["a"], "testID": ["a's testID values"]},
+            {"app_name": ["b"], "testID", ["b's testID values"]}]
+
+    """
+    if isinstance(dep_group, cb.TasksConfigBaseMapping):
+        dep_group = parse_values(app_name, dep_group)
+    elif isinstance(dep_group, cb.TasksConfigBaseSequence):
+        dep_group = [
+            lst for grp in dep_group for lst in parse_values(app_name, grp)]
+    else:
+        raise Exception(
+            "Expected TasksConfigBaseMapping or TasksConfigBaseSequence."
+            " got: %s" % type(dep_group))
+    return dep_group
+
+
+def parse_values(app_name, dep_group):
+    """Examine values of job_id metadata in a dict such as:
+        {app_name: [a, b, c], testID: "all"}
+    If "all" is any of the values, return a list where each app_name has a copy
+    of the input dep_group dict, and the "all" values populated
+
+    TODO: If it's too hard to figure out what "all" means, just fail
+    we could make this smart enough to infer valid_job_id_values from
+    grandparents where possible
+    """
+    if "all" not in dep_group.values():
+        return [dep_group]
+
+    err_msg = (  # in case it happens...
+        'Expected to find parent_app_name.`job_id_values` because'
+        ' `child_app_name` depends on "all" possible values of (at'
+        ' least) one of its parents job_id components')
+
+    replace_keys = [k for k, v in dep_group.items() if v == "all"]
+    dep_grps = []
+    for parent_app_name in dep_group['app_name']:
+        try:
+            valid_job_id_values = get_valid_job_id_values(parent_app_name)
+        except:
+            log.error(err_msg, extra=dict(
+                parent_app_name=parent_app_name, child_app_name=app_name))
+            raise
+
+        dep_grps.append({k: list(v) for k, v in dep_group.items()})
+        for k in replace_keys:
+            try:
+                new_v = valid_job_id_values[k]
+            except KeyError:
+                log.error(err_msg, extra=dict(
+                    parent_app_name=parent_app_name, child_app_name=app_name))
+                raise
+            dep_grps[-1][k] = new_v
+        dep_grps[-1]['app_name'] = [parent_app_name]
+    return dep_grps
 
 
 def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
@@ -90,10 +147,6 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
-    if isinstance(dep_group, cb.TasksConfigBaseSequence):  # recursive AND
-        return all(dep_group_and_job_id_compatible(dg, pjob_id, child_app_name)
-                   for dg in dep_group)
-
     if pjob_id is None:
         return True  # all dependency groups are compatible
 
@@ -109,29 +162,6 @@ def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
             if k in dep_group and v not in dep_group[k]:
                 return False
     return True
-
-
-def _get_parents_handle_subgroups(
-        group_name, dep_group, _filter_parents, ld, kwargs):
-
-    if _filter_parents:
-        # validate filtered parents are a subset of parents
-        all_app_names = set(
-            y for x in dep_group for y in x['app_name'])
-        _get_parents_validate_app_name(
-            app_names=all_app_names, ld=ld,
-            _filter_parents=_filter_parents)
-
-    for subgrp in dep_group:
-        if _filter_parents:
-            app_names = set(_filter_parents).intersection(subgrp['app_name'])
-            if not app_names:
-                continue
-        else:
-            app_names = subgrp['app_name']
-        for rv in _get_parents(
-                dep_group=subgrp, _filter_parents=app_names, **kwargs):
-            yield rv
 
 
 def _get_grps(app_name, filter_deps, ld):
@@ -167,70 +197,54 @@ def _get_parents_validate_group_names(
         exception_kls=DAGMisconfigured)
 
 
-def _get_parents_validate_app_name(app_names, ld, _filter_parents):
-    """
-    Ensure that we aren't trying to filter parent app_names with values
-    that cannot exist in a particular dependency group
-    """
-    t = _filter_parents
-    _log_raise_if(
-        not set(app_names).issuperset(t),
-        ("Misconfigured code.  You identified parents"
-         " to a child that aren't this child's parents!"),
-        extra=dict(
-            known_parents=str(app_names),
-            requested_parents=str(t),
-            **ld),
-        exception_kls=DAGMisconfigured)
-
-
-def _get_parents(group_name, dep_group, app_name, job_id, ld,
-                 include_dependency_group,
-                 _filter_parents):
-    """
-    Handle some optional kwargs to get_parents.
-
-    We're given a dependency group or a dependency subgroup as a dict.
-    Safely modify the dict so it only contains relevant query terms defined
-    by the `_filter_parents` option
-    """
-    if _filter_parents:
-        dep_group = dict(dep_group)  # shallow copy to change the keys
-        dep_group['app_name'] = _filter_parents
-
-    for rv in _get_parent_job_ids(
-            group_name, dep_group,
-            child_app_name=app_name, child_job_id=job_id, ld=ld):
-        if include_dependency_group:
-            yield rv + (group_name, )
-        else:
-            yield rv
-
-
-def _get_parent_job_ids(group_name, dep_group,
+def _get_parent_job_ids(group_name, depends_on,
                         child_app_name, child_job_id, ld):
     """
     Yield the parent app_name and derived job_id for each parent listed in
-    dep_group metadata
+    depends_on metadata
 
     If there is extra job_id criteria that doesn't apply to a
     particular parent app's job_id template, ignore it.
     """
-    for parent_app_name in dep_group['app_name']:
-        dep_group = dict(dep_group)  # shallow copy to change the keys
+    for parent_app_name in depends_on['app_name']:
+        depends_on = dict(depends_on)  # shallow copy to change the keys
 
+        # TODO: remove inject!
         _inject_job_id(
-            dep_group, child_app_name, child_job_id, parent_app_name, ld)
+            depends_on, child_app_name, child_job_id, parent_app_name, ld)
         # are there specific job_ids the child would inherit from?
-        if 'job_id' in dep_group:
-            for rv in _iter_job_ids(dep_group=dep_group, group_name=group_name,
-                                    parent_app_name=parent_app_name, ld=ld):
+        # TODO:add job_id to depends_on if "app_name" is only key in depends_on
+        if 'job_id' in depends_on:
+            for rv in _iter_job_ids(
+                    dep_group=depends_on, group_name=group_name,
+                    parent_app_name=parent_app_name, ld=ld):
                 yield rv
         else:
             # try to fill in the parent's job_id template and yield it
             template, parsed_template = get_job_id_template(parent_app_name)
             so_far = set()
-            for job_id_data in crossproduct([dep_group[_key]
+
+            _, cparsed_template = get_job_id_template(child_app_name)
+            valid_job_id_values = get_valid_job_id_values(
+                child_app_name, raise_err=False)
+            pjob_id = parse_job_id(child_app_name, child_job_id)
+
+            # TODO: this is from get_children's crossproduct...
+            job_id_data = []
+            for _key in cparsed_template:
+                if _key in depends_on:
+                    # depend on explicitly defined job_id values
+                    job_id_data.append(depends_on[_key])
+                elif _key in valid_job_id_values and \
+                        pjob_id.get(_key) not in valid_job_id_values[_key]:
+                        # infer job_id values from valid_job_id_values
+                    job_id_data.append(
+                        valid_job_id_values[_key].to_list())
+                else:
+                    # inherit job_id
+                    job_id_data.append([pjob_id[_key]])
+
+            for job_id_data in crossproduct([depends_on[_key]
                                             for _key in parsed_template]):
                 _pjob_id = dict(zip(parsed_template, job_id_data))
                 parent_job_id = template.format(

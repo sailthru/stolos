@@ -92,8 +92,10 @@ def get_valid_job_id_values(app_name, raise_err=True):
         msg = (
             'Expected to find `valid_job_id_values` defined in task'
             ' configuration for given app_name.  This is required when the'
-            ' task introduces a new job_id component that is not'
-            ' inherited from a parent node.')
+            ' task introduces a new job_id component in its job_id_template'
+            ' that does not exist on a parent node, and also when the app'
+            ' depends_on "all" job_id_values from a parent.'
+        )
         if raise_err:
             log.exception(msg, extra=dict(app_name=app_name))
             raise DAGMisconfigured("%s  app_name: %s" % (msg, app_name))

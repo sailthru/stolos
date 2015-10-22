@@ -300,3 +300,102 @@ def test_topological_sort(topological_sort1, app1, app2, depends_on1, bash2,
             (bash2, '20140601_102_profile-%s' % func_name, u'dep1')
         ]
     )
+
+
+@tt.with_setup
+def test_depends_on_all(func_name, all_test1, all_test2, all_test3, all_test4,
+                        all_test4b, all_test5):
+    # all_test1 children
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test1, '20140601_1', True,)),
+        [
+            (all_test3, '20140601_1', 'default'),
+            (all_test3, '20140601_2', 'default'),
+            (all_test4, '20140601', 'default'),
+            (all_test4b, '20140601', 'both'),
+            (all_test5, '20140601', 'both_apps'),
+        ])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test1, '20140601_1', True,)),
+        list(dag_tools.get_children(
+            all_test1, '20140601_2', True,))
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test1, '20140601_0', True,)),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test1, '20140601_0', True,)),
+        [])
+
+    # all_test2 children
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test2, '20140601_0', True,)),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test2, '20140601_1', True,)),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test2, '20140601_2', True,)),
+        [
+            (all_test4, '20140601', 'default'),
+            (all_test4b, '20140601', 'both')
+        ])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test2, '20140601_3', True,)),
+        [
+            (all_test4, '20140601', 'default'),
+            (all_test4b, '20140601', 'both')
+        ])
+    nt.assert_items_equal(
+        list(dag_tools.get_children(
+            all_test2, '20140601_4', True,)),
+        [(all_test5, '20140601', 'both_apps')])
+
+    # all_test3 parents
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test3, "20140601_0", True)),
+        [])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test3, "20140601_1", True)),
+        [
+            (all_test1, '20140601_1', 'default'),
+            (all_test1, '20140601_2', 'default'),
+        ])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test3, "20140601_2", True)),
+        list(dag_tools.get_parents(all_test3, "20140601_1", True)),
+    )
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test3, "20140601_3", True)),
+        [])
+
+    # all_test4 parents
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test4, "20140601", True)),
+        [
+            (all_test1, '20140601_1', 'default'),
+            (all_test1, '20140601_2', 'default'),
+            (all_test2, '20140601_2', 'default'),
+            (all_test2, '20140601_3', 'default'),
+        ])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test4, "20140601", True)),
+        list(dag_tools.get_parents(all_test4, "20140601", True)),
+    )
+
+    # all_test5 parents
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(all_test5, "20140601", True)),
+        [
+            (all_test1, '20140601_1', 'both_apps'),
+            (all_test1, '20140601_2', 'both_apps'),
+            (all_test2, '20140601_4', 'both_apps')
+        ])

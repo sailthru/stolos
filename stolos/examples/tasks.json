@@ -148,5 +148,50 @@
       "testID": ["1", "2"],
       "client_id": [101]
     }
+  },
+
+  "all_test1": {
+    "job_id": "{date}_{client_id}",
+    "valid_job_id_values": {"client_id": [1, 2]}
+  },
+  "all_test2": {
+    "job_id": "{date}_{client_id}",
+    "valid_job_id_values": {"client_id": [2, 3]}
+  },
+  "all_test3": {
+    "job_id": "{date}_{client_id}",
+    "depends_on": {
+      "app_name": ["all_test1"],
+      "client_id": "all"
+    }
+  },
+  "all_test4": {
+    "job_id": "{date}",
+    "depends_on": {
+      "app_name": ["all_test1", "all_test2"],
+      "client_id": "all"
+    }
+  },
+  "all_test4b": {
+    "job_id": "{date}",
+    "depends_on": {
+      "both": [
+        {
+          "app_name": ["all_test1"],
+          "client_id": "all"
+        }, {
+          "app_name": ["all_test2"],
+          "client_id": "all"
+        }]
+    }
+  },
+  "all_test5": {
+    "job_id": "{date}",
+    "depends_on": {
+      "both_apps": [
+        {"app_name": ["all_test1"], "client_id": "all"},
+        {"app_name": ["all_test2"], "client_id": [4]}
+      ]
+    }
   }
 }
