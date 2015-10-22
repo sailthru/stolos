@@ -229,20 +229,8 @@ def _get_parent_job_ids(group_name, depends_on,
                 child_app_name, raise_err=False)
             pjob_id = parse_job_id(child_app_name, child_job_id)
 
-            # TODO: refactor. this is from get_children's crossproduct...
-            job_id_data = []
-            for _key in cparsed_template:
-                if _key in depends_on:
-                    # depend on explicitly defined job_id values
-                    job_id_data.append(depends_on[_key])
-                elif _key in autofill_values and \
-                        pjob_id.get(_key) not in autofill_values[_key]:
-                        # infer job_id values from autofill_values
-                    job_id_data.append(
-                        autofill_values[_key].to_list())
-                else:
-                    # inherit job_id
-                    job_id_data.append([pjob_id[_key]])
+            job_id_data = prep_crossproduct(
+                cparsed_template, depends_on, autofill_values, pjob_id)
 
             for job_id_data in crossproduct([depends_on[_key]
                                             for _key in parsed_template]):
@@ -429,23 +417,34 @@ def _generate_job_ids2(depends_on, pjob_id,
     so_far = set()
     autofill_values = get_autofill_values(child, raise_err=False)
 
-    # Compile a list of lists, where each sublist contains the possible values
-    # for a particular job_id component
-    job_id_components = []
-    for _key in cparsed_template:
-        if _key in depends_on:
-            job_id_components.append(depends_on[_key])
-        elif _key in autofill_values and \
-                pjob_id.get(_key) not in autofill_values[_key]:
-            job_id_components.append(autofill_values[_key].to_list())
-        else:
-            job_id_components.append([pjob_id[_key]])
+    job_id_data = prep_crossproduct(
+        cparsed_template, depends_on, autofill_values, pjob_id)
 
     # Build job_ids using crossproduct of all components
-    for job_id_data in crossproduct(job_id_components):
+    for job_id_data in crossproduct(job_id_data):
         cjob_id = ctemplate.format(
             dependency_group_name=group_name,
             **dict(zip(cparsed_template, job_id_data)))
         if cjob_id not in so_far:
             so_far.add(cjob_id)
             yield (child, cjob_id)
+
+
+def prep_crossproduct(cparsed_template, depends_on, autofill_values, pjob_id):
+    # Compile a list of lists, where each sublist contains the possible values
+    # for a particular job_id component
+
+    job_id_data = []
+    for _key in cparsed_template:
+        if _key in depends_on:
+            # depend on explicitly defined job_id values
+            job_id_data.append(depends_on[_key])
+        elif _key in autofill_values and \
+                pjob_id.get(_key) not in autofill_values[_key]:
+                # infer job_id values from autofill_values
+            job_id_data.append(
+                autofill_values[_key].to_list())
+        else:
+            # inherit job_id
+            job_id_data.append([pjob_id[_key]])
+    return job_id_data
