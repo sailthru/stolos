@@ -443,7 +443,7 @@ def prep_crossproduct(cparsed_template, depends_on, autofill_values, pjob_id):
                 pjob_id.get(_key) not in autofill_values[_key]:
                 # infer job_id values from autofill_values
             job_id_data.append(
-                autofill_values[_key].to_list())
+                list(autofill_values[_key]))
         else:
             # inherit job_id
             job_id_data.append([pjob_id[_key]])

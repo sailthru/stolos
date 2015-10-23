@@ -47,6 +47,17 @@ def test_missing_job_id_validations_okay(custom_job_id1):
 
 
 @tt.with_setup
+def test_get_autofill_values(autofill1, autofill2):
+    nt.assert_dict_equal(
+        dag_tools.get_autofill_values(autofill1),
+        {"client_id": range(10, 20, 2)})
+    nt.assert_dict_equal(
+        dag_tools.get_autofill_values(autofill2),
+        {"client_id": [10, 11, 12, 13]}
+    )
+
+
+@tt.with_setup
 def test_get_children(func_name, app1, app2, app4, depends_on1,
                       depends_on2, bash1, bash2):
 

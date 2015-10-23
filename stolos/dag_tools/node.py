@@ -104,7 +104,7 @@ def get_autofill_values(app_name, raise_err=True):
     try:
         return {
             k: not isinstance(v, (list, cb.TasksConfigBaseSequence)) and
-            range(*(int(x) for x in v.split(':', 2))) or v or []
+            range(*(int(x) for x in v.split(':', 2))) or list(v) or []
             for k, v in vals.items()}
     except:
         log.error(
