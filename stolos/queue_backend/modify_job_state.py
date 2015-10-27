@@ -21,6 +21,7 @@ def _queue(app_name, job_id, queue=True, priority=None):
         # hack: zookeeper doesn't like unicode
         if isinstance(job_id, unicode):
             job_id = str(job_id)
+        set_state(app_name, job_id, pending=True)
         if queue:
             if priority:
                 qbcli.LockingQueue(app_name).put(job_id, priority=priority)
@@ -30,7 +31,6 @@ def _queue(app_name, job_id, queue=True, priority=None):
             log.warn(
                 'create a subtask but not actually queueing it', extra=dict(
                     app_name=app_name, job_id=job_id, priority=priority))
-        set_state(app_name, job_id, pending=True)
     else:
         log.info(
             'job invalid.  marking as skipped so it does not run',
