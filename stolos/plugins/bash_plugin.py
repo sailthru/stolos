@@ -81,15 +81,15 @@ def main(ns):
     Assume code is written in Python.  For Scala or R code, use another option.
     """
     job_id = ns.job_id
-    ld = dict(**ns.__dict__)
-    ld.update(job_id=job_id)
-    log.info('Running bash job', extra=dict(**ld))
+    ld = dict(app_name=ns.app_name, job_id=ns.job_id)
+    log.info('Running bash job', extra=ld)
     cmd = get_bash_cmd(ns.app_name)
     if ns.bash_cmd:
         cmd += ' '.join(ns.bash_cmd)
         log.debug(
             "Appending user-supplied bash options to defaults", extra=dict(
                 app_name=ns.app_name, job_id=job_id, cmd=cmd))
+    ld.update(cmd=cmd)
     if not cmd:
         raise UserWarning(
             "You need to specify bash options or configure default bash"
@@ -104,7 +104,7 @@ def main(ns):
     else:
         _std = PIPE
 
-    log.info('running command', extra=dict(cmd=cmd))
+    log.info('running command', extra=ld)
     returncode, stdout, stderr = run(
         cmd, shell=True, timeout=ns.watch, stdout=_std, stderr=_std)
     ld = dict(bash_returncode=returncode, stdout=stdout, stderr=stderr, **ld)
