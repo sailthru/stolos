@@ -340,7 +340,22 @@ def ensure_parents_completed(app_name, job_id):
         # won't run by the time I unqueue myself.  Otherwise, I should just
         # default to assuming parent is running and requeue myself by default.
 
-        maybe_add_subtask(parent, pjob_id)
+        added = maybe_add_subtask(parent, pjob_id)
+
+        # if parent marked 'skipped' and then someone calls a maybe_add_subtask
+        # on the child, child could requeue itself indefinitely.  to prevent,
+        # child should unqueue itself and raise error complaint that for some
+        # insane reason it's running but it's parent is "skipped"
+        if not added and check_state(parent, pjob_id, skipped=True):
+            consume_queue = True
+            #  raise some sort of error
+            log.warn(
+                "My parent_job_id is marked as 'skipped',"
+                " so should be impossible for me, the child, to exist!"
+                " Requesting to unqueue myself.  This is odd.", extra=dict(
+                    parent_app_name=parent, parent_job_id=pjob_id,
+                    app_name=app_name, job_id=job_id))
+            break
 
         if parent_lock is not None:
             continue  # we already found a parent that promises to requeue me

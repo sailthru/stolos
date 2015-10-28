@@ -535,6 +535,24 @@ def test_valid_if_or_func3(app3, job_id1, job_id2, job_id3):
 
 
 @with_setup
+def test_skipped_parent_and_queued_child(app1, app2, app3, app4, job_id1,
+                                         log, tasks_json_tmpfile):
+    qb.set_state(app1, job_id1, skipped=True)
+    qb.set_state(app3, job_id1, skipped=True)
+    qb.set_state(app2, job_id1, skipped=True)
+    enqueue(app4, job_id1)
+    validate_zero_queued_task(app2)
+    validate_one_queued_task(app4, job_id1)
+    # ensure child unqueues itself and raises warning
+    out, err = run_code(log, tasks_json_tmpfile, app4, capture=True)
+    nose.tools.assert_in(
+        "parent_job_id is marked as 'skipped', so should be impossible for me,"
+        " the child, to exist", err)
+    validate_zero_queued_task(app4)
+    validate_zero_queued_task(app2)
+
+
+@with_setup
 def test_valid_task(app2, job_id1):
     """Valid tasks should be automatically completed"""
     enqueue(app2, job_id1, validate_queued=True)
