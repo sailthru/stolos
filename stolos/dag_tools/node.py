@@ -94,7 +94,7 @@ def get_autofill_values(app_name, raise_err=True):
             ' configuration for given app_name.  This is required when the'
             ' task introduces a new job_id component in its job_id_template'
             ' that does not exist on a parent node, and also when the app'
-            ' depends_on "all" job_id_values from a parent.'
+            ' depends_on "all" autofill_values from a parent.'
         )
         if raise_err:
             log.exception(msg, extra=dict(app_name=app_name))

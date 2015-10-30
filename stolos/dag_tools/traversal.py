@@ -108,29 +108,44 @@ def parse_values(app_name, dep_group):
     of the input dep_group dict, and the "all" values populated
 
     Don't try too hard to figure out what "all" means.
-    We could make this smart enough to infer autofill_values from
-    grandparents where possible, but not really necessary for now.
+
+    When used by get_parents, we want to ensure the child can pupulate parent's
+    job_id values When used by get_children, we want to ensure the parent
+    job_id can populate the child
     """
     if "all" not in dep_group.values():
         return [dep_group]
 
     err_msg = (  # in case it happens...
-        'Expected to find parent_app_name.`job_id_values` because'
+        'Expected to find parent_app_name.autofill_values because'
         ' `child_app_name` depends on "all" possible values of (at'
         ' least) one of its parents job_id components')
 
-    replace_keys = [k for k, v in dep_group.items() if v == "all"]
+    all_replace_keys = [k for k, v in dep_group.items() if v == "all"]
     dep_grps = []
     for parent_app_name in dep_group['app_name']:
+        # create a dep group for this parent
+        dep_grps.append({k: list(v) for k, v in dep_group.items()})
+        dep_grps[-1]['app_name'] = [parent_app_name]
+
+        # get the subset of all_replace_keys that is relevant for this parent
+        _, ptemplate = get_job_id_template(parent_app_name)
+        parent_replace_keys = [k for k in all_replace_keys if k in ptemplate]
+
+        # drop irrelevant (and undefinable) job_id values from the dep group
+        if not parent_replace_keys:
+            for k in all_replace_keys:
+                dep_grps[-1].pop(k)
+            continue
+
+        # replace the "all" keys appropriately
         try:
             autofill_values = get_autofill_values(parent_app_name)
         except:
             log.error(err_msg, extra=dict(
                 parent_app_name=parent_app_name, child_app_name=app_name))
             raise
-
-        dep_grps.append({k: list(v) for k, v in dep_group.items()})
-        for k in replace_keys:
+        for k in parent_replace_keys:
             try:
                 new_v = autofill_values[k]
             except KeyError:
@@ -138,28 +153,31 @@ def parse_values(app_name, dep_group):
                     parent_app_name=parent_app_name, child_app_name=app_name))
                 raise
             dep_grps[-1][k] = new_v
-        dep_grps[-1]['app_name'] = [parent_app_name]
     return dep_grps
 
 
-def dep_group_and_job_id_compatible(dep_group, pjob_id, child_app_name):
+def dep_group_and_job_id_compatible(dep_group, child_pjob_id, child_app_name):
     """Check if the dependency group for this app could possibly have
     generated this job_id.  If it could have, then this dependency group
     contains parents and is compatible
     """
-    if pjob_id is None:
+    if child_pjob_id is None:
         return True  # all dependency groups are compatible
 
     cj = get_autofill_values(child_app_name, raise_err=False)
     for parent in dep_group['app_name']:
+        pj = get_autofill_values(parent, raise_err=False)
         _, parent_template = get_job_id_template(parent)
 
         # did this job_id come from this parent?
-        for k, v in pjob_id.items():
-            if k not in dep_group and k not in parent_template:
-                if (k not in cj) or (v not in cj[k]):
+        for k in parent_template:
+            if k not in child_pjob_id and k not in dep_group and k not in pj:
+                if 'job_id' not in dep_group:
                     return False
+        for k, v in child_pjob_id.items():
             if k in dep_group and v not in dep_group[k]:
+                return False
+            if k in cj and v not in cj[k] and v not in dep_group.get(k, []):
                 return False
     return True
 
@@ -310,8 +328,7 @@ def get_children(app_name, job_id, include_dependency_group=True):
         if group_name != get_NS().dependency_group_default_name:
             depends_on = depends_on[group_name]
 
-        depends_on = postprocess_dependency_group(
-            parent_app_name=app_name, child_depends_on=depends_on)
+        depends_on = convert_dep_grp_to_parsed_list(app_name, depends_on)
 
         kwargs = dict(
             func=_generate_job_ids,
@@ -323,24 +340,6 @@ def get_children(app_name, job_id, include_dependency_group=True):
                 yield rv + (group_name, )
             else:
                 yield rv
-
-
-def postprocess_dependency_group(parent_app_name, child_depends_on):
-    """
-    Given a dict from <app_name>.depends_on or a list of dicts containing
-    metadata about app dependencies (ie [{"app_name": ["app1"]}, ...]),
-
-    Postprocess that each dict to convert any <app_name>.depends_on.<key>=="all
-    definitions, if they exist, into proper sequences.
-    """
-    if isinstance(child_depends_on, cb.TasksConfigBaseSequence):
-        return [
-            postprocess_dependency_group(parent_app_name, dct)
-            for dct in child_depends_on]
-
-    return {
-        k: v == 'all' and get_autofill_values(parent_app_name)[k] or v
-        for k, v in child_depends_on.items()}
 
 
 def _generate_job_ids(app_name, job_id, child, group_name, depends_on):

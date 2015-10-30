@@ -53,8 +53,49 @@ def test_get_autofill_values(autofill1, autofill2):
         {"client_id": range(10, 20, 2)})
     nt.assert_dict_equal(
         dag_tools.get_autofill_values(autofill2),
-        {"client_id": [10, 11, 12, 13]}
+        {"date": [20150101, 20150102, 20150103, 20150104]}
     )
+
+
+@tt.with_setup
+def test_autofill_all(func_name, autofill1, autofill2, autofill3):
+    # autofill1 out of bounds get_children
+    nt.assert_items_equal(list(dag_tools.get_children(autofill1, '9')), [])
+    nt.assert_items_equal(list(dag_tools.get_children(autofill1, '11')), [])
+    nt.assert_items_equal(list(dag_tools.get_children(autofill1, '20')), [])
+    # autofill1 in bounds get_children
+    nt.assert_items_equal(
+        list(dag_tools.get_children(autofill1, '10')),
+        [
+            (autofill3, '20150101', 'default'),
+            (autofill3, '20150102', 'default'),
+            (autofill3, '20150103', 'default'),
+            (autofill3, '20150104', 'default'),
+        ])
+
+    # autofill2 out of bounds get_children
+    nt.assert_items_equal(
+        list(dag_tools.get_children(autofill2, '20150128')), [])
+    # autofill2 in bounds get_children
+    nt.assert_items_equal(
+        list(dag_tools.get_children(autofill2, '20150101')),
+        [(autofill3, '20150101', 'default')])
+
+    # autofill3 get parents out and in bounds
+    nt.assert_items_equal(
+        list(dag_tools.get_children(autofill3, '20150101')), [])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(autofill3, '20150128')), [])
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(autofill3, '20150101')),
+        [
+            (autofill1, '10'),
+            (autofill1, '12'),
+            (autofill1, '14'),
+            (autofill1, '16'),
+            (autofill1, '18'),
+            (autofill2, '20150101'),
+        ])
 
 
 @tt.with_setup

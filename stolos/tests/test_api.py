@@ -152,6 +152,7 @@ def test_get_tasks_config():
          'test_stolos/test_get_tasks_config/all_test5',
          'test_stolos/test_get_tasks_config/autofill1',
          'test_stolos/test_get_tasks_config/autofill2',
+         'test_stolos/test_get_tasks_config/autofill3',
          ])
 
 

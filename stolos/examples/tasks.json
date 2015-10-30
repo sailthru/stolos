@@ -199,7 +199,15 @@
     "autofill_values": {"client_id": "10:20:2"}
   },
   "autofill2": {
-    "job_id": "{client_id}",
-    "autofill_values": {"client_id": "10:14"}
+    "job_id": "{date}",
+    "autofill_values": {"date": "20150101:20150105"}
+  },
+  "autofill3": {
+    "job_id": "{date}",
+    "autofill_values": {"date": "20150101:20150105"},
+    "depends_on": {
+      "app_name": ["autofill1", "autofill2"],
+      "client_id": "all"
+    }
   }
 }
