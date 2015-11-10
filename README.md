@@ -39,7 +39,7 @@ job's state in the queueing system.  Second, rather than run a job directly (ie
 from command-line), Stolos runs directly from the command-line, where it will
 check the application's queue and run a queued job.  If no job is queued,
 Stolos will wait for one or exit.  Third, Stolos must run once for every job in
-the queue.  Stolos is like a queue consume, and an external process must
+the queue.  Stolos is like a queue consumer, and an external process must
 maintain a healthy number of queue consumers.  This can be done with crontab
 (meh), [Relay.Mesos](https://github.com/sailthru/relay.mesos), or any auto
 scaler program.
@@ -91,8 +91,8 @@ Similar tools out there:
 --------------
 
   - [Chronos](https://github.com/airbnb/chronos)
-  - [Luigi](http://luigi.readthedocs.org/en/latest/), and
-  - [Azkaban](http://azkaban.github.io/azkaban/docs/2.5/), yet fundamentally
+  - [Luigi](http://luigi.readthedocs.org/en/latest/)
+  - [Azkaban](http://azkaban.github.io/azkaban/docs/2.5/)
   - [Dagobah](https://github.com/thieman/dagobah)
   - [Quartz](http://quartz-scheduler.org/)
   - [Cascading](http://www.cascading.org/documentation/)
@@ -108,8 +108,8 @@ Requirements:
 Optional requirements:
 --------------
 
-  - Apache Spark
-  - GraphViz
+  - Apache Spark (for Spark plugin)
+  - GraphViz (for visualizing the dependency graph)
 
 
 Background: Inspiration
@@ -325,7 +325,7 @@ fetches that job, completes required work, and then marks the
 The "Bubble Down" process happens when, just before `(App_A,
 job_id_123)` is marked complete, we queue `(App_B, f(job_id_123))`
 where `f()` is a magic function that translates `App_A`'s `job_id` to
-the equivalent `job_id` for `App_B`.
+the equivalent `job_id`(s) for `App_B`.
 
 In other words, the completion of `App_A` work triggers the completion
 of `App_B` work.  A more semantically correct version is the following:
@@ -357,11 +357,11 @@ the `App_B` queue.  Finally, `App_A` executes and via "Bubble Down",
 Magic functions f() and g()
 --------------
 
-Note that `g()`, mentioned in the "Bubble Up" subsection, is the inverse
-of `f()`, mentioned in the "Bubble Down" subsection.  If `f()` is a magic
-function that translates `App_A`'s `job_id` to `App_B`'s `job_id`,
-then `g()` is a similar magic function that transforms a `App_B` `job_id`
-to an equivalent one for `App_A`.  In reality, `g()` and `f()` receive one
+Note that `g()`, mentioned in the "Bubble Up" subsection, is the inverse of
+`f()`, mentioned in the "Bubble Down" subsection.  If `f()` is a magic function
+that translates `App_A`'s `job_id` to one or more `job_id`s for `App_B`, then
+`g()` is a similar magic function that transforms a `App_B` `job_id` to one or
+more equivalent ones for `App_A`.  In reality, `g()` and `f()` receive one
 `job_id` as input and return at least one `job_id` as output.
 
 These two functions can be quite complex:
@@ -402,13 +402,19 @@ mentioned problems.
 Additionally, if Stolos is used properly, "Bubble up" will never queue
 particular jobs that would otherwise be ignored.
 
+The tradeoff to this approach is that if you request to run a leaf node of a
+dependency graph that has never run before, due to bubble up, you will
+eventually queue all tasks in that tree that have never run before, which may
+result in quite a bit of computation for one simple request.
+
 
 Do I need to choose between "Bubble Up" and "Bubble Down" modes?
 --------------
 
-Stolos performs "Bubble Up" and "Bubble Down" operations simultaneously,
-and as a user, you do not need to choose whether to set Stolos into "Bubble Up"
-mode or "Bubble Down" mode, as both work by default.
+Stolos performs "Bubble Up" and "Bubble Down" operations simultaneously, and as
+a user, you do not need to choose whether to set Stolos into "Bubble Up" mode
+or "Bubble Down" mode, as both work by default.  Currently, Stolos does not let
+users disable "Bubble Up."
 
 The key question you do need to answer is how do you want to start the jobs in
 your dependency graph.  You can start by queueing jobs at the very top of a
@@ -441,21 +447,102 @@ states at any given time.
     defined for that app.  A skipped job is treated like a "failed" job.
 
 
-Setup:
+Concept: Dependency Graph
 ==============
 
-The first thing you'll want to do is install Stolos
+An underlying graph representation defines how apps depend on each other.  This
+information is stored in the [Configuration
+Backend](README.md#setup-configuration-backends).
 
+You should think about the graph stored in the configuration backend as an
+abstract, generic template that that may define multiple independent DAGs
+(Directed Acyclic Graphs).  Because it's just a template, the graph typically
+represents an infinite number of DAGS.  Here's what we mean:
+
+If you recall the `Task_Ai` --> `Task_Bi` relationship, for each ith `job_id`,
+there is a 2 node DAG.  If we think about the dependency graph as defined
+in the Configuration Backend as a template, we can imagine just saying that
+`Task_A` --> `Task_B`.  Dropping the `i` term, and assuming that `i` could be
+infinitely large,  we have now created an overly simplistic representation of
+an infinite number of 2 node DAGs.
+
+Stolos extends this concept quite a further by using components of the
+`job_id` template to define how more intricate dependencies that may exist
+between two apps.  For instance, if `Task_B` depends on "all" of `Task_A`
+job_ids, we must be able to enumerate all possible `Task_A` `job_id`s. Further
+details on the configuration of this graph are in [Setup: Configuration
+Backends](README.md#setup-configuration-backends).
+
+Another key assumption of this graph is that it is fully deterministic.  This
+means that, given an `app_name` and `job_id`, we can compute the full DAG
+for that `job_id`.  An example of a non-deterministic graph is one where the
+parents (or children) of an app change randomly.
+
+
+Concept: Queue
+==============
+
+Every app known to Stolos has a queue.  In fact, Stolos can be thought of as an
+ordered queueing system.  When jobs are consumed from the first queue, they
+queue further work in child queues.  Taking this idea one step further, the
+queue is an area where the pending work for a given App may come from many
+different DAGs (as defined by the Dependency Graph in Configuration Backend).
+
+The queue means a few things.  First, that Stolos will not consume from an
+app's queue unless explicitly told to do so.  Second, it does not manage the
+queues or solve the auto-scaling problem.  There are many other ways to solve
+this.  At Sailthru, we use a tool called
+[Relay.Mesos](github.com/sailthru/relay.mesos) to autoscale our Stolos queues.
+Third, Stolos is only as reliable, fault tolerant and scalable as the queuing
+system used.
+
+
+Usage: Quick Start
+==============
+
+This will get you started playing around with the pre-configured version of
+Stolos that we use for testing.
+
+```
+git clone git@github.com:sailthru/stolos.git
+cd ./stolos
+python setup.py develop
+
+. ./conf/stolos-env.sh
+```
+
+Submit a `job_id` to `app1`'s queue
+
+```
+stolos-submit -a app1 --job_id 20140101_123_profile
+```
+
+Consume the job
+
+```
+stolos -a app1
+```
+
+**Take a look at some [examples](stolos/examples/tasks/)**
+
+
+Usage: Installation and Setup (Detailed):
+==============
+
+1. The first thing you'll want to do is install Stolos
+
+    ```
     pip install stolos
 
     # If you prefer a portable Python egg, clone the repo and then type:
     # python setup.py bdist_egg
+    ```
 
+2. Next, define environment vars.  You decide here which configuration backend and
+queue backend you will use.  Use this [sample environment
+configuration](conf/stolos-env.sh) as a guide.
 
-Next, define environment vars.  You decide here which configuration backend and
-queue backend you will use.  See this [sample environment
-configuration](conf/stolos-env.sh) for details.
-
+    ```
     export STOLOS_JOB_ID_DEFAULT_TEMPLATE="{date}_{client_id}_{collection_name}"
     export STOLOS_JOB_ID_VALIDATIONS="my_python_codebase.job_id_validations"
 
@@ -463,42 +550,101 @@ configuration](conf/stolos-env.sh) for details.
     export STOLOS_TASKS_JSON="/path/to/a/file/called/tasks.json"
 
     # and assuming you use the default Zookeeper queue backend:
+    export STOLOS_QUEUE_BACKEND="majorityredis"
     export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
+    ```
+
+3. Then, you need to define the dependency graph that informs Stolos how your
+applications depend on each other.  This graph is stored in the "Configuration
+Backend." In the environment vars defined above, we assume you're using the
+default configuration backend, a JSON file.  See the links below to define the
+dependency graph within your configuration backend.
+
+  - Learn about [Job Ids](README.md#configuration-job-ids)
+
+  - Help me define app configuration: [Configuration: Apps, Dependencies and
+    Configuration](README.md#configuration-apps-dependencies-and-configuration)
+
+4. Last, create a `job_id_validations` python file that should look like this:
+
+  - See [example `job_id` validations file](
+      stolos/examples/job_id_validations.py)
 
 
-Next, tell Stolos how your applications depend on each other.  In the
-environment vars defined above, we assume you're using the default backend, a
-JSON file.  See the links below:
+5. [Use Stolos to run my applications](README.md#usage)
 
-
-- Learn about [Job Ids](README.md#configuration-job-ids)
-
-- Help me define app configuration: [Configuration: Apps, Dependencies and
-  Configuration ](README.md#configuration-apps-dependencies-and-configuration)
-
-Last, create a `job_id_validations` python file that should look like this:
-
-- See [example `job_id` validations file](stolos/examples/job_id_validations.py)
-
-
-[Use Stolos to run my
-applications](README.md#usage)
-
+    ```
+    $ stolos-submit <args>
+    $ stolos <args>
+    ```
 
 For help configuring non-default options:
 - Non-default configuration backend: [Setup: Configuration
-
   Backends](README.md#setup-configuration-backends)
 
 - Non-default queue backend: [Setup: Queue
   Backends](README.md#setup-queue-backends)
 
 
+Usage: Command-line and API
+==============
+
+Stolos wraps your application code so it can track job state just before and
+just after the application runs.  Therefore, you should think of running an
+application via Stolos like running the application itself.  This is
+fundamentally different than many projects because there is no centralized
+server or "master" node from you can launch tasks or control Stolos.  Stolos is
+simply a thin wrapper for your application.  It is ignorant of your
+infrastructure and network topology.  You can generally execute Stolos
+applications the same way you would treat your application without Stolos.
+Keep in mind that your job will not run unless it is queued.
+
+
+This is how you can manually queue a job from command-line:
+
+    # to use the demo example, run first:
+    . ./conf/stolos-env.sh
+
+    stolos-submit -a app1 -j 20150101_123_profile
+
+
+In order to run a job, you have to queue it and then execute it.  You
+can get a job from the application's queue and execute code via:
+
+
+    stolos -a app1 -h
+
+
+
+We also provide a way to bypass Stolos and execute a job
+directly.  This isn't useful unless you are testing an app that may be
+dependent on Stolos plugins, such as the pyspark plugin.
+
+
+    stolos --bypass_scheduler -a my_app --job_id my_job_id
+
+
+Finally, there's also an API that exposes to users of Stolos the key features.
+The API is visible [in code at this link](stolos/api.py).  To use the API, try
+something like this:
+
+    $ . ./conf/stolos-env.sh
+    $ ipython
+    In [1]: from stolos import api ; api.initialize()
+    In [2]: api.<TAB>
+
+    # Get details on a function by using the question mark
+    In [4]: api.maybe_add_subtask?
+
+    # If you have GraphViz installed, try this out
+    In [5]: api.visualize_dag()
+
+
 Setup: Configuration Backends
 ==============
 
 The configuration backend identifies where you store the dependency graph.  By
-default, and in all examples, Stolos expects to use a a simple json file
+default, and in our examples, Stolos expects to use a a simple json file
 to store the dependency graph.  However, you can choose to store this data in
 other formats or databases.  The choice of configuration backend defines how
 you store configuration.  Also, keep in mind that every time a Stolos app
@@ -514,32 +660,45 @@ These are the steps you need to take to use a non-default backend:
 1. First, let Stolos know which backend to load.  (You could also specify
    your own configuration backend, if you are so inclined).
 
-```
-export STOLOS_CONFIGURATION_BACKEND="json"  # default
-```
+    ```
+    export STOLOS_CONFIGURATION_BACKEND="json"  # default
+    ```
 
-OR
+    OR
 
-```
-export STOLOS_CONFIGURATION_BACKEND="redis"
-```
+    ```
+    export STOLOS_CONFIGURATION_BACKEND="majorityredis"
+    ```
 
-OR
+    OR (to roll your own configuration backend)
 
-```
-export STOLOS_CONFIGURATION_BACKEND="mymodule.mybackend.MyMapping"
-```
+    ```
+    export STOLOS_CONFIGURATION_BACKEND="mypython.module.mybackend.MyMapping"
+    ```
 
 2. Second, each backend has its own options.
     - For the JSON backend, you must define:
 
+        ```
         export STOLOS_TASKS_JSON="$DIR/stolos/examples/tasks.json"
+        ```
 
     - For the Redis backend, it is optional to overide these defaults:
 
+        ```
         export STOLOS_REDIS_DB=0  # which redis db is Stolos using?
         export STOLOS_REDIS_PORT=6379
         export STOLOS_REDIS_HOST='localhost'
+        ```
+
+3. The specific backend you use should have a way of storing and representing
+   data as Mappings (key:value dictionaries) and Sequences (lists)
+
+    - If using the JSON representation, you simply modify a JSON file when you which to change the graph.
+    - The Redis configuration backend (not to be confused with queue backend)
+      may require some creativity on your part as to how to initialize and
+      modify the graph.  We suggest creating a json file and uploading it
+      to redis using your favorite tools.
 
 
 For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
@@ -549,15 +708,18 @@ Setup: Queue Backends
 ==============
 
 The queue backend identifies where (and how) you store job state.
-By default, Stolos uses the Zookeeper backend.
 
-Currently, the only supported queue backends are Zookeeper and Redis.  Both of
-these databases have strong consistency guarantees, which are important if you
-care about maintaining distributed locks.  If using the Redis backend with
+Currently, the only supported queue backends are Zookeeper and Redis.  By
+default, Stolos uses the Zookeeper backend, though at Sailthru we find the
+Redis backend much more scalable and suitable to our needs.  Both of these
+databases have strong consistency guarantees.  If using the Redis backend with
 replication, be careful to follow the Redis documentation about
-[Replication](http://redis.io/topics/replication)
+[Replication](http://redis.io/topics/replication).  Subtle configuration errors
+in any distributed database can result in data consistency and corruption
+issues that may cause Stolos to running tasks multiple times or in the worst
+case run tasks infinitely until the database is manually cleaned up.
 
-These are the steps you need to take to use a non-default backend:
+These are the steps you need to take to choose a backend:
 
 1. First, let Stolos know which backend to load.
 
@@ -568,7 +730,7 @@ export STOLOS_QUEUE_BACKEND="zookeeper"  # default
 OR
 
 ```
-export STOLOS_QUEUE_BACKEND="redis"
+export STOLOS_QUEUE_BACKEND="majorityredis"  # recommended
 ```
 
 2. Second, each backend has its own options.
@@ -584,83 +746,6 @@ export STOLOS_QUEUE_BACKEND="redis"
 
 
 For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
-
-
-Usage: Quick Start
-==============
-
-Great! You've installed and configured Stolos.  Let's run an application.
-
-1. Create some application that can be called through bash or initiated
-   as a spark job.  Let's use ```echo 123``` because it is a good test example.
-1. Create an entry for it in the app config (ie the file pointed to by
-   `TASKS_JSON` if you use that)
-
-```
-cat > $TASKS_JSON <<EOF
-{
-    "myapp": {
-        "job_id": "{num}",
-        "bash_cmd": "echo 123"
-    }
-}
-EOF
-```
-
-
-1. Submit a `job_id` for this app
-
-```
-stolos-submit -a myapp --job_id 123
-```
-
-1. Run the app using Stolos (see below)
-
-```
-stolos -a myapp
-```
-
-**Take a look at some [examples](stolos/examples/tasks/) for examples**
-
-
-Usage:
-==============
-
-Stolos wraps your application code so it can track job state just before and
-just after the application runs.  Therefore, you should think of running an
-application via Stolos like running the application itself.  This is
-fundamentally different than many projects because there is no centralized
-server or "master" node from you can launch tasks or control Stolos.  Stolos is
-simply a thin wrapper for your application.  It is ignorant of your
-infrastructure and network topology.  You can generally execute Stolos
-applications the same way you would treat your application without Stolos.
-Keep in mind, though, that if you run Stolos, your job will not run at that
-moment unless it is queued.
-
-
-This is how you can manually queue a job:
-
-
-    stolos-submit -h
-
-
-In order to run a job, you have to queue it and then execute it.  You
-can get a job from the application's queue and execute code via:
-
-
-    # to see demo example, run first:
-    . ./conf/stolos-env.sh
-
-    stolos -a app1 -h
-
-
-
-We also provide a way to bypass Stolos and execute a job
-directly.  This isn't useful unless you are testing an app that may be
-dependent on Stolos plugins, such as the pyspark plugin.
-
-
-    stolos --bypass_scheduler -a my_app --job_id my_job_id
 
 
 Configuration: Job IDs
@@ -697,21 +782,19 @@ Dependencies and Configuration
 Configuration: Apps, Dependencies and Configuration
 ==============
 
-App configuration defines the app dependency graph and metadata
-Stolos needs to run a job.  App configuration answers questions
-like: "What are the parents or children for this (`app_name`, `job_id`)
-pair?" and "What general key:value configuration is defined for this
+This section will show you how to define the dependency graph.  This graph
+answers questions like: "What are the parents or children for this (`app_name`,
+`job_id`) pair?" and "What general key:value configuration is defined for this
 app?".  It does not store the state of `job_id`s and it does not contain
-queuing logic.  This section will show available configuration options.
+queuing logic.  This section exposes how we define the apps and their
+relationships to other apps.
 
-Configuration can be defined using various different configuration backends:
-a json file, a key-value database, etc. For instructions on how to setup a
-different or custom configuration backends, see section
-"Setup: Configuration Backends."  The purpose of this section, however, is to
-expose how to define the apps and their relationships with other apps.
+Configuration can be defined in different configuration backends:
+a json file, Redis, a key-value database, etc.  For instructions on how to
+setup different or custom configuration backends, see section "Setup:
+Configuration Backends."
 
-There are a few different configuration options each app may define.  Here is
-a list of configuration options:
+Each `app_name` in the graph may define a few different options:
 
 - *`job_type`* - (optional) Select which plugin this particular app uses
   to execute your code.  The default `job_type` is `bash`.
@@ -736,7 +819,7 @@ Here is a minimum viable configuration for an app:
 
 As you can see, there's not much to it.
 
-Here is an example of a simple `App_Ai` --> `App_Bi` relationship.
+Next up is an example of a simple `App_Ai` --> `App_Bi` relationship.
 Also notice that the `bash_cmd` performs string interpolation so
 applications can receive dynamically determined command-line parameters.
 
@@ -750,10 +833,16 @@ applications can receive dynamically determined command-line parameters.
         }
     }
 
-A slightly more complex variant of a `App_Ai` --> `App_Bi` relationship.
-Notice that the `job_id` of the child app has changed, meaning a `preprocess`
-job identified by `{date}_{client_id}` would kick off a `modelBuild` job
-identified by `{date}_{client_id}_purchaseRevenue`
+Next, we will see a slightly more complex variant of a `App_Ai` --> `App_Bi`
+relationship.  Notice that the `job_id` of the child app has changed, meaning a
+`preprocess` job identified by `{date}_{client_id}` would kick off a
+`modelBuild` job identified by `{date}_{client_id}_purchaseRevenue`.  The
+"autofill_values" section informs Stolos that if ever there is a scenario where
+the `modelBuild`'s `target` is undefined, we can fill in the missing
+information using values defined in "autofill_values".  For instance, when
+`preprocess` `20150101_123` completes, it should queue `modelBuild`
+`20150101_123_purchaseRevenue`.  If autofill_values was not defined, Stolos
+would raise an exeption.
 
     {
         "preprocess": {
@@ -761,71 +850,88 @@ identified by `{date}_{client_id}_purchaseRevenue`
         },
         "modelBuild": {
             "job_id": "{date}_{client_id}_{target}"
+            "autofill_values": {
+              "target": ["purchaseRevenue"]
+            },
             "depends_on": {
-                "app_name": ["preprocess"],
-                "target": ["purchaseRevenue"]
+                "app_name": ["preprocess"]
             }
         }
     }
 
-A dependency graph demonstrating how `App_A` queues up multiple `App_Bi`.  In
-this example, the completion of a `preprocess` job identified by
-`20140101_1234` enqueues two `modelBuild` jobs:
-`20140101_1234_purchaseRevenue` and `20140101_1234_numberOfPageviews`
+Expanding on the above example, we see a dependency graph demonstrating how
+`App_A` queues up multiple `App_Bi`.  In this example, the completion of a
+`preprocess` job identified by `20140101_1234` enqueues two `modelBuild` jobs:
+`20140101_1234_purchaseRevenue` and `20140101_1234_numberOfPageviews`.
 
     {
         "preprocess": {
             "job_id": "{date}_{client_id}"
         },
         "modelBuild"": {
+            "autofill_values": {
+              "target": ["purchaseRevenue", "numberOfPageviews"]
+            },
             "job_id": "{date}_{client_id}_{target}"
             "depends_on": {
-                "app_name": ["preprocess"],
-                "target": ["purchaseRevenue", "numberOfPageviews"]
+                "app_name": ["preprocess"]
             }
         }
     }
 
-The below configuration demonstrates how multiple `App_Ai` reduce to
-`App_Bj`.  In other words, the `modelBuild` of `client1_purchaseRevenue`
-cannot run (or be queued to run) until `preprocess` has completed these
-`job_ids`: `20140601_client1`, `20140501_client1`, and `20140401_client1`.
-The same applies to job, `client1_numberOfPageviews`.  However, it does not
-matter whether `client1_numberOfPageviews` or `client1_purchaseRevenue` runs
-first.  Also, notice that these dates are hardcoded.  If you would like to
-create dates that aren't hardcoded, you should refer to the section,
-[Configuration: Defining Dependencies with Two-Way
+The below configuration demonstrates how multiple `App_Ai` reduce to `App_Bj`.
+In other words, the `modelBuild2` job, `client1_purchaseRevenue`, cannot run
+(or be queued to run) until `preprocess` has completed these `job_ids`:
+`20140601_client1`, `20140501_client1`, and `20140401_client1`.  The same
+applies to `client1_numberOfPageviews`.  However, it does not matter whether
+`client1_numberOfPageviews` or `client1_purchaseRevenue` runs first.  Looking
+at this from the other way around, the children of `preprocess`
+`20140501_client1` are these two `modelBuild2` jobs: `client1_purchaseRevenue`
+and `client1_numberOfPageViews`.  Also, notice that these dates are hardcoded.
+If you would like to implement more complex logic around dates, you should
+refer to the section, [Configuration: Defining Dependencies with Two-Way
 Functions](README.md#configuration-defining-dependencies-with-a-two-way-functions).
 
     {
         "preprocess": {
             "job_id": "{date}_{client_id}"
         },
-        "modelBuild": {
+        "modelBuild2": {
             "job_id": "{client_id}_{target}"
+            "autofill_values": {
+              "target": ["purchaseRevenue", "numberOfPageviews"]
+            }
             "depends_on": {
                 "app_name": ["preprocess"],
-                "target": ["purchaseRevenue", "numberOfPageviews"],
                 "date": [20140601, 20140501, 20140401]
             }
         }
     }
 
-We also enable boolean logic in dependency structures.  An app can
-depend on `dependency_group_1` OR another dependency group.  Within a
-dependency group, you can also specify that the dependencies come from one
+We also enable boolean logic in dependency structures.  We will introduce a
+concept of a dependency group and then say that the use of a list specifies AND
+logic, while the declaration of different dependency groups specifies OR logic.
+An app can depend on `dependency_group_1` OR another dependency group.  Within
+a dependency group, you can also specify that the dependencies come from one
 different set of `job_ids` AND another set.  The AND and OR logic can also be
 combined in one example, and this can result in surprisingly complex
-relationships.  In this example, there are several things happening.  Firstly,
-note that in order for any of modelBuild's jobs to be queued to run, either
-the dependencies in `dependency_group_1` OR those in `dependency_group_2` must
-be met.  Looking more closely at `dependency_group_1`, we can see that it
-defines a list of key-value objects ANDed together using a list.
-`dependency_group_1` will not be satisfied unless all of the following is true:
-the three listed dates for `preprocess` have completed AND the two dates for
-`otherPreprocess`  have completed.  In summary, the value of
-`dependency_group_1` is a list.  The use of a list specifies AND logic, while
-the declaration of different dependency groups specifies OR logic.
+relationships.
+
+Take a look at the below example.  In this example, there are several things
+happening.  Firstly, note that in order for any of `modelBuild3`'s jobs to be
+queued to run, either the dependencies in `dependency_group_1` OR those in
+`dependency_group_2` must be met.  Looking more closely at
+`dependency_group_1`, we can see that it defines a list of key-value objects
+ANDed together using a list.  `dependency_group_1` will not be satisfied unless
+all of the following is true: the three listed dates for `preprocess` have
+completed AND the two dates for `otherPreprocess`  have completed.  In summary,
+the value of `dependency_group_1` is a list.  The use of a list specifies AND
+logic, while the declaration of different dependency groups specifies OR logic.
+
+Also take note of how `target` is defined here.  The `autofill_values` for
+`target` are different depending on which dependency group we are dealing with.
+If you find that putting target in the depends_on is confusing, we agree!  Open
+a GH issue if you have suggestions!
 
     {
         "preprocess": {
@@ -833,11 +939,14 @@ the declaration of different dependency groups specifies OR logic.
         },
         "modelBuild": {
             "job_id": "{client_id}_{target}"
+            "autofill_values": {
+                     "target": []
+            },
             "depends_on": {
                 "dependency_group_1": [
                     {"app_name": ["preprocess"],
-                     "target": ["purchaseRevenue", "purchaseQuantity"],
-                     "date": [20140601, 20140501, 20140401]
+                     "date": [20140601, 20140501, 20140401],
+                      "target": ["purchaseRevenue", "purchaseQuantity"]
                     },
                     {"app_name": ["otherPreprocess"],
                      "target": ["purchaseRevenue", "purchaseQuantity"],
@@ -851,25 +960,66 @@ the declaration of different dependency groups specifies OR logic.
                 }
             }
 
+Finally, the last two examples worth exploring are the use of depends_on "all"
+and also the use of ranges in autofill_values.  Here's an example where App2
+jobs are identified by day.  Each `date`, App2 cannot run until all of that
+`date`'s App1 jobs run.  That includes the cross product of 10 `stage_id`s with
+all even numbered `response_id`s greater than or equal to 10 and less than 50.
+This means job_id like `App2` `20150101` depends on 200 (10 * 20) App1 jobs.
+You can see how complexity builds fairly quickly.
+
+    {
+        "App1": {
+            "job_id_template": "{date}_{stage_id}_{response_id}",
+            "autofill_values": {
+              "stage_id": "0:10",
+               "response_id": "10:50:2"
+            }
+        },
+        "App2": {
+            "bash_cmd": "echo Running App 2. job_id contains date={date}"
+            "job_id_template": "{date}",
+            "depends_on": {
+              "app_name": ["App1"],
+              "response_id": "all",
+              "stage_id": "all"
+            }
+        }
+    }
 
 There are many structures that `depends_on` can take, and some are better than
-others.  We've given you enough building blocks to express almost any
-deterministic batch processing pipeline.
+others.  We've given you enough building blocks to express many
+deterministic batch processing pipelines.  That said, there are several things
+Stolos does not currently support:
+
+- Complex logic in depends_on (Two-Way functions directly solve this problem)
+- Dependency on failure conditions (Two-way functions might be able to solve)
+
+Finally, for more examples, consult
+[stolos/examples/tasks.json](stolos/examples/tasks.json)
 
 
 Configuration: Defining Dependencies with a Two-Way Functions
 ==============
 
- TODO  This isn't implemented yet.  
+ TODO  This isn't implemented yet.
 
-Two way functions allow users of Stolos to define arbitrarily complex
+Two way functions *WILL* allow users of Stolos to define arbitrarily complex
 dependency relationships between jobs.  The general idea of a two-way function
 is to define how the job, `App_Ai`, can spawn one or more children, `App_Bj`.
 Being "two-way", this function must be able to identify child and parent
-jobs.
+jobs.  One risk of introducing two-way functions is that users can define
+non-deterministic dependencies. Do this at your own risk. It's not recommended!
+A second risk, or perhaps a feature, of these functions is that one could
+define dependency structures that are one directional.  For instance, given a
+parent app_name and parent job_id components, the function should return
+children.  It could be crafted such that given children, the function returns
+no parents.  The details still need to be ironed out.
 
-   depends_on:
-       {_func: "python.import.path.to.package.module.func", app_name: ...}
+    ```
+    depends_on:
+        {_func: "python.import.path.to.package.module.func", app_name: ...}
+    ```
 
 
 Configuration: Job Types
@@ -977,8 +1127,6 @@ Here are some improvements we are considering in the future:
   - Some of these backends may support a web UI for creating, viewing and
     managing app config and dependencies
   - We currently support storing configuration in json file xor in Redis.
-- Support different queue backends in addition to Zookeeper
-  - (Stolos should use backends through a shared api of some sort)
 - A web UI showing various things like:
   - Interactive dependency graph
   - Current job status
