@@ -61,7 +61,10 @@ def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     return True
 
 
-def _recursively_reset_child_task_state(parent_app_name, job_id):
+def _recursively_reset_child_task_state(parent_app_name, job_id, so_far=None):
+    if so_far is None:
+        so_far = set()  # nodes with 2+ parents that we've already reset
+
     qbcli = shared.get_qbclient()
     log.debug(
         "recursively setting all descendant tasks to 'pending' and "
@@ -70,10 +73,15 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
     gen = dt.get_children(parent_app_name, job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
-        child_path = shared.get_job_path(child_app_name, cjob_id)
-        if qbcli.exists(child_path):
+        key = (child_app_name, cjob_id)
+        if key in so_far:
+            continue
+        if len(list(dt.get_parents(child_app_name, cjob_id))) > 1:
+            so_far.add(key)
+        if qbcli.exists(shared.get_job_path(child_app_name, cjob_id)):
             set_state(child_app_name, cjob_id, pending=True)
-            _recursively_reset_child_task_state(child_app_name, cjob_id)
+            _recursively_reset_child_task_state(
+                child_app_name, cjob_id, so_far)
         else:
             pass  # no need to recurse further down the tree
 
