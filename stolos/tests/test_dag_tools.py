@@ -58,7 +58,8 @@ def test_get_autofill_values(autofill1, autofill2):
 
 
 @tt.with_setup
-def test_autofill_all(func_name, autofill1, autofill2, autofill3):
+def test_autofill_all(func_name, autofill1, autofill2, autofill3,
+                      autofill_getparents):
     # autofill1 out of bounds get_children
     nt.assert_items_equal(list(dag_tools.get_children(autofill1, '9')), [])
     nt.assert_items_equal(list(dag_tools.get_children(autofill1, '11')), [])
@@ -71,6 +72,7 @@ def test_autofill_all(func_name, autofill1, autofill2, autofill3):
             (autofill3, '20150102', 'default'),
             (autofill3, '20150103', 'default'),
             (autofill3, '20150104', 'default'),
+            (autofill_getparents, '20150101_10_10', 'default'),
         ])
 
     # autofill2 out of bounds get_children
@@ -79,7 +81,10 @@ def test_autofill_all(func_name, autofill1, autofill2, autofill3):
     # autofill2 in bounds get_children
     nt.assert_items_equal(
         list(dag_tools.get_children(autofill2, '20150101')),
-        [(autofill3, '20150101', 'default')])
+        [
+            (autofill3, '20150101', 'default'),
+            (autofill_getparents, '20150101_10_10', 'default')
+        ])
 
     # autofill3 get parents out and in bounds
     nt.assert_items_equal(
@@ -96,6 +101,17 @@ def test_autofill_all(func_name, autofill1, autofill2, autofill3):
             (autofill1, '18'),
             (autofill2, '20150101'),
         ])
+
+
+@tt.with_setup
+def test_autofill_get_parents(autofill1, autofill2, autofill_getparents):
+    # test when child job_id is a superset of parents and depends_on only
+    # defines 2+ app_names (where each app has different job_id templates)
+    # omg this is specific!
+    nt.assert_items_equal(
+        list(dag_tools.get_parents(autofill_getparents, '20150101_10_10')),
+        [(autofill1, '10'), (autofill2, '20150101')]
+    )
 
 
 @tt.with_setup

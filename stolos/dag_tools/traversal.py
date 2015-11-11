@@ -227,11 +227,9 @@ def _get_parent_job_ids(group_name, depends_on,
     for parent_app_name in depends_on['app_name']:
         depends_on = dict(depends_on)  # shallow copy to change the keys
 
-        # TODO: remove inject!
-        _inject_job_id(
+        _inplace_modify_depends_on(
             depends_on, child_app_name, child_job_id, parent_app_name, ld)
         # are there specific job_ids the child would inherit from?
-        # TODO:add job_id to depends_on if "app_name" is only key in depends_on
         if 'job_id' in depends_on:
             for rv in _iter_job_ids(
                     dep_group=depends_on, group_name=group_name,
@@ -260,8 +258,8 @@ def _get_parent_job_ids(group_name, depends_on,
                     yield (parent_app_name, parent_job_id)
 
 
-def _inject_job_id(dep_group, child_app_name, child_job_id,
-                   parent_app_name, ld):
+def _inplace_modify_depends_on(dep_group, child_app_name, child_job_id,
+                               parent_app_name, ld):
     """Given metadata about a dependency group, set the dep_group['job_id']
     value.  Assume the dependency group only specifies an app_name key.
     Also, if the field for each identifier in the current job_id does

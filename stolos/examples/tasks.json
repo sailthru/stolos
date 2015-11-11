@@ -209,5 +209,13 @@
       "app_name": ["autofill1", "autofill2"],
       "client_id": "all"
     }
+  },
+  "autofill_getparents": {
+    "job_id": "{date}_{client_id}_{testID}",
+    "autofill_values": {
+      "date": [20150101], "testID": ["10"], "client_id": [10]},
+    "depends_on": {
+      "app_name": ["autofill1", "autofill2"]
+    }
   }
 }
