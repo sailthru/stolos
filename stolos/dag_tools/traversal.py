@@ -279,7 +279,7 @@ def _inject_job_id(dep_group, child_app_name, child_job_id,
             extra=dict(parent_app_name=parent_app_name, **ld),
             exception_kls=DAGMisconfigured)
     pjob_id = parse_job_id(child_app_name, child_job_id)
-    if len(dep_group) == 1:
+    if len(dep_group) == 1 and len(dep_group['app_name']) == 1:
         t, pt = get_job_id_template(parent_app_name)
         try:
             dep_group['job_id'] = [t.format(**pjob_id)]
