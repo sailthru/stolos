@@ -76,8 +76,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, so_far=None):
         key = (child_app_name, cjob_id)
         if key in so_far:
             continue
-        if len(list(dt.get_parents(child_app_name, cjob_id))) > 1:
-            so_far.add(key)
+        so_far.add(key)
         if qbcli.exists(shared.get_job_path(child_app_name, cjob_id)):
             set_state(child_app_name, cjob_id, pending=True)
             _recursively_reset_child_task_state(
@@ -182,31 +181,30 @@ def _maybe_queue_children(parent_app_name, parent_job_id):
     We track the "score" of a child by counting files in the job path:
         .../parents/dependency_name/parent_app_name/parent_job_id
     """
+    qbcli = shared.get_qbclient()
     gen = dt.get_children(parent_app_name, parent_job_id, True)
-
-    # cache data in form: {parent: is_complete}
-    state_dct = {(parent_app_name, parent_job_id): True}
-
     for child_app_name, cjob_id, dep_grp in gen:
-        parents = list(dt.get_parents(child_app_name, cjob_id))
-        parents.remove((parent_app_name, parent_job_id))
-        # get total number of parents
-        ptotal = len(parents)
-        # get number of parents completed so far.
-        # TODO: This check_state operation should be optimized.
-        pcomplete = sum(
-            1 for p, pj in parents
-            if util.lazy_set_default(
-                state_dct, (p, pj), check_state, p, pj, completed=True))
-
         ld = dict(
             child_app_name=child_app_name,
             child_job_id=cjob_id,
             app_name=parent_app_name,
             job_id=parent_job_id)
-        if (pcomplete == ptotal):
+        ptotal = len(list(dt.get_parents(child_app_name, cjob_id)))
+        pcomplete = qbcli.increment(
+            _path_num_complete_parents(child_app_name, cjob_id))
+
+        if (pcomplete >= ptotal):
             log.info(
                 "Parent is queuing a child task", extra=ld)
+            if pcomplete > ptotal:
+                log.warn(
+                    "For some reason, I calculated that more parents"
+                    " completed than there are parents."
+                    " If you aren't re-adding tasks, this could be a code bug"
+                    " that results in tasks unnecessarily sitting in queue.",
+                    extra=dict(
+                        num_complete_dependencies=pcomplete,
+                        num_total_dependencies=ptotal, **ld))
             if check_state(child_app_name, cjob_id, completed=True):
                 log.warn(
                     "Queuing a previously completed child task"
@@ -228,19 +226,21 @@ def _maybe_queue_children(parent_app_name, parent_job_id):
                 raise
         elif (pcomplete < ptotal):
             log.info(
-                "Child task is one step closer to being queued!",
+                "Child job one step closer to being queued!",
                 extra=dict(
                     num_complete_dependencies=pcomplete,
                     num_total_dependencies=ptotal, **ld))
-        else:
-            raise exceptions.CodeError(
-                "For some weird reason, I calculated that more parents"
-                " completed than there are parents.")
+
+
+def _path_num_complete_parents(app_name, job_id, value=1):
+    return shared.get_job_path(
+        app_name, job_id, 'num_complete_parents')
 
 
 def _set_state_unsafe(
         app_name, job_id,
-        pending=False, completed=False, failed=False, skipped=False):
+        pending=False, completed=False, failed=False, skipped=False,
+        _disable_maybe_queue_children_for_testing_only=False):
     """
     Set the state of a task
 
@@ -251,8 +251,10 @@ def _set_state_unsafe(
     qbcli = shared.get_qbclient()
     job_path = shared.get_job_path(app_name, job_id)
     state = validate_state(pending, completed, failed, skipped)
-    if completed:  # basecase
-        _maybe_queue_children(parent_app_name=app_name, parent_job_id=job_id)
+    if completed:
+        if not _disable_maybe_queue_children_for_testing_only:
+            _maybe_queue_children(
+                parent_app_name=app_name, parent_job_id=job_id)
 
     if qbcli.exists(job_path):
         qbcli.set(job_path, state)

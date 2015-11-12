@@ -182,6 +182,15 @@ def create(path, value):
         raise exceptions.NodeExistsError("%s: %s" % (path, err))
 
 
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    c = raw_client().Counter(path)
+    c += value
+    return c.value
+
+
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
         '--qb_zookeeper_hosts', help="The address to your Zookeeper cluster"),

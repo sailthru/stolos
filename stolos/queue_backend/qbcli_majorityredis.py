@@ -179,6 +179,14 @@ def create(path, value):
             "Could not create path: %s" % path)
 
 
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    rc = raw_client()
+    return rc.incrby(path, value)
+
+
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
         '--qb_redis_hosts', required=True,

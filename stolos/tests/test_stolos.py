@@ -10,7 +10,7 @@ from stolos.testing_tools import (
     validate_zero_queued_task, validate_not_exists,
     validate_one_failed_task, validate_one_queued_executing_task,
     validate_one_queued_task, validate_one_completed_task,
-    validate_one_skipped_task
+    validate_one_skipped_task, validate_n_queued_task
 )
 
 
@@ -103,9 +103,6 @@ def test_create_child_task_after_one_parent_completed(
     # the child task should run if another parent completes
     # but otherwise should not run until it's manually queued
 
-    qb.set_state(app1, job_id1, completed=True)
-    validate_one_completed_task(app1, job_id1)
-
     injected_app = app3
     dct = {
         injected_app: {
@@ -113,14 +110,20 @@ def test_create_child_task_after_one_parent_completed(
         },
     }
 
+    qb.set_state(
+        app1, job_id1, completed=True)
+    validate_one_completed_task(app1, job_id1)
+    validate_zero_queued_task(injected_app)
+    consume_queue(app2)
+    qb.set_state(app2, job_id1, completed=True)
+
     with inject_into_dag(func_name, dct):
         validate_zero_queued_task(injected_app)
-        # unnecessary side effect: app1 queues app2...
-        consume_queue(app2)
         qb.set_state(app2, job_id1, completed=True)
-
-        validate_one_completed_task(app2, job_id1)
+        validate_zero_queued_task(injected_app)
+        qb.set_state(app1, job_id1, completed=True)
         validate_one_queued_task(injected_app, job_id1)
+
         run_code(log, tasks_json_tmpfile, injected_app, '--bash_cmd echo 123')
         validate_one_completed_task(injected_app, job_id1)
 
@@ -350,16 +353,20 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
                                     log, tasks_json_tmpfile):
     job_id = depends_on_job_id1
 
-    # mark everything completed
+    # mark everything completed. ensure only last completed parent queues child
     parents = list(api.topological_sort(api.get_parents(depends_on1, job_id)))
-    for parent, pjob_id in parents:
+    for parent, pjob_id in parents[:-1]:
         qb.set_state(parent, pjob_id, completed=True)
-    # --> parents should queue our app
+    validate_zero_queued_task(depends_on1)
+    qb.set_state(parents[-1][0], parents[-1][1], completed=True)
     validate_one_queued_task(depends_on1, job_id)
+    # --> parents should queue our app
+
     consume_queue(depends_on1)
     qb.set_state(depends_on1, job_id, completed=True)
     validate_one_completed_task(depends_on1, job_id)
 
+    # ok great - ran through pipeline once.
     log.warn("OK... Now try complex dependency test with a readd")
     # re-complete the very first parent.
     # we assume that this parent is a root task
@@ -370,7 +377,7 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
     consume_queue(parent)
     qb.set_state(parent, pjob_id, completed=True)
     validate_one_completed_task(parent, pjob_id)
-    # since that parent re-queues children that may be depends_on1's
+    # since the parent that re-queues children that may be depends_on1's
     # parents, complete those too!
     for p2, pjob2 in api.get_children(parent, pjob_id, False):
         if p2 == depends_on1:
@@ -378,7 +385,10 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
         consume_queue(p2)
         qb.set_state(p2, pjob2, completed=True)
     # now, that last parent should have queued our application
-    validate_one_queued_task(depends_on1, job_id)
+    validate_n_queued_task(
+        depends_on1, job_id,
+        job_id.replace('testID1', 'testID3'))  # this replace is a hack
+    run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     validate_one_completed_task(depends_on1, job_id)
     # phew!
@@ -648,11 +658,14 @@ def test_race_condition_when_parent_queues_child(
     # should not complete child.  should de-queue child
     # should not queue parent.
     # should exit gracefully
+    # stays in the queue (forever) until parent state is completed
     run_code(log, tasks_json_tmpfile, app2)
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
 
-    qb.set_state(app1, job_id1, completed=True)
+    qb.set_state(
+        app1, job_id1, completed=True,
+        _disable_maybe_queue_children_for_testing_only=True)
     lock.release()
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
