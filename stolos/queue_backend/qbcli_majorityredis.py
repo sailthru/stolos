@@ -179,6 +179,14 @@ def create(path, value):
             "Could not create path: %s" % path)
 
 
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    rc = raw_client()
+    return rc.incrby(path, value)
+
+
 build_arg_parser = at.build_arg_parser([
     at.add_argument(
         '--qb_redis_hosts', required=True,
@@ -191,10 +199,11 @@ build_arg_parser = at.build_arg_parser([
             "number of seconds that the redis client will spend waiting for a"
             " response from Redis.")),
     at.add_argument(
-        '--qb_redis_n_servers', required=True, type=int, help=(
+        '--qb_redis_n_servers', type=int, help=(
             "The total number of Redis servers that Stolos may connect to."
             " This number is constant over time.  If you increase it, you may"
-            " have data inconsistency issues")),
+            " have data inconsistency issues."
+            " By default, infer this from number of defined hosts")),
     at.add_argument(
         '--qb_redis_history_prefix', default='stolos', help=(
             "majorityredis stores the history of read and write operations"

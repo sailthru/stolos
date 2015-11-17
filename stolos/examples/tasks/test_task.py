@@ -1,5 +1,6 @@
 """
 Test that tasks get executed properly using zookeeper
+This is used to test Stolos (pyspark plugin)
 """
 from stolos import argparse_shared as at
 from stolos.examples import log

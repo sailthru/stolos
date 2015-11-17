@@ -131,11 +131,12 @@ class Lock(BaseLock):
 @util.cached
 def raw_client():
     """Start a connection to ZooKeeper"""
-    qb_zookeeper_hosts = get_NS().qb_zookeeper_hosts
+    ns = get_NS()
     log.debug(
         "Connecting to ZooKeeper",
-        extra=dict(qb_zookeeper_hosts=qb_zookeeper_hosts))
-    zk = KazooClient(qb_zookeeper_hosts)
+        extra=dict(qb_zookeeper_hosts=ns.qb_zookeeper_hosts,
+                   qb_zookeeper_timeout=ns.qb_zookeeper_timeout))
+    zk = KazooClient(ns.qb_zookeeper_hosts, ns.qb_zookeeper_timeout)
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
     zk.start()
@@ -179,6 +180,15 @@ def create(path, value):
         return raw_client().create(path, value, makepath=True)
     except NodeExistsError as err:
         raise exceptions.NodeExistsError("%s: %s" % (path, err))
+
+
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    c = raw_client().Counter(path)
+    c += value
+    return c.value
 
 
 build_arg_parser = at.build_arg_parser([

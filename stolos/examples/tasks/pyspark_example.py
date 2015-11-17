@@ -1,5 +1,6 @@
 """This example demonstrates how to incorporate your
-pyspark application with stolos's pyspark plugin
+pyspark application with stolos's pyspark plugin.
+It's probably simpler to use the bash plugin instead.
 """
 
 
@@ -7,7 +8,9 @@ def main(elem, ns, **job_id_identifiers):
     """Stolos's pyspark plugin will call this function
     to begin the application
 
-    The function parameters may be one of these:
+    The function parameters may be one of the below.  The plugin will
+    intelligently figure out what type of object you want to receive based on
+    the function definition.
 
         def main(sc, ns, **job_id_identifiers):
         def main(textFile, ns, **job_id_identifiers):
@@ -51,12 +54,12 @@ def main(elem, ns, **job_id_identifiers):
 #   ./bin/stolos-submit -a test_stolos/test_pyspark
 #     --job_id 20140501_1_test
 #
-#   python -m stolos --qb_zookeeper_hosts localhost:2181
+#   stolos
 #     -a test_stolos/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
 
 # Option 2 bypasses scheduling and just runs a task + plugin directly.  This
 # option is useful if you wish to verify that your code works with the plugin:
 #
-#   python -m stolos --qb_zookeeper_hosts localhost:2181
+#   python
 #     -a test_stolos/test_pyspark --write_fp /tmp/alex --read_fp ./README.md
 #     --bypass_scheduler --job_id 20140501_1_test

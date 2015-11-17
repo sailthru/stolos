@@ -111,4 +111,11 @@ def create(path, value):
     raise NotImplementedError()
 
 
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    raise NotImplementedError()
+
+
 build_arg_parser = _at.build_arg_parser([])

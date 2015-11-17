@@ -138,7 +138,23 @@ def test_get_tasks_config():
          'test_stolos/test_get_tasks_config/app3',
          'test_stolos/test_get_tasks_config/app1',
          'test_stolos/test_get_tasks_config/bash1',
-         'test_stolos/test_get_tasks_config/app4'])
+         'test_stolos/test_get_tasks_config/app4',
+         'test_stolos/test_get_tasks_config/valid1',
+         'test_stolos/test_get_tasks_config/valid2',
+         'test_stolos/test_get_tasks_config/valid3',
+         'test_stolos/test_get_tasks_config/valid3b',
+         'test_stolos/test_get_tasks_config/valid4',
+         'test_stolos/test_get_tasks_config/all_test1',
+         'test_stolos/test_get_tasks_config/all_test2',
+         'test_stolos/test_get_tasks_config/all_test3',
+         'test_stolos/test_get_tasks_config/all_test4',
+         'test_stolos/test_get_tasks_config/all_test4b',
+         'test_stolos/test_get_tasks_config/all_test5',
+         'test_stolos/test_get_tasks_config/autofill1',
+         'test_stolos/test_get_tasks_config/autofill2',
+         'test_stolos/test_get_tasks_config/autofill3',
+         'test_stolos/test_get_tasks_config/autofill_getparents',
+         ])
 
 
 @tt.with_setup

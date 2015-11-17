@@ -21,6 +21,7 @@ def _queue(app_name, job_id, queue=True, priority=None):
         # hack: zookeeper doesn't like unicode
         if isinstance(job_id, unicode):
             job_id = str(job_id)
+        set_state(app_name, job_id, pending=True)
         if queue:
             if priority:
                 qbcli.LockingQueue(app_name).put(job_id, priority=priority)
@@ -30,7 +31,6 @@ def _queue(app_name, job_id, queue=True, priority=None):
             log.warn(
                 'create a subtask but not actually queueing it', extra=dict(
                     app_name=app_name, job_id=job_id, priority=priority))
-        set_state(app_name, job_id, pending=True)
     else:
         log.info(
             'job invalid.  marking as skipped so it does not run',
@@ -61,7 +61,10 @@ def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     return True
 
 
-def _recursively_reset_child_task_state(parent_app_name, job_id):
+def _recursively_reset_child_task_state(parent_app_name, job_id, so_far=None):
+    if so_far is None:
+        so_far = set()  # nodes with 2+ parents that we've already reset
+
     qbcli = shared.get_qbclient()
     log.debug(
         "recursively setting all descendant tasks to 'pending' and "
@@ -70,10 +73,14 @@ def _recursively_reset_child_task_state(parent_app_name, job_id):
 
     gen = dt.get_children(parent_app_name, job_id, True)
     for child_app_name, cjob_id, dep_grp in gen:
-        child_path = shared.get_job_path(child_app_name, cjob_id)
-        if qbcli.exists(child_path):
+        key = (child_app_name, cjob_id)
+        if key in so_far:
+            continue
+        so_far.add(key)
+        if qbcli.exists(shared.get_job_path(child_app_name, cjob_id)):
             set_state(child_app_name, cjob_id, pending=True)
-            _recursively_reset_child_task_state(child_app_name, cjob_id)
+            _recursively_reset_child_task_state(
+                child_app_name, cjob_id, so_far)
         else:
             pass  # no need to recurse further down the tree
 
@@ -174,31 +181,30 @@ def _maybe_queue_children(parent_app_name, parent_job_id):
     We track the "score" of a child by counting files in the job path:
         .../parents/dependency_name/parent_app_name/parent_job_id
     """
+    qbcli = shared.get_qbclient()
     gen = dt.get_children(parent_app_name, parent_job_id, True)
-
-    # cache data in form: {parent: is_complete}
-    state_dct = {(parent_app_name, parent_job_id): True}
-
     for child_app_name, cjob_id, dep_grp in gen:
-        parents = list(dt.get_parents(child_app_name, cjob_id))
-        parents.remove((parent_app_name, parent_job_id))
-        # get total number of parents
-        ptotal = len(parents)
-        # get number of parents completed so far.
-        # TODO: This check_state operation should be optimized.
-        pcomplete = sum(
-            1 for p, pj in parents
-            if util.lazy_set_default(
-                state_dct, (p, pj), check_state, p, pj, completed=True))
-
         ld = dict(
             child_app_name=child_app_name,
             child_job_id=cjob_id,
             app_name=parent_app_name,
             job_id=parent_job_id)
-        if (pcomplete == ptotal):
+        ptotal = len(list(dt.get_parents(child_app_name, cjob_id)))
+        pcomplete = qbcli.increment(
+            _path_num_complete_parents(child_app_name, cjob_id))
+
+        if (pcomplete >= ptotal):
             log.info(
                 "Parent is queuing a child task", extra=ld)
+            if pcomplete > ptotal:
+                log.warn(
+                    "For some reason, I calculated that more parents"
+                    " completed than there are parents."
+                    " If you aren't re-adding tasks, this could be a code bug"
+                    " that results in tasks unnecessarily sitting in queue.",
+                    extra=dict(
+                        num_complete_dependencies=pcomplete,
+                        num_total_dependencies=ptotal, **ld))
             if check_state(child_app_name, cjob_id, completed=True):
                 log.warn(
                     "Queuing a previously completed child task"
@@ -220,19 +226,21 @@ def _maybe_queue_children(parent_app_name, parent_job_id):
                 raise
         elif (pcomplete < ptotal):
             log.info(
-                "Child task is one step closer to being queued!",
+                "Child job one step closer to being queued!",
                 extra=dict(
                     num_complete_dependencies=pcomplete,
                     num_total_dependencies=ptotal, **ld))
-        else:
-            raise exceptions.CodeError(
-                "For some weird reason, I calculated that more parents"
-                " completed than there are parents.")
+
+
+def _path_num_complete_parents(app_name, job_id, value=1):
+    return shared.get_job_path(
+        app_name, job_id, 'num_complete_parents')
 
 
 def _set_state_unsafe(
         app_name, job_id,
-        pending=False, completed=False, failed=False, skipped=False):
+        pending=False, completed=False, failed=False, skipped=False,
+        _disable_maybe_queue_children_for_testing_only=False):
     """
     Set the state of a task
 
@@ -243,8 +251,10 @@ def _set_state_unsafe(
     qbcli = shared.get_qbclient()
     job_path = shared.get_job_path(app_name, job_id)
     state = validate_state(pending, completed, failed, skipped)
-    if completed:  # basecase
-        _maybe_queue_children(parent_app_name=app_name, parent_job_id=job_id)
+    if completed:
+        if not _disable_maybe_queue_children_for_testing_only:
+            _maybe_queue_children(
+                parent_app_name=app_name, parent_job_id=job_id)
 
     if qbcli.exists(job_path):
         qbcli.set(job_path, state)
@@ -340,7 +350,22 @@ def ensure_parents_completed(app_name, job_id):
         # won't run by the time I unqueue myself.  Otherwise, I should just
         # default to assuming parent is running and requeue myself by default.
 
-        maybe_add_subtask(parent, pjob_id)
+        added = maybe_add_subtask(parent, pjob_id)
+
+        # if parent marked 'skipped' and then someone calls a maybe_add_subtask
+        # on the child, child could requeue itself indefinitely.  to prevent,
+        # child should unqueue itself and raise error complaint that for some
+        # insane reason it's running but it's parent is "skipped"
+        if not added and check_state(parent, pjob_id, skipped=True):
+            consume_queue = True
+            #  raise some sort of error
+            log.warn(
+                "My parent_job_id is marked as 'skipped',"
+                " so should be impossible for me, the child, to exist!"
+                " Requesting to unqueue myself.  This is odd.", extra=dict(
+                    parent_app_name=parent, parent_job_id=pjob_id,
+                    app_name=app_name, job_id=job_id))
+            break
 
         if parent_lock is not None:
             continue  # we already found a parent that promises to requeue me
