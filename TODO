@@ -1,6 +1,6 @@
-- in tasks.json, make missing job_id identifiers just assume we depend on all of them.
-  - dag_tools tests for this
-- make job_id_validations file optional.  raise error if it's not a python path
+- python 3 compatible
+- tests: put inside Docker container.
+- maybe make job_id_validations file optional?  raise better error if it's not a python path
   - consider util.load_... use a filepath instead of a python path?
   - need to modify dag_tools code
 - remove qbcli.create.   set vs create is not a necessary distinction.
