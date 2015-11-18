@@ -1,0 +1,16 @@
+test-py2:
+  build: .
+  dockerfile: Dockerfile.test-py2
+  volumes:
+    - ./stolos:/stolos/stolos:ro
+    - ./bin:/stolos/bin:ro
+    - ./conf:/stolos/conf:ro
+  links:
+    - redis
+    - zk
+
+redis:
+  image: "redis:3.0.5"
+
+zk:
+  image: "jplock/zookeeper:3.4.6"
