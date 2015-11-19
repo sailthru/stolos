@@ -1,17 +1,11 @@
 from majorityredis import (MajorityRedis, retry_condition)
 from majorityredis.exceptions import Timeout
 import redis
-import threading
-import random
-import os
 import sys
-import signal
-import time
 
 from stolos import get_NS
 from stolos import argparse_shared as at
 from stolos import util
-from stolos import log
 import stolos.exceptions
 
 from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
@@ -102,62 +96,10 @@ class LockingQueue(BaseLockingQueue):
         return self._q.is_queued(item=value)
 
 
-LOCKS = dict()  # path: client_id
-
-
 class Lock(BaseLock):
-    # a set of (lock_path, lock_timeout) pairs
-    _INITIALIZED = False
-
-    min_lock_refresh_interval = 1
-
     def __init__(self, path):
-        self._client_id = random.randint(0, sys.maxint)
         self._path = path
-
-        # code to deal with extending locks in background
-        self._lock_timeout = 3  # seconds
-        self._max_network_delay = 2  # seconds
-        if not Lock._INITIALIZED:
-            Lock._INITIALIZED = True
-            self._extend_lock_in_background()
-
-    def _makepath(self, path, client_id):
-        return "%s/%s" % (path, client_id)
-
-    def _extend_lock_in_background(self):
-        """
-        background signal (not a thread) that keeps lock alive
-        """
-        try:
-            s = time.time()
-            for path in list(LOCKS):
-                if path not in LOCKS:
-                    continue  # race condition optimization
-                print(path,
-                      raw_client().exists(self._makepath(path, LOCKS[path])))
-                acquired = self._acquire(
-                    path=path, client_id=LOCKS[path], xx=True)
-                if not acquired and path in LOCKS:
-                    raise Exception(
-                        "Failed to extend lock for path: %s" % path)
-
-            delta = time.time() - s
-            sleep_time = self._lock_timeout - self._max_network_delay - delta
-            assert self._lock_timeout > sleep_time > 0, sleep_time
-            threading.Timer(
-                sleep_time, self._extend_lock_in_background).start()
-        except Exception as err:
-            # kill parent process
-            log.exception(err)
-            log.error('Redis Queue Backend asking to exit(1)')
-            os.kill(os.getpid(), signal.SIGHUP)
-            raise
-
-    def _acquire(self, path, client_id, nx=False, xx=False):
-        return bool(raw_client().set(
-            self._makepath(path, client_id), '1',
-            nx=nx, xx=xx, ex=self._lock_timeout))
+        self._l = raw_client_mr().Lock()
 
     def acquire(self, blocking=False, timeout=None):
         """
@@ -168,20 +110,9 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        acquired = self._acquire(self._path, self._client_id, nx=True)
-
-        if not acquired and blocking:
-            c = 0
-            while True:
-                c += 1
-                time.sleep(1)
-                if c >= timeout:
-                    break
-                acquired = self._acquire(self._path, self._client_id, nx=True)
-
-        if acquired:
-            LOCKS[self._path] = self._client_id
-        return acquired
+        if blocking and timeout is None:
+            timeout = sys.maxsize
+        return bool(self._l.lock(self._path, wait_for=timeout))
 
     def release(self):
         """
@@ -191,27 +122,14 @@ class Lock(BaseLock):
             - lock already released
             - lock does not exist (perhaps it was never acquired)
         """
-        try:
-            LOCKS.pop(self._path)
-        except KeyError:
-            raise UserWarning("You must acquire lock before releasing it")
-        # could there be a chance of a race condition here?
-        # not sure how itimer signals work at kernel level...
-        try:
-            assert raw_client().delete(self._makepath(
-                self._path, self._client_id))
-        except AssertionError:
-            raise UserWarning("Lock did not exist on Redis server")
-        except:
-            msg = "Could not release lock.  Dunno why"
-            log.exception(msg, extra=dict(lock_path=self._path))
-            raise UserWarning(msg)
+        if 50 > self._l.unlock(self._path):
+            raise UserWarning("Did not release lock")
 
     def is_locked(self):
         """
         Return True if path is currently locked by anyone, and False otherwise
         """
-        return raw_client().exists(self._makepath(self._path, self._client_id))
+        return raw_client().exists(self._path)
 
 
 def get(path):
@@ -221,6 +139,8 @@ def get(path):
     rv = raw_client().get(path)
     if rv is None:
         raise stolos.exceptions.NoNodeError
+    if rv == '--STOLOSEMPTYSTRING--':
+        rv = ''
     return rv
 
 
@@ -249,6 +169,8 @@ def set(path, value):
     """Set value at given path
     If the path does not already exist, raise stolos.exceptions.NoNodeError
     """
+    if value == '':
+        value = '--STOLOSEMPTYSTRING--'
     rv = raw_client().set(path, value, xx=True)
     if not rv:
         raise stolos.exceptions.NoNodeError("Could not set path: %s" % path)
@@ -258,6 +180,8 @@ def create(path, value):
     """Set value at given path.
     If path already exists, raise stolos.exceptions.NodeExistsError
     """
+    if value == '':
+        value = '--STOLOSEMPTYSTRING--'
     rv = raw_client().set(path, value, nx=True)
     if not rv:
         raise stolos.exceptions.NodeExistsError(

@@ -6,7 +6,7 @@ from . import with_setup
 
 
 @with_setup
-def test_create_exists(qbcli, app1, item1):
+def test_create_exists1(qbcli, app1, item1):
     nt.assert_false(qbcli.exists(app1))
 
     qbcli.create(app1, item1)
@@ -26,7 +26,7 @@ def test_create_exists2(qbcli, app1, item1):
 
 
 @with_setup
-def test_create_get(qbcli, app1, app2, item1, item2):
+def test_create_get1(qbcli, app1, app2, item1, item2):
     qbcli.create(app1, item1)
     nt.assert_equal(qbcli.get(app1), item1)
 
@@ -50,7 +50,7 @@ def test_create_get_case_sensitive(qbcli, app1, item1, item2):
 
 
 @with_setup
-def test_set(qbcli, app1, item1, item2):
+def test_set1(qbcli, app1, item1, item2):
     qbcli.create(app1, item1)
     nt.assert_equal(qbcli.get(app1), item1)
 
@@ -65,7 +65,7 @@ def test_set(qbcli, app1, item1, item2):
 
 
 @with_setup
-def test_exists(qbcli, app1, app2, app3, item1):
+def test_exists1(qbcli, app1, app2, app3, item1):
     nt.assert_false(qbcli.exists(app1))
 
     qbcli.create(app2, item1)
@@ -76,7 +76,7 @@ def test_exists(qbcli, app1, app2, app3, item1):
 
 
 @with_setup
-def test_delete(qbcli, app1, app2):
+def test_delete1(qbcli, app1, app2):
     # del non-existent node
     nt.assert_false(qbcli.exists(app1))
     nt.assert_false(qbcli.delete(app1))
@@ -101,7 +101,7 @@ def test_delete_recursive(qbcli, app1, app2, item1):
 
 
 @with_setup
-def test_Lock(qbcli, app1):
+def test_Lock1(qbcli, app1):
     lock = qbcli.Lock(app1)
     nt.assert_false(qbcli.exists(app1))
 

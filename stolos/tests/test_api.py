@@ -11,7 +11,7 @@ nt.assert_equal.im_class.maxDiff = None
 
 
 @tt.with_setup
-def test_check_state(app1, job_id1, job_id2):
+def test_check_state1(app1, job_id1, job_id2):
 
     nt.assert_false(api.check_state(app1, 'doesnotexist', pending=True))
     with nt.assert_raises(NoNodeError):
