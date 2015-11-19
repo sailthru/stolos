@@ -1,13 +1,17 @@
-import __builtin__
 from majorityredis import (MajorityRedis, retry_condition)
 from majorityredis.exceptions import Timeout
 import redis
+import threading
+import random
+import os
+import sys
 import signal
 import time
 
 from stolos import get_NS
 from stolos import argparse_shared as at
 from stolos import util
+from stolos import log
 import stolos.exceptions
 
 from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
@@ -98,11 +102,12 @@ class LockingQueue(BaseLockingQueue):
         return self._q.is_queued(item=value)
 
 
+LOCKS = dict()  # path: client_id
+
+
 class Lock(BaseLock):
     # a set of (lock_path, lock_timeout) pairs
-    LOCKS = set()
     _INITIALIZED = False
-    time_spent_renewing_locks = 0
 
     min_lock_refresh_interval = 1
 
@@ -112,44 +117,41 @@ class Lock(BaseLock):
         # code to deal with extending locks in background
         self._lock_timeout = 3  # seconds
         self._max_network_delay = 2  # seconds
+        self._client_id = random.randint(0, sys.maxint)
         if not Lock._INITIALIZED:
             Lock._INITIALIZED = True
-            self._signal_setitimer()
-            signal.signal(
-                signal.SIGALRM, lambda x, y: self._extend_lock_in_background)
+            self._extend_lock_in_background()
 
-    def _signal_setitimer(self):
-        sleep_time = \
-            self._lock_timeout - self._max_network_delay - \
-            Lock.time_spent_renewing_locks
-        assert self._lock_timeout > sleep_time > 0
-        while True:
-            try:
-                signal.setitemer(signal.ITIMER_REAL, sleep_time, sleep_time)
-            except AttributeError:
-                print('wtf is this stupid python hack and wtf does it work')
-                time.sleep(1)
-            break
-
-    def _extend_lock_in_background(self, timeout, lock_refresh_interval):
+    def _extend_lock_in_background(self):
         """
         background signal (not a thread) that keeps lock alive
         """
-        print('hello!')
-        s = time.time()
-        for path in Lock.LOCKS:
-            assert self._acquire(current_time=s)
-        Lock.time_spent_renewing_locks = time.time() - s
-        # update how frequently we renew locks if the time spent renewing
-        # LOCKS is significantly large
-        delta = time.time() - s
-        if abs(delta - Lock.time_spent_renewing_locks) > 1:
-            Lock.time_spent_renewing_locks = delta
-            #  self._signal_setitimer()
+        try:
+            s = time.time()
+            for path in list(LOCKS):
+                if path not in LOCKS:
+                    continue  # race condition optimization
+                print(path, raw_client().exists(path))
+                if not self._acquire(client_id=LOCKS[path], xx=True) and \
+                        path in LOCKS:
+                    raise Exception(
+                        "Failed to extend lock for path: %s" % path)
 
-    def _acquire(self, current_time):
+            delta = time.time() - s
+            sleep_time = self._lock_timeout - self._max_network_delay - delta
+            assert self._lock_timeout > sleep_time > 0, sleep_time
+            threading.Timer(
+                sleep_time, self._extend_lock_in_background).start()
+        except Exception as err:
+            # kill parent process
+            log.exception(err)
+            log.error('Redis Queue Backend asking to exit(1)')
+            os.kill(os.getpid(), signal.SIGINT)
+            raise
+
+    def _acquire(self, client_id, nx=False, xx=False):
         return bool(raw_client().set(
-            self._path, current_time, nx=True, ex=self._lock_timeout))
+            self._path, client_id, nx=nx, xx=xx, ex=self._lock_timeout))
 
     def acquire(self, blocking=False, timeout=None):
         """
@@ -160,10 +162,9 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        acquired = self._acquire(time.time())
+        acquired = self._acquire(self._client_id, nx=True)
 
         if not acquired and blocking:
-            raise NotImplementedError()
             c = 0
             while True:
                 c += 1
@@ -174,7 +175,7 @@ class Lock(BaseLock):
                     self._path, nx=True, ex=self._lock_timeout))
 
         if acquired:
-            Lock.LOCKS.add(self._path)
+            LOCKS[self._path] = self._client_id
         return acquired
 
     def release(self):
@@ -186,9 +187,9 @@ class Lock(BaseLock):
             - lock does not exist (perhaps it was never acquired)
         """
         try:
-            Lock.LOCKS.remove(self._path)
+            LOCKS.pop(self._path)
         except KeyError:
-            raise UserWarning("You never acquired lock")
+            raise UserWarning("You must acquire lock before releasing it")
         # could there be a chance of a race condition here?
         # not sure how itimer signals work at kernel level...
         try:
@@ -230,12 +231,10 @@ def delete(path, _recursive=False):
     mr = raw_client()
     if _recursive:
         # For tests only
-        success = True
-        for k in __builtin__.set(
-                y for x in mr._clients for y in x.keys('*%s*' % path)):
-            if (("%s/" % path) in k) or k.endswith(path):
-                success &= mr.delete(k)
-        return success
+        keys = mr.keys('*%s*' % path)
+        if not keys:
+            return True
+        return mr.delete(*keys) == len(keys)
     else:
         return mr.delete(path)
 
