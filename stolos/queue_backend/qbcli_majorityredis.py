@@ -2,7 +2,8 @@ import __builtin__
 from majorityredis import (MajorityRedis, retry_condition)
 from majorityredis.exceptions import Timeout
 import redis
-import sys
+import signal
+import time
 
 from stolos import get_NS
 from stolos import argparse_shared as at
@@ -98,9 +99,57 @@ class LockingQueue(BaseLockingQueue):
 
 
 class Lock(BaseLock):
+    # a set of (lock_path, lock_timeout) pairs
+    LOCKS = set()
+    _INITIALIZED = False
+    time_spent_renewing_locks = 0
+
+    min_lock_refresh_interval = 1
+
     def __init__(self, path):
         self._path = path
-        self._l = raw_client_mr().Lock()
+
+        # code to deal with extending locks in background
+        self._lock_timeout = 3  # seconds
+        self._max_network_delay = 2  # seconds
+        if not Lock._INITIALIZED:
+            Lock._INITIALIZED = True
+            self._signal_setitimer()
+            signal.signal(
+                signal.SIGALRM, lambda x, y: self._extend_lock_in_background)
+
+    def _signal_setitimer(self):
+        sleep_time = \
+            self._lock_timeout - self._max_network_delay - \
+            Lock.time_spent_renewing_locks
+        assert self._lock_timeout > sleep_time > 0
+        while True:
+            try:
+                signal.setitemer(signal.ITIMER_REAL, sleep_time, sleep_time)
+            except AttributeError:
+                print('wtf is this stupid python hack and wtf does it work')
+                time.sleep(1)
+            break
+
+    def _extend_lock_in_background(self, timeout, lock_refresh_interval):
+        """
+        background signal (not a thread) that keeps lock alive
+        """
+        print('hello!')
+        s = time.time()
+        for path in Lock.LOCKS:
+            assert self._acquire(current_time=s)
+        Lock.time_spent_renewing_locks = time.time() - s
+        # update how frequently we renew locks if the time spent renewing
+        # LOCKS is significantly large
+        delta = time.time() - s
+        if abs(delta - Lock.time_spent_renewing_locks) > 1:
+            Lock.time_spent_renewing_locks = delta
+            #  self._signal_setitimer()
+
+    def _acquire(self, current_time):
+        return bool(raw_client().set(
+            self._path, current_time, nx=True, ex=self._lock_timeout))
 
     def acquire(self, blocking=False, timeout=None):
         """
@@ -111,9 +160,22 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        if blocking and timeout is None:
-            timeout = sys.maxsize
-        return bool(self._l.lock(self._path, wait_for=timeout))
+        acquired = self._acquire(time.time())
+
+        if not acquired and blocking:
+            raise NotImplementedError()
+            c = 0
+            while True:
+                c += 1
+                time.sleep(1)
+                if c >= timeout:
+                    break
+                acquired = bool(raw_client().set(
+                    self._path, nx=True, ex=self._lock_timeout))
+
+        if acquired:
+            Lock.LOCKS.add(self._path)
+        return acquired
 
     def release(self):
         """
@@ -123,8 +185,20 @@ class Lock(BaseLock):
             - lock already released
             - lock does not exist (perhaps it was never acquired)
         """
-        if 50 > self._l.unlock(self._path):
-            raise UserWarning("Did not release lock")
+        try:
+            Lock.LOCKS.remove(self._path)
+        except KeyError:
+            raise UserWarning("You never acquired lock")
+        # could there be a chance of a race condition here?
+        # not sure how itimer signals work at kernel level...
+        try:
+            assert raw_client().delete(self._path)
+        except AssertionError:
+            raise UserWarning("Lock did not exist on Redis server")
+        except:
+            msg = "Could not release lock.  Dunno why"
+            log.exception(msg, extra=dict(lock_path=self._path))
+            raise UserWarning(msg)
 
     def is_locked(self):
         """
