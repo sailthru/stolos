@@ -112,15 +112,18 @@ class Lock(BaseLock):
     min_lock_refresh_interval = 1
 
     def __init__(self, path):
+        self._client_id = random.randint(0, sys.maxint)
         self._path = path
 
         # code to deal with extending locks in background
         self._lock_timeout = 3  # seconds
         self._max_network_delay = 2  # seconds
-        self._client_id = random.randint(0, sys.maxint)
         if not Lock._INITIALIZED:
             Lock._INITIALIZED = True
             self._extend_lock_in_background()
+
+    def _makepath(self, path, client_id):
+        return "%s/%s" % (path, client_id)
 
     def _extend_lock_in_background(self):
         """
@@ -131,9 +134,11 @@ class Lock(BaseLock):
             for path in list(LOCKS):
                 if path not in LOCKS:
                     continue  # race condition optimization
-                print(path, raw_client().exists(path))
-                if not self._acquire(client_id=LOCKS[path], xx=True) and \
-                        path in LOCKS:
+                print(path,
+                      raw_client().exists(self._makepath(path, LOCKS[path])))
+                acquired = self._acquire(
+                    path=path, client_id=LOCKS[path], xx=True)
+                if not acquired and path in LOCKS:
                     raise Exception(
                         "Failed to extend lock for path: %s" % path)
 
@@ -146,12 +151,13 @@ class Lock(BaseLock):
             # kill parent process
             log.exception(err)
             log.error('Redis Queue Backend asking to exit(1)')
-            os.kill(os.getpid(), signal.SIGINT)
+            os.kill(os.getpid(), signal.SIGHUP)
             raise
 
-    def _acquire(self, client_id, nx=False, xx=False):
+    def _acquire(self, path, client_id, nx=False, xx=False):
         return bool(raw_client().set(
-            self._path, client_id, nx=nx, xx=xx, ex=self._lock_timeout))
+            self._makepath(path, client_id), '1',
+            nx=nx, xx=xx, ex=self._lock_timeout))
 
     def acquire(self, blocking=False, timeout=None):
         """
@@ -162,7 +168,7 @@ class Lock(BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        acquired = self._acquire(self._client_id, nx=True)
+        acquired = self._acquire(self._path, self._client_id, nx=True)
 
         if not acquired and blocking:
             c = 0
@@ -171,8 +177,7 @@ class Lock(BaseLock):
                 time.sleep(1)
                 if c >= timeout:
                     break
-                acquired = bool(raw_client().set(
-                    self._path, nx=True, ex=self._lock_timeout))
+                acquired = self._acquire(self._path, self._client_id, nx=True)
 
         if acquired:
             LOCKS[self._path] = self._client_id
@@ -193,7 +198,8 @@ class Lock(BaseLock):
         # could there be a chance of a race condition here?
         # not sure how itimer signals work at kernel level...
         try:
-            assert raw_client().delete(self._path)
+            assert raw_client().delete(self._makepath(
+                self._path, self._client_id))
         except AssertionError:
             raise UserWarning("Lock did not exist on Redis server")
         except:
@@ -205,7 +211,7 @@ class Lock(BaseLock):
         """
         Return True if path is currently locked by anyone, and False otherwise
         """
-        return raw_client().exists(self._path)
+        return raw_client().exists(self._makepath(self._path, self._client_id))
 
 
 def get(path):
