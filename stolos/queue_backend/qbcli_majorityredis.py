@@ -19,14 +19,20 @@ def raw_client():
         redis.StrictRedis(
             host=host, port=port, socket_timeout=NS.qb_redis_socket_timeout)
         for host, port in NS.qb_redis_hosts]
+    return clients[0]
+
+
+@util.cached
+def raw_client_mr():
+    NS = get_NS()
     return MajorityRedis(
-        clients, NS.qb_redis_n_servers or len(NS.qb_redis_hosts),
+        [raw_client()], NS.qb_redis_n_servers or len(NS.qb_redis_hosts),
         getset_history_prefix=NS.qb_redis_history_prefix, threadsafe=True)
 
 
 class LockingQueue(BaseLockingQueue):
     def __init__(self, path):
-        self._q = raw_client().LockingQueue(path)
+        self._q = raw_client_mr().LockingQueue(path)
         self._item = None
         self._h_k = None
 
@@ -94,7 +100,7 @@ class LockingQueue(BaseLockingQueue):
 class Lock(BaseLock):
     def __init__(self, path):
         self._path = path
-        self._l = raw_client().Lock()
+        self._l = raw_client_mr().Lock()
 
     def acquire(self, blocking=False, timeout=None):
         """
