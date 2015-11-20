@@ -173,6 +173,13 @@ class Lock(BaseLock):
             t.daemon = True
             t.start()
 
+    def _extend(self, path, client_id, results):
+        extended = raw_client().evalsha(
+            Lock.SHAS['l_extend_lock'],
+            len(Lock.SCRIPTS['l_extend_lock']['keys']), path,
+            client_id, int(time.time() + self._lock_timeout) + 1)
+        results.append((path, client_id, extended))
+
     def _extend_lock_in_background(self):
         """
         background signal (not a thread) that keeps lock alive
@@ -180,25 +187,35 @@ class Lock(BaseLock):
         while True:
             try:
                 s = time.time()
+                threads = []
+                results = []
                 for path in list(Lock.LOCKS):
                     try:
                         client_id = Lock.LOCKS[path]
                     except KeyError:
                         continue  # race condition optimization
-                    extended = raw_client().evalsha(
-                        Lock.SHAS['l_extend_lock'],
-                        len(Lock.SCRIPTS['l_extend_lock']['keys']), path,
-                        client_id, int(time.time() + self._lock_timeout) + 1)
-                    if extended != 1 and path in Lock.LOCKS:
+                    t = threading.Thread(
+                        name="Lock Extend %s %s" % (path, client_id),
+                        target=self._extend, args=(path, client_id, results))
+                    t.daemon = True
+                    t.start()
+                    threads.append(t)
+                for t in threads:
+                    t.join()
+                for x in results:
+                    if x[2] != 1:
                         raise Exception(
                             "Failed to extend lock for path: %s. redis_msg: %s"
-                            % (path, extended))
+                            % (x[0], x[2]))
 
                 # adjust sleep time based on min expireat
                 delta = time.time() - s
                 sleep_time = \
                     self._lock_timeout - self._max_network_delay - delta
-                assert self._lock_timeout > sleep_time > 0, sleep_time
+                assert self._lock_timeout > sleep_time > 0, (
+                    'took too long to extend the locks.'
+                    ' increase lock_timeout or reduce number of concurrent'
+                    ' locks you have or improve network latency')
                 time.sleep(sleep_time)
             except Exception as err:
                 # kill parent process
