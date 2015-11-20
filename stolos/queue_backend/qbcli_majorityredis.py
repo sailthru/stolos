@@ -151,8 +151,8 @@ class Lock(BaseLock):
         self._client_id = str(random.randint(0, sys.maxint))
         self._path = path
 
-        self._lock_timeout = get_NS().qb_lock_timeout
-        self._max_network_delay = get_NS().qb_max_network_delay
+        self._lock_timeout = get_NS().qb_redis_lock_timeout
+        self._max_network_delay = get_NS().qb_redis_max_network_delay
         if not Lock._INITIALIZED:
             Lock._INITIALIZED = True
             # don't replace any signal handlers if already set
@@ -359,8 +359,8 @@ build_arg_parser = at.build_arg_parser([
         help="Redis servers to connect to in form: host1:port1,host2:port2"
     ),
     at.add_argument('--qb_redis_db', default=0, type=int),
-    at.add_argument('--qb_lock_timeout', default=60, type=int),
-    at.add_argument('--qb_max_network_delay', default=30, type=int),
+    at.add_argument('--qb_redis_lock_timeout', default=60, type=int),
+    at.add_argument('--qb_redis_max_network_delay', default=30, type=int),
     at.add_argument(
         '--qb_redis_socket_timeout', default='5', type=float, help=(
             "number of seconds that the redis client will spend waiting for a"
