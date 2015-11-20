@@ -623,6 +623,8 @@ def test_child_running_while_parent_pending_but_not_executing(
     # child should promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, True)
     nose.tools.assert_is_instance(parent_lock, qb.BaseLock)
+    # cleanup
+    parent_lock.release()
 
 
 @with_setup
@@ -640,6 +642,8 @@ def test_child_running_while_parent_pending_and_executing(
     # child should not promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, False)
     nose.tools.assert_is_none(parent_lock)
+    # cleanup
+    lock.release()
 
 
 @with_setup

@@ -134,6 +134,8 @@ def test_Lock_is_locked(qbcli, app1, app2):
     l2 = qbcli.Lock(app1)
     nt.assert_true(l2.is_locked())
     nt.assert_false(l2.acquire())
+    # cleanup
+    l.release()
 
 
 @with_setup
@@ -143,6 +145,9 @@ def test_Lock_paths(qbcli, app1, app2):
     lock2 = qbcli.Lock(app2)
     nt.assert_true(lock1.acquire())
     nt.assert_true(lock2.acquire())
+    # cleanup
+    lock1.release()
+    lock2.release()
 
 
 @with_setup
