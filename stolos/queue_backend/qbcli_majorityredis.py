@@ -329,11 +329,10 @@ return {false, false}
 
     def __init__(self, path):
         super(LockingQueue, self).__init__(path)
-        self._path  # TODO: simplify naming
         self._q_lookup = ".%s" % path
 
-        self._item = None  # TODO
-        self._h_k = None  # TODO
+        self._item = None
+        self._h_k = None
 
     def __del__(self):
         for k in list(self.LOCKS):
@@ -385,13 +384,13 @@ return {false, false}
                     len(self.SCRIPTS['lq_get']['keys']),
                     self._path, self._client_id, expire_at)
             except redis.exceptions.ResponseError as err:
-                if 'queue empty' != err.message:
-                    raise
+                if err.message not in ['queue empty', 'already locked']:
+                    raise err
 
         if self._h_k:
-            self.LOCKS[self._h_k] = self._client_id
             priority, insert_time, item = self._h_k.decode().split(':', 2)
             self._item = item
+            self.LOCKS[self._h_k] = self._client_id
             return self._item
 
     def size(self, queued=True, taken=True):
@@ -508,7 +507,7 @@ class Lock(BaseStolosRedis, BaseLock):
                 self._SHAS['l_unlock'],
                 len(self.SCRIPTS['l_unlock']['keys']),
                 self._path, self._client_id)
-            assert rv == 1  # TODO
+            assert rv == 1
         except AssertionError:
             raise UserWarning("Lock did not exist on Redis server")
         except Exception as err:
@@ -520,7 +519,7 @@ class Lock(BaseStolosRedis, BaseLock):
         """
         Return True if path is currently locked by anyone, and False otherwise
         """
-        return raw_client().exists(self._path)
+        return bool(raw_client().exists(self._path))
 
 
 def get(path):
