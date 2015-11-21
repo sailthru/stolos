@@ -131,6 +131,8 @@ class BaseStolosRedis(object):
                     threads.append(t)
                 for t in threads:
                     t.join()
+                if len(threads) != len(results):
+                    raise Exception("Failed to extend lock")
                 for x in results:
                     if x[2] != 1:
                         raise Exception(
@@ -229,10 +231,10 @@ end
         # return 1 if extended lock.  Returns an error otherwise.
         # otherwise
         lq_extend_lock=dict(
-            keys=('h_k', ), args=('expireat', 'client_id'), script="""
+            keys=('h_k', ), args=('client_id', 'expireat'), script="""
 local rv = redis.call("GET", KEYS[1])
-if ARGV[2] == rv then
-    if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
+if ARGV[1] == rv then
+    if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[2]) then
     return {err="invalid expireat"} end
     return 1
 elseif "completed" == rv then return {err="already completed"}
@@ -333,6 +335,11 @@ return {false, false}
         self._item = None  # TODO
         self._h_k = None  # TODO
 
+    def __del__(self):
+        for k in list(self.LOCKS):
+            if self.LOCKS.get(k) == self._client_id:
+                self.LOCKS.pop(k)
+
     def put(self, value, priority=100):
         """Add item onto queue.
         Rank items by priority.  Get low priority items before high priority
@@ -352,6 +359,8 @@ return {false, false}
         """
         if self._item is None:
             raise UserWarning("Must call get() before consume()")
+
+        self.LOCKS.pop(self._h_k)
 
         rv = raw_client().evalsha(
             self._SHAS['lq_consume'],
@@ -380,6 +389,7 @@ return {false, false}
                     raise
 
         if self._h_k:
+            self.LOCKS[self._h_k] = self._client_id
             priority, insert_time, item = self._h_k.decode().split(':', 2)
             self._item = item
             return self._item
@@ -472,16 +482,10 @@ class Lock(BaseStolosRedis, BaseLock):
             If True, wait up to `timeout` seconds to acquire a lock
         `timeout` (int) number of seconds.  By default, wait indefinitely
         """
-        acquired = self._acquire(self._path, self._client_id, nx=True)
-
-        if not acquired and blocking:
-            c = 0
-            while True:
-                c += 1
-                time.sleep(1)
-                if c >= timeout:
-                    break
-                acquired = self._acquire(self._path, self._client_id, nx=True)
+        if not blocking:
+            timeout = None
+        with timeout_cm(timeout):
+            acquired = self._acquire(self._path, self._client_id, nx=True)
 
         if acquired:
             self.LOCKS[self._path] = self._client_id
@@ -509,7 +513,7 @@ class Lock(BaseStolosRedis, BaseLock):
             raise UserWarning("Lock did not exist on Redis server")
         except Exception as err:
             msg = "Could not release lock.  Got error: %s" % err
-            log.exception(msg, extra=dict(lock_path=self._path))
+            log.error(msg, extra=dict(lock_path=self._path))
             raise UserWarning(msg)
 
     def is_locked(self):

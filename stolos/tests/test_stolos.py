@@ -172,6 +172,9 @@ def test_should_not_add_queue_while_consuming_queue(app1, job_id1):
         qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
+    # cleanup
+    q.consume()
+
 
 @with_setup
 def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):

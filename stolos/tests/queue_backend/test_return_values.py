@@ -160,6 +160,9 @@ def test_LockingQueue_put_paths(qbcli, app1, app2, item1, item2):
     queue2.put(item2)
     nt.assert_equal(queue2.get(), item2)
     nt.assert_equal(queue.get(), item1)
+    # cleanup
+    queue.consume()
+    queue2.consume()
 
 
 @with_setup
@@ -192,6 +195,10 @@ def test_LockingQueue_put_get(qbcli, app1, item1, item2):
     nt.assert_equal(queue2.get(), item2)
     nt.assert_equal(queue.get(), item1)  # ensure not somehow mutable or linked
 
+    # cleanup
+    queue.consume()
+    queue2.consume()
+
 
 @with_setup
 def test_LockingQueue_put_priority(
@@ -220,6 +227,7 @@ def test_LockingQueue_put_priority(
     nt.assert_equal(queue3.get(), item5)
     queue3.consume()
     nt.assert_equal(queue2.get(), item6)
+    queue2.consume()
 
 
 @with_setup
@@ -286,6 +294,8 @@ def test_LockingQueue_size(qbcli, app1, item1, item2):
     nt.assert_equal(queue.size(queued=False), 1)
     nt.assert_equal(queue.size(taken=False, queued=True), 2)
     nt.assert_equal(queue.size(taken=False), 2)
+    # cleanup
+    queue.consume()
 
 
 @with_setup
