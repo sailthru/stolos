@@ -187,7 +187,7 @@ return 1
         # returns 1 if got an item, and returns an error otherwise
         lq_get=dict(keys=('Q', ), args=('client_id', 'expireat'), script="""
 local h_k = redis.call("ZRANGE", KEYS[1], 0, 0)[1]
-if false == h_k then return {err="queue empty"} end
+if nil == h_k then return {err="queue empty"} end
 if false == redis.call("SET", h_k, ARGV[1], "NX") then
 return {err="already locked"} end
 if 1 ~= redis.call("EXPIREAT", h_k, ARGV[2]) then
@@ -370,10 +370,14 @@ return {false, false}
         expire_at = int(time.time() + self._lock_timeout)
 
         with timeout_cm(timeout):  # won't block forever
-            self._h_k = raw_client().evalsha(
-                self._SHAS['lq_get'],
-                len(self.SCRIPTS['lq_get']['keys']),
-                self._path, self._client_id, expire_at)
+            try:
+                self._h_k = raw_client().evalsha(
+                    self._SHAS['lq_get'],
+                    len(self.SCRIPTS['lq_get']['keys']),
+                    self._path, self._client_id, expire_at)
+            except redis.exceptions.ResponseError as err:
+                if 'queue empty' != err.message:
+                    raise
 
         if self._h_k:
             priority, insert_time, item = self._h_k.decode().split(':', 2)
@@ -521,7 +525,7 @@ def get(path):
     """
     rv = raw_client().get(path)
     if rv is None:
-        raise stolos.exceptions.NoNodeError
+        raise stolos.exceptions.NoNodeError(path)
     if rv == '--STOLOSEMPTYSTRING--':
         rv = ''
     return rv
