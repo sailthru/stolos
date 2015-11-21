@@ -1,5 +1,5 @@
-from majorityredis import (MajorityRedis, retry_condition)
-from majorityredis.exceptions import Timeout
+from contextlib import contextmanager
+from majorityredis import MajorityRedis
 import random
 import time
 import threading
@@ -15,6 +15,23 @@ from stolos import util
 import stolos.exceptions
 
 from .qbcli_baseapi import Lock as BaseLock, LockingQueue as BaseLockingQueue
+
+
+@contextmanager
+def timeout_cm(seconds):
+    if not seconds:
+        yield
+    else:
+        orig = signal.getsignal(signal.SIGALRM)
+        # replace the alarm handler only if it isn't already set
+        # this could be dangerous if other code concurrently uses SIGALRM
+        signal.signal(signal.SIGALRM, lambda x, y: 'do nothing')
+        signal.alarm(seconds)
+        try:
+            yield
+            signal.alarm(0)
+        finally:
+            signal.signal(signal.SIGALRM, orig)
 
 
 @util.cached
@@ -35,17 +52,299 @@ def raw_client_mr():
         getset_history_prefix=NS.qb_redis_history_prefix, threadsafe=True)
 
 
-class LockingQueue(BaseLockingQueue):
+class BaseStolosRedis(object):
+    """
+    Base Class for Lock and LockingQueue that initializes a few things
+    - set LOCKS and _SHAS as class variables on each child class's first
+      initialization
+    - provide tooling that automatically extends locks in the background using
+    the script provided by _EXTEND_LOCK_SCRIPT_NAME
+    """
+    _INITIALIZED = False
+    _BASE_INITIALIZED = False
+
+    SCRIPTS = dict()  # filled out by child classes
+
     def __init__(self, path):
-        self._q = raw_client_mr().LockingQueue(path)
-        self._item = None
-        self._h_k = None
+        assert self.SCRIPTS, 'child class must define SCRIPTS'
+        assert self._EXTEND_LOCK_SCRIPT_NAME, (
+            'child class must define _EXTEND_LOCK_SCRIPT_NAME')
+
+        self._client_id = str(random.randint(0, sys.maxint))
+        self._path = path
+
+        self._lock_timeout = get_NS().qb_redis_lock_timeout
+        self._max_network_delay = get_NS().qb_redis_max_network_delay
+
+        if not BaseStolosRedis._BASE_INITIALIZED:
+            BaseStolosRedis._BASE_INITIALIZED = True
+
+            # use signals to trigger main thread to exit if child thread errors
+            # be nice and don't replace any signal handlers if already set
+            for sig in [signal.SIGUSR1, signal.SIGUSR2,
+                        'fail: no user-level signals available']:
+                if signal.getsignal(sig) == 0:
+                    BaseStolosRedis._SIGNAL = sig
+                    break
+            signal.signal(BaseStolosRedis._SIGNAL, _raise_err)
+
+        if not self._INITIALIZED:
+            self._INITIALIZED = True
+            self.LOCKS = dict()
+
+            # submit class's lua scripts to redis and store the SHA's
+            self._SHAS = dict()
+            for k in self.SCRIPTS:
+                self._SHAS[k] = raw_client().script_load(
+                    self.SCRIPTS[k]['script'])
+
+            # initialize a lock extender thread for each class type that exists
+            # we could just group all together, but this seems like a good idea
+            # start extending locks in the background
+            t = threading.Thread(
+                name=("queue_backend.majorityredis.%s Extender"
+                      % self.__class__.__name__),
+                target=self._extend_lock_in_background)
+            t.daemon = True
+            t.start()
+
+    def _extend_lock_in_background(self):
+        """
+        background signal (not a thread) that keeps lock alive
+        """
+        while True:
+            try:
+                s = time.time()
+                threads = []
+                results = []
+                for path in list(self.LOCKS):
+                    try:
+                        client_id = self.LOCKS[path]
+                    except KeyError:
+                        continue  # race condition optimization
+                    t = threading.Thread(
+                        name="%s Extend %s %s" % (
+                            self.__class__.__name__, path, client_id),
+                        target=self._extend, args=(path, client_id, results))
+                    t.daemon = True
+                    t.start()
+                    threads.append(t)
+                for t in threads:
+                    t.join()
+                for x in results:
+                    if x[2] != 1:
+                        raise Exception(
+                            "Failed to extend lock for path: %s. redis_msg: %s"
+                            % (x[0], x[2]))
+
+                # adjust sleep time based on min expireat
+                delta = time.time() - s
+                sleep_time = \
+                    self._lock_timeout - self._max_network_delay - delta
+                assert self._lock_timeout > sleep_time > 0, (
+                    'took too long to extend the locks.'
+                    ' increase lock_timeout or reduce number of concurrent'
+                    ' locks you have or improve network latency')
+                time.sleep(sleep_time)
+            except Exception as err:
+                # kill parent process
+                log.error(
+                    'Redis Queue Backend asking Stolos to exit(1)'
+                    ' because of err: %s' % err)
+                os.kill(os.getpid(), BaseStolosRedis._SIGNAL)
+                raise
+
+    def _extend(self, path, client_id, results):
+        script = self._EXTEND_LOCK_SCRIPT_NAME
+        extended = raw_client().evalsha(
+            self._SHAS[script],
+            len(self.SCRIPTS[script]['keys']), path,
+            client_id, int(time.time() + self._lock_timeout) + 1)
+        results.append((path, client_id, extended))
+
+
+class LockingQueue(BaseStolosRedis, BaseLockingQueue):
+
+    _EXTEND_LOCK_SCRIPT_NAME = 'lq_extend_lock'
+    # Lua scripts that are sent to redis
+    # keys:
+    # h_k = ordered hash of key in form:  priority:insert_time_since_epoch:key
+    # Q = sorted set of queued keys, h_k
+    # Qi = sorted mapping (h_k -> key) for all known queued or completed items
+    #
+    # args:
+    # expireat = seconds_since_epoch, presumably in the future
+    # client_id = unique owner of the lock
+    # randint = a random integer that changes every time script is called
+    SCRIPTS = dict(
+
+        # returns 1
+        lq_put=dict(keys=('Q', 'h_k'), args=(), script="""
+redis.call("ZINCRBY", KEYS[1], 0, KEYS[2])
+return 1
+"""),
+
+        # returns 1 if got an item, and returns an error otherwise
+        lq_get=dict(keys=('Q', ), args=('client_id', 'expireat'), script="""
+local h_k = redis.call("ZRANGE", KEYS[1], 0, 0)[1]
+if false == h_k then return {err="queue empty"} end
+if false == redis.call("SET", h_k, ARGV[1], "NX") then
+return {err="already locked"} end
+if 1 ~= redis.call("EXPIREAT", h_k, ARGV[2]) then
+return {err="invalid expireat"} end
+redis.call("ZINCRBY", KEYS[1], 1, h_k)
+return h_k
+"""),
+
+        # returns 1 if got lock. Returns an error otherwise
+        lq_lock=dict(
+            keys=('h_k', 'Q'), args=('expireat', 'randint', 'client_id'),
+            script="""
+if false == redis.call("SET", KEYS[1], ARGV[3], "NX") then  -- did not get lock
+local rv = redis.call("GET", KEYS[1])
+if rv == "completed" then
+    redis.call("ZREM", KEYS[2], KEYS[1])
+    return {err="already completed"}
+elseif rv == ARGV[3] then
+    if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
+    return {err="invalid expireat"} end
+    return 1
+else
+    local score = tonumber(redis.call("ZSCORE", KEYS[2], KEYS[1]))
+    math.randomseed(tonumber(ARGV[2]))
+    local num = math.random(math.floor(score) + 1)
+    if num ~= 1 then
+    redis.call("ZINCRBY", KEYS[2], (num-1)/score, KEYS[1])
+    end
+    return {err="already locked"}
+end
+else
+if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
+    return {err="invalid expireat"} end
+redis.call("ZINCRBY", KEYS[2], 1, KEYS[1])
+return 1
+end
+"""),
+
+        # return 1 if extended lock.  Returns an error otherwise.
+        # otherwise
+        lq_extend_lock=dict(
+            keys=('h_k', ), args=('expireat', 'client_id'), script="""
+local rv = redis.call("GET", KEYS[1])
+if ARGV[2] == rv then
+    if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
+    return {err="invalid expireat"} end
+    return 1
+elseif "completed" == rv then return {err="already completed"}
+elseif false == rv then return {err="expired"}
+else return {err="lock stolen"} end
+"""),
+
+        # returns 1 if removed, 0 if key was already removed.
+        lq_consume=dict(
+            keys=('h_k', 'Q', 'Qi'), args=('client_id', ), script="""
+local rv = redis.pcall("GET", KEYS[1])
+if ARGV[1] == rv or "completed" == rv then
+redis.call("SET", KEYS[1], "completed")
+redis.call("PERSIST", KEYS[1])  -- or EXPIRE far into the future...
+redis.call("ZREM", KEYS[2], KEYS[1])
+if "completed" ~= rv then redis.call("INCR", KEYS[3]) end
+return 1
+else return 0 end
+"""),
+
+        # returns nil.  markes job completed
+        lq_completed=dict(
+            keys=('h_k', 'Q', 'Qi'), args=(), script="""
+if "completed" ~= redis.call("GET", KEYS[1]) then
+redis.call("INCR", KEYS[3])
+redis.call("SET", KEYS[1], "completed")
+redis.call("PERSIST", KEYS[1])  -- or EXPIRE far into the future...
+redis.call("ZREM", KEYS[2], KEYS[1])
+end
+"""),
+
+        # returns 1 if removed, 0 otherwise
+        lq_unlock=dict(
+            keys=('h_k', ), args=('client_id', ), script="""
+if ARGV[1] == redis.call("GET", KEYS[1]) then
+    return redis.call("DEL", KEYS[1])
+else return 0 end
+"""),
+
+        # returns number of items {(queued + taken), completed}
+        # O(log(n))
+        lq_qsize_fast=dict(
+            keys=('Q', 'Qi'), args=(), script="""
+return {redis.call("ZCARD", KEYS[1]), redis.call("INCRBY", KEYS[2], 0)}"""),
+
+        # returns number of items {in_queue, taken, completed}
+        # O(n)  -- eek!
+        lq_qsize_slow=dict(
+            keys=('Q', 'Qi'), args=(), script="""
+local taken = 0
+local queued = 0
+for _,k in ipairs(redis.call("ZRANGE", KEYS[1], 0, -1)) do
+local v = redis.call("GET", k)
+if "completed" ~= v then
+    if v then taken = taken + 1
+    else queued = queued + 1 end
+end
+end
+return {queued, taken, redis.call("INCRBY", KEYS[2], 0)}
+"""),
+
+        # returns whether an item is in queue or currently being processed.
+        # raises an error if already completed.
+        # O(1)
+        lq_is_queued_h_k=dict(
+            keys=('Q', 'h_k'), args=(), script="""
+local taken = redis.call("GET", KEYS[2])
+if "completed" == taken then
+return {err="already completed"}
+elseif taken then return {true, false}
+else return {false, false ~= redis.call("ZSCORE", KEYS[1], KEYS[2])} end
+"""),
+
+        # returns whether an item is in queue or currently being processed.
+        # raises an error if already completed.
+        # O(N * strlen(item)) -- eek!
+        lq_is_queued_item=dict(
+            keys=('Q', 'item'), args=(), script="""
+for _,k in ipairs(redis.call("ZRANGE", KEYS[1], 0, -1)) do
+if string.sub(k, -string.len(KEYS[2])) == KEYS[2] then
+    local taken = redis.call("GET", k)
+    if taken then
+    if "completed" == taken then return {err="already completed"} end
+    return {true, false}
+    else
+    return {false, true} end
+end
+end
+return {false, false}
+"""),
+    )
+
+    def __init__(self, path):
+        super(LockingQueue, self).__init__(path)
+        self._path  # TODO: simplify naming
+        self._q_lookup = ".%s" % path
+
+        self._item = None  # TODO
+        self._h_k = None  # TODO
 
     def put(self, value, priority=100):
         """Add item onto queue.
         Rank items by priority.  Get low priority items before high priority
         """
-        self._q.put(value, priority, retry_condition(nretry=10))
+        # format into hashed key
+        h_k = "%d:%f:%s" % (priority, time.time(), value)
+
+        rv = raw_client().evalsha(
+            self._SHAS['lq_put'],
+            len(self.SCRIPTS['lq_put']['keys']),
+            self._path, h_k)
+        assert rv == 1
 
     def consume(self):
         """Consume value gotten from queue.
@@ -53,7 +352,13 @@ class LockingQueue(BaseLockingQueue):
         """
         if self._item is None:
             raise UserWarning("Must call get() before consume()")
-        self._q.consume(self._h_k)
+
+        rv = raw_client().evalsha(
+            self._SHAS['lq_consume'],
+            len(self.SCRIPTS['lq_consume']['keys']),
+            self._h_k, self._path, self._q_lookup, self._client_id)
+        assert rv == 1
+
         self._h_k = None
         self._item = None
 
@@ -61,21 +366,19 @@ class LockingQueue(BaseLockingQueue):
         """Get an item from the queue or return None.  Do not block forever."""
         if self._item is not None:
             return self._item
-        if timeout:
-            gett = retry_condition(
-                nretry=int(timeout) + 2, backoff=lambda x: 1,
-                condition=lambda rv: rv is not None, timeout=timeout
-            )(self._q.get)
-        else:
-            gett = self._q.get
-        try:
-            rv = gett()
-        except Timeout:
-            return
-        if rv is None:
-            return
-        self._item, self._h_k = i, h_k = rv
-        return i
+
+        expire_at = int(time.time() + self._lock_timeout)
+
+        with timeout_cm(timeout):  # won't block forever
+            self._h_k = raw_client().evalsha(
+                self._SHAS['lq_get'],
+                len(self.SCRIPTS['lq_get']['keys']),
+                self._path, self._client_id, expire_at)
+
+        if self._h_k:
+            priority, insert_time, item = self._h_k.decode().split(':', 2)
+            self._item = item
+            return self._item
 
     def size(self, queued=True, taken=True):
         """
@@ -89,8 +392,10 @@ class LockingQueue(BaseLockingQueue):
         Raise AttributeError if all kwargs are False
         """
         if not queued and not taken:
-            raise AttributeError("given kwargs cannot all be False")
-        return self._q.size(queued=queued, taken=taken)
+            raise AttributeError("either `taken` or `queued` must be True")
+        # TODO: port this over from majorityredis
+        return raw_client_mr().LockingQueue(self._path)\
+            .size(queued=queued, taken=taken)
 
     def is_queued(self, value):
         """
@@ -99,7 +404,9 @@ class LockingQueue(BaseLockingQueue):
 
         Redis will not like this operation.  Use sparingly with large queues.
         """
-        return self._q.is_queued(item=value)
+        # TODO: port this over from majorityredis
+        return raw_client_mr().LockingQueue(self._path)\
+            .is_queued(item=value)
 
 
 def _raise_err(x, y):
@@ -108,9 +415,8 @@ def _raise_err(x, y):
                     " and now exiting")
 
 
-class Lock(BaseLock):
-    LOCKS = dict()  # path: client_id
-    SHAS = {}
+class Lock(BaseStolosRedis, BaseLock):
+    _EXTEND_LOCK_SCRIPT_NAME = 'l_extend_lock'
     SCRIPTS = dict(
         # returns 1 if locked, 0 if could not lock.
         # return exception if invalid expireat (ie lock is already expired)
@@ -145,91 +451,12 @@ class Lock(BaseLock):
     else return {err="don't own lock"} end
     """),
     )
-    _INITIALIZED = False
-
-    def __init__(self, path):
-        self._client_id = str(random.randint(0, sys.maxint))
-        self._path = path
-
-        self._lock_timeout = get_NS().qb_redis_lock_timeout
-        self._max_network_delay = get_NS().qb_redis_max_network_delay
-        if not Lock._INITIALIZED:
-            Lock._INITIALIZED = True
-            # don't replace any signal handlers if already set
-            for sig in [signal.SIGUSR1, signal.SIGUSR2,
-                        'fail-no signals availble']:
-                if signal.getsignal(sig) == 0:
-                    Lock._SIGNAL = sig
-                    break
-            signal.signal(Lock._SIGNAL, _raise_err)
-            # submit Lock lua scripts to redis
-            for k in Lock.SCRIPTS:
-                Lock.SHAS[k] = \
-                    raw_client().script_load(Lock.SCRIPTS[k]['script'])
-            # start extending locks in the background
-            t = threading.Thread(
-                name="queue_backend.majorityredis.Lock Extender",
-                target=self._extend_lock_in_background)
-            t.daemon = True
-            t.start()
-
-    def _extend(self, path, client_id, results):
-        extended = raw_client().evalsha(
-            Lock.SHAS['l_extend_lock'],
-            len(Lock.SCRIPTS['l_extend_lock']['keys']), path,
-            client_id, int(time.time() + self._lock_timeout) + 1)
-        results.append((path, client_id, extended))
-
-    def _extend_lock_in_background(self):
-        """
-        background signal (not a thread) that keeps lock alive
-        """
-        while True:
-            try:
-                s = time.time()
-                threads = []
-                results = []
-                for path in list(Lock.LOCKS):
-                    try:
-                        client_id = Lock.LOCKS[path]
-                    except KeyError:
-                        continue  # race condition optimization
-                    t = threading.Thread(
-                        name="Lock Extend %s %s" % (path, client_id),
-                        target=self._extend, args=(path, client_id, results))
-                    t.daemon = True
-                    t.start()
-                    threads.append(t)
-                for t in threads:
-                    t.join()
-                for x in results:
-                    if x[2] != 1:
-                        raise Exception(
-                            "Failed to extend lock for path: %s. redis_msg: %s"
-                            % (x[0], x[2]))
-
-                # adjust sleep time based on min expireat
-                delta = time.time() - s
-                sleep_time = \
-                    self._lock_timeout - self._max_network_delay - delta
-                assert self._lock_timeout > sleep_time > 0, (
-                    'took too long to extend the locks.'
-                    ' increase lock_timeout or reduce number of concurrent'
-                    ' locks you have or improve network latency')
-                time.sleep(sleep_time)
-            except Exception as err:
-                # kill parent process
-                log.error(
-                    'Redis Queue Backend asking Stolos to exit(1)'
-                    ' because of err: %s' % err)
-                os.kill(os.getpid(), Lock._SIGNAL)
-                raise
 
     def _acquire(self, path, client_id, nx=False, xx=False):
         expireat = int(time.time() + self._lock_timeout)
         return 1 == raw_client().evalsha(
-            Lock.SHAS['l_lock'],
-            len(Lock.SCRIPTS['l_lock']['keys']),
+            self._SHAS['l_lock'],
+            len(self.SCRIPTS['l_lock']['keys']),
             self._path, self._client_id, expireat)
 
     def acquire(self, blocking=False, timeout=None):
@@ -253,7 +480,7 @@ class Lock(BaseLock):
                 acquired = self._acquire(self._path, self._client_id, nx=True)
 
         if acquired:
-            Lock.LOCKS[self._path] = self._client_id
+            self.LOCKS[self._path] = self._client_id
         return acquired
 
     def release(self):
@@ -264,14 +491,14 @@ class Lock(BaseLock):
             - lock already released
             - lock does not exist (perhaps it was never acquired)
         """
-        if Lock.LOCKS.get(self._path) != self._client_id:
+        if self.LOCKS.get(self._path) != self._client_id:
             raise UserWarning("You must acquire lock before releasing it")
-        Lock.LOCKS.pop(self._path)
+        self.LOCKS.pop(self._path)
 
         try:
             rv = raw_client().evalsha(
-                Lock.SHAS['l_unlock'],
-                len(Lock.SCRIPTS['l_unlock']['keys']),
+                self._SHAS['l_unlock'],
+                len(self.SCRIPTS['l_unlock']['keys']),
                 self._path, self._client_id)
             assert rv == 1  # TODO
         except AssertionError:
