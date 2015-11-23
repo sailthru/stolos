@@ -93,7 +93,7 @@ class BaseStolosRedis(object):
             # we could just group all together, but this seems like a good idea
             # start extending locks in the background
             t = threading.Thread(
-                name=("queue_backend.majorityredis.%s Extender"
+                name=("stolos.queue_backend.qbcli_redis.%s Extender"
                       % self.__class__.__name__),
                 target=self._extend_lock_in_background)
             t.daemon = True
@@ -602,28 +602,16 @@ def increment(path, value=1):
 
 
 build_arg_parser = at.build_arg_parser([
+    at.add_argument('--qb_redis_host', help="Host address to redis server"),
     at.add_argument(
-        '--qb_redis_hosts', required=True,
-        type=lambda x: [y.split(':') for y in x.split(',')],
-        help="Redis servers to connect to in form: host1:port1,host2:port2"
-    ),
+        '--qb_redis_port', type=int, default=6379,
+        help="Port to connect to Redis server"),
     at.add_argument('--qb_redis_db', default=0, type=int),
     at.add_argument('--qb_redis_lock_timeout', default=60, type=int),
     at.add_argument('--qb_redis_max_network_delay', default=30, type=int),
     at.add_argument(
-        '--qb_redis_socket_timeout', default='5', type=float, help=(
+        '--qb_redis_socket_timeout', default='15', type=float, help=(
             "number of seconds that the redis client will spend waiting for a"
             " response from Redis.")),
-    at.add_argument(
-        '--qb_redis_n_servers', type=int, help=(
-            "The total number of Redis servers that Stolos may connect to."
-            " This number is constant over time.  If you increase it, you may"
-            " have data inconsistency issues."
-            " By default, infer this from number of defined hosts")),
-    at.add_argument(
-        '--qb_redis_history_prefix', default='stolos', help=(
-            "majorityredis stores the history of read and write operations"
-            " in a key prefixed by the given value. You probably don't need to"
-            " modify the default value.")),
 ], description=(
     "These options specify which queue to use to store state about your jobs"))

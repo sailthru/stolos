@@ -101,7 +101,7 @@ Similar tools out there:
 Requirements:
 --------------
 
-  - A Queue backend (ZooKeeper or Redis for now)
+  - A Queue backend (Redis or ZooKeeper)
   - A Configuration backend (JSON file, Redis, ...)
   - Some Python libraries (Kazoo, Networkx, Argparse, ...)
 
@@ -549,9 +549,9 @@ configuration](conf/stolos-env.sh) as a guide.
     # assuming you choose the default JSON configuration backend:
     export STOLOS_TASKS_JSON="/path/to/a/file/called/tasks.json"
 
-    # and assuming you use the default Zookeeper queue backend:
-    export STOLOS_QUEUE_BACKEND="majorityredis"
-    export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"
+    # and assuming you use the default Redis queue backend:
+    export STOLOS_QUEUE_BACKEND="redis"
+    export STOLOS_QB_REDIS_HOST="localhost"
     ```
 
 3. Then, you need to define the dependency graph that informs Stolos how your
@@ -667,7 +667,7 @@ These are the steps you need to take to use a non-default backend:
     OR
 
     ```
-    export STOLOS_CONFIGURATION_BACKEND="majorityredis"
+    export STOLOS_CONFIGURATION_BACKEND="redis"
     ```
 
     OR (to roll your own configuration backend)
@@ -709,8 +709,8 @@ Setup: Queue Backends
 
 The queue backend identifies where (and how) you store job state.
 
-Currently, the only supported queue backends are Zookeeper and Redis.  By
-default, Stolos uses the Zookeeper backend, though at Sailthru we find the
+Currently, the only supported queue backends are Redis and Zookeeper.  By
+default, Stolos uses the Redis backend, as we have found the
 Redis backend much more scalable and suitable to our needs.  Both of these
 databases have strong consistency guarantees.  If using the Redis backend with
 replication, be careful to follow the Redis documentation about
@@ -724,25 +724,30 @@ These are the steps you need to take to choose a backend:
 1. First, let Stolos know which backend to load.
 
 ```
-export STOLOS_QUEUE_BACKEND="zookeeper"  # default
+export STOLOS_QUEUE_BACKEND="redis"  # default
 ```
 
 OR
 
 ```
-export STOLOS_QUEUE_BACKEND="majorityredis"  # recommended
+export STOLOS_QUEUE_BACKEND="zookeeper"
 ```
 
 2. Second, each backend has its own options.
-    - For the Zookeeper backend, you must define:
+    - For the Redis backend, you may define the following:
+
+        export STOLOS_QB_REDIS_PORT=6379
+        export STOLOS_QB_REDIS_HOST='localhost'
+        export STOLOS_QB_REDIS_DB=0  # which redis db is Stolos using?
+        export STOLOS_QB_REDIS_LOCK_TIMEOUT=60
+        export STOLOS_QB_REDIS_MAX_NETWORK_DELAY=30
+        export STOLOS_QB_REDIS_SOCKET_TIMEOUT=15
+
+    - For the Zookeeper backend, you can define:
 
         export STOLOS_QB_ZOOKEEPER_HOSTS="localhost:2181"  # or appropriate uri
+        export STOLOS_QB_ZOOKEEPER_TIMEOUT=30
 
-    - For the Redis backend, it is optional to overide these defaults:
-
-        export STOLOS_REDIS_DB=0  # which redis db is Stolos using?
-        export STOLOS_REDIS_PORT=6379
-        export STOLOS_REDIS_HOST='localhost'
 
 
 For examples, see the file, [conf/stolos-env.sh](conf/stolos-env.sh)
