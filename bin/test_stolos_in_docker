@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+docker-compose up -d
+
+sleep 2
+docker-compose ps
+
+echo ...running tests in background...
+echo Results will be displayed shortly
+
+docker-compose logs test-py2 |tail -n 4
+docker-compose logs test-py3 |tail -n 4
+
+docker-compose stop
+
+echo
+echo
+docker-compose ps
+
+
+echo to get more details, try
+echo docker-compose logs test-py2
+echo docker-compose logs test-py3

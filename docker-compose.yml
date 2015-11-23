@@ -18,11 +18,15 @@ test-py3:
     - ./conf:/stolos/conf:ro
     - ./setup.cfg:/stolos/setup.cfg:ro
   links:
-    - redis
-    - zk
+    - redis3
+    - zk3
 
+redis3:
+  image: "redis:3.0.5"
 redis:
   image: "redis:3.0.5"
 
+zk3:
+  image: "jplock/zookeeper:3.4.6"
 zk:
   image: "jplock/zookeeper:3.4.6"
