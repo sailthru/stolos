@@ -9,6 +9,17 @@ test-py2:
   links:
     - redis
     - zk
+test-py3:
+  build: .
+  dockerfile: Dockerfile.test-py3
+  volumes:
+    - ./stolos:/stolos/stolos:ro
+    - ./bin:/stolos/bin:ro
+    - ./conf:/stolos/conf:ro
+    - ./setup.cfg:/stolos/setup.cfg:ro
+  links:
+    - redis
+    - zk
 
 redis:
   image: "redis:3.0.5"

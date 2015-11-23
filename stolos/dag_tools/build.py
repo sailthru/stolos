@@ -293,7 +293,7 @@ def validate_autofill_values(app_name1, metadata, dg, tasks_conf, ld):
         msg = ("Value of `autofill_values.<key>` must be a sequence or"
                " a string denoting a number range of form:  \"min:max\"")
         extra = dict(key='autofill_values.%s' % k, **ld)
-        if isinstance(v, (str, unicode)):
+        if isinstance(v, six.string_types):
             _log_raise_if(
                 not all(x.isdigit() for x in v.split(':', 2)),
                 msg, extra=extra, exception_kls=DAGMisconfigured)

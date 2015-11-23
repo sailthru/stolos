@@ -6,6 +6,11 @@ from stolos import exceptions
 
 # nt.assert_equal.im_class.maxDiff = None
 try:
+    nt.assert_items_equal
+except:
+    nt.assert_items_equal = lambda l1, l2: \
+        nt.assert_list_equal(sorted(list(l1)), sorted(list(l2)))
+try:
     nt.assert_count_equal = nt.assert_items_equal
 except:
     pass  # python 3 vs 2 compatibility
@@ -57,7 +62,7 @@ def test_get_autofill_values(autofill1, autofill2):
         {"client_id": range(10, 20, 2)})
     nt.assert_dict_equal(
         dag_tools.get_autofill_values(autofill2),
-        {"date": [20150101, 20150102, 20150103, 20150104]}
+        {"date": range(20150101, 20150105)}
     )
 
 

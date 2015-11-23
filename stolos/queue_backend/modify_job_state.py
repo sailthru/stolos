@@ -1,4 +1,5 @@
 from os.path import join
+import six
 
 from stolos import dag_tools as dt
 from stolos import util
