@@ -29,7 +29,7 @@ build_arg_parser = at.build_arg_parser([at.group(
     "Stolos Queue Backend (manages job state)",
     at.backend(
         backend_type='queue',
-        default='zookeeper',
+        default='redis',
         known_backends={
             "zookeeper": "stolos.queue_backend.qbcli_zookeeper",
             "redis": "stolos.queue_backend.qbcli_redis"},
