@@ -36,11 +36,10 @@ def timeout_cm(seconds):
 @util.cached
 def raw_client():
     NS = get_NS()
-    clients = [
-        redis.StrictRedis(
-            host=host, port=port, socket_timeout=NS.qb_redis_socket_timeout)
-        for host, port in NS.qb_redis_hosts]
-    return clients[0]
+    return redis.StrictRedis(
+        host=NS.qb_redis_host,
+        port=NS.qb_redis_port,
+        socket_timeout=NS.qb_redis_socket_timeout)
 
 
 class BaseStolosRedis(object):
@@ -61,7 +60,7 @@ class BaseStolosRedis(object):
         assert self._EXTEND_LOCK_SCRIPT_NAME, (
             'child class must define _EXTEND_LOCK_SCRIPT_NAME')
 
-        self._client_id = str(random.randint(0, sys.maxint))
+        self._client_id = str(random.randint(0, sys.maxsize))
         self._path = path
 
         self._lock_timeout = get_NS().qb_redis_lock_timeout
@@ -375,7 +374,7 @@ return {false, false, false}
                     len(self.SCRIPTS['lq_get']['keys']),
                     self._path, self._client_id, expire_at)
             except redis.exceptions.ResponseError as err:
-                if err.message not in ['queue empty', 'already locked']:
+                if str(err) not in ['queue empty', 'already locked']:
                     raise err
 
         if self._h_k:
@@ -544,6 +543,7 @@ def get(path):
     rv = raw_client().get(path)
     if rv is None:
         raise stolos.exceptions.NoNodeError(path)
+    rv = rv.decode()
     if rv == '--STOLOSEMPTYSTRING--':
         rv = ''
     return rv
