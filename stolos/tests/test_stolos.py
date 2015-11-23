@@ -177,7 +177,7 @@ def test_should_not_add_queue_while_consuming_queue(app1, job_id1):
 
 
 @with_setup
-def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_push_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     """
     Child tasks should be generated and executed properly
 
@@ -192,7 +192,7 @@ def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_rerun_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_rerun_pull_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     # queue and complete app 1. it queues a child
     enqueue(app1, job_id1)
     qb.set_state(app1, job_id1, completed=True)
@@ -298,7 +298,7 @@ def _test_rerun_tasks_when_manually_queuing_child_and_parent(
 
 
 @with_setup
-def test_rerun_push_tasks(app1, app2, job_id1):
+def test_rerun_push_tasks1(app1, app2, job_id1):
     # this tests recursively deleteing parent status on child nodes
 
     # queue and complete app 1. it queues a child
@@ -505,7 +505,7 @@ def test_retry_failed_task(
 
 
 @with_setup
-def test_valid_if_or(app2, job_id1):
+def test_valid_if_or_1(app2, job_id1):
     """Invalid tasks should be automatically completed.
     This is a valid_if_or test  (aka passes_filter )... bad naming sorry!"""
     job_id = job_id1.replace('profile', 'content')

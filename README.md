@@ -508,7 +508,7 @@ git clone git@github.com:sailthru/stolos.git
 cd ./stolos
 python setup.py develop
 
-. ./conf/stolos-env.sh
+export $(cat conf/stolos-env.sh |grep -v \# )
 ```
 
 Submit a `job_id` to `app1`'s queue
@@ -603,7 +603,7 @@ Keep in mind that your job will not run unless it is queued.
 This is how you can manually queue a job from command-line:
 
     # to use the demo example, run first:
-    . ./conf/stolos-env.sh
+    export $(cat conf/stolos-env.sh |grep -v \# )
 
     stolos-submit -a app1 -j 20150101_123_profile
 
@@ -628,7 +628,7 @@ Finally, there's also an API that exposes to users of Stolos the key features.
 The API is visible [in code at this link](stolos/api.py).  To use the API, try
 something like this:
 
-    $ . ./conf/stolos-env.sh
+    $ export $(cat conf/stolos-env.sh |grep -v \# )
     $ ipython
     In [1]: from stolos import api ; api.initialize()
     In [2]: api.<TAB>

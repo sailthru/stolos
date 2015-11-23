@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+docker-compose kill
+docker-compose rm -f
+docker-compose build
+
 docker-compose up -d
 
 sleep 2
@@ -19,7 +23,7 @@ docker-compose ps
 
 
 echo to get more details, try
-echo docker-compose logs test-py2
-echo docker-compose logs test-py3
+echo 'docker-compose logs test-py2 2>&1 |less -R'
+echo 'docker-compose logs test-py3 2>&1 |less -R'
 
-(docker-compose kill && docker-compose rm -f) 1>/dev/null
+(docker-compose kill)
