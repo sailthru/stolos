@@ -22,8 +22,11 @@ echo
 docker-compose ps
 
 
+echo
+echo
 echo to get more details, try
+echo
 echo 'docker-compose logs test-py2 2>&1 |less -R'
 echo 'docker-compose logs test-py3 2>&1 |less -R'
 
-(docker-compose kill)
+docker-compose kill
