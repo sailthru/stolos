@@ -5,6 +5,7 @@ test-py2:
     - ./stolos:/stolos/stolos:ro
     - ./bin:/stolos/bin:ro
     - ./conf:/stolos/conf:ro
+    - ./setup.cfg:/stolos/setup.cfg:ro
   links:
     - redis
     - zk
