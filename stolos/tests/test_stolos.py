@@ -215,7 +215,7 @@ def test_rerun_pull_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_rerun_manual_task(app1, job_id1):
+def test_rerun_manual_task1(app1, job_id1):
     enqueue(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
@@ -398,7 +398,7 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
 
 
 @with_setup
-def test_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_pull_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     """
     Parent tasks should be generated and executed before child tasks
     (The Bubble Up and then Bubble Down test)
@@ -566,13 +566,13 @@ def test_skipped_parent_and_queued_child(app1, app2, app3, app4, job_id1,
 
 
 @with_setup
-def test_valid_task(app2, job_id1):
+def test_valid_task1(app2, job_id1):
     """Valid tasks should be automatically completed"""
     enqueue(app2, job_id1, validate_queued=True)
 
 
 @with_setup
-def test_bash(bash1, job_id1, log, tasks_json_tmpfile):
+def test_bash1(bash1, job_id1, log, tasks_json_tmpfile):
     """a bash task should execute properly """
     # queue task
     enqueue(bash1, job_id1)
