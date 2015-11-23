@@ -1,7 +1,5 @@
 DIR="$( dirname "$( cd "$( dirname "$0" )" && pwd )")"
 
-. $DIR/conf/stolos-env.sh
-
 set -e
 set -u
 

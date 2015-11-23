@@ -1080,7 +1080,7 @@ If you'd like to make a change, you should:
    [follow this guide](https://help.github.com/articles/using-pull-requests).
   - Before submitting the PR, run tests to verify your code is clean:
 
-    ./bin/test_stolos.sh  # run the tests
+    ./bin/test_stolos_in_docker  # run the tests
 
 1. Get code reviewed and iterate until PR is closed
 

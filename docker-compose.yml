@@ -9,6 +9,11 @@ test-py2:
   links:
     - redis
     - zk
+  env_file: conf/stolos-env.sh
+  environment:
+    - STOLOS_QB_REDIS_HOST="redis:6379"
+    - STOLOS_QB_ZOOKEEPER_HOSTS="zk:2181"
+    - STOLOS_REDIS_HOST="redis"
 test-py3:
   build: .
   dockerfile: Dockerfile.test-py3
@@ -20,6 +25,11 @@ test-py3:
   links:
     - redis3
     - zk3
+  env_file: conf/stolos-env.sh
+  environment:
+    - STOLOS_QB_REDIS_HOST="redis3:6379"
+    - STOLOS_QB_ZOOKEEPER_HOSTS="zk3:2181"
+    - STOLOS_REDIS_HOST="redis3"
 
 redis3:
   image: "redis:3.0.5"
