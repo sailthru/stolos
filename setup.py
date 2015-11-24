@@ -8,7 +8,7 @@ except ImportError:
 
 setup(
     name='stolos',
-    version='2.0.1',
+    version='2.0.2.dev0',
     description=(
         'A DAG-based job queueing system and executor for performing work'
         ' with complex dependency requirements between applications'),
