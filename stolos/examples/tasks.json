@@ -33,6 +33,9 @@
  },
   "depends_on1": {
     "job_id": "{date}_{testID}",
+    "autofill_values": {
+      "testID": []
+    },
     "depends_on": {
       "depgrp1": [{
         "app_name": ["app2", "app1"],
@@ -70,6 +73,7 @@
   },
   "fanout1": {
     "job_id": "{date}_{testID}",
+    "autofill_values": {"testID": []},
     "depends_on": {
       "dep1": {
         "app_name": ["app1"],
@@ -104,6 +108,114 @@
          "testID": ["testID1"]
         }
       ]
+    }
+  },
+  "valid1": {
+    "job_id": "{date}_{testID}"
+  },
+  "valid2": {
+    "job_id": "{date}_{client_id}"
+  },
+  "valid3": {
+    "job_id": "{date}_{client_id}",
+    "autofill_values": {
+      "client_id": "101:103"
+    },
+    "depends_on": {
+      "app_name": ["valid1", "valid2"],
+      "testID": ["1", "2"]
+    }
+  },
+  "valid3b": {
+    "job_id": "{date}_{client_id}",
+    "autofill_values": {
+      "client_id": [101, 102]
+    },
+    "depends_on": {
+      "another_way_to_state_same_thing": [
+        {"app_name": ["valid1"], "testID": ["1", "2"]},
+        {"app_name": ["valid2"]}
+      ]
+    }
+  },
+  "valid4": {
+    "job_id": "{date}_{client_id}",
+    "autofill_values": {
+      "client_id": [101, 102]
+    },
+    "depends_on": {
+      "app_name": ["valid1", "valid2"],
+      "testID": ["1", "2"],
+      "client_id": [101]
+    }
+  },
+
+  "all_test1": {
+    "job_id": "{date}_{client_id}",
+    "autofill_values": {"client_id": [1, 2]}
+  },
+  "all_test2": {
+    "job_id": "{date}_{client_id}",
+    "autofill_values": {"client_id": [2, 3]}
+  },
+  "all_test3": {
+    "job_id": "{date}_{client_id}",
+    "depends_on": {
+      "app_name": ["all_test1"],
+      "client_id": "all"
+    }
+  },
+  "all_test4": {
+    "job_id": "{date}",
+    "depends_on": {
+      "app_name": ["all_test1", "all_test2"],
+      "client_id": "all"
+    }
+  },
+  "all_test4b": {
+    "job_id": "{date}",
+    "depends_on": {
+      "both": [
+        {
+          "app_name": ["all_test1"],
+          "client_id": "all"
+        }, {
+          "app_name": ["all_test2"],
+          "client_id": "all"
+        }]
+    }
+  },
+  "all_test5": {
+    "job_id": "{date}",
+    "depends_on": {
+      "both_apps": [
+        {"app_name": ["all_test1"], "client_id": "all"},
+        {"app_name": ["all_test2"], "client_id": [4]}
+      ]
+    }
+  },
+  "autofill1": {
+    "job_id": "{client_id}",
+    "autofill_values": {"client_id": "10:20:2"}
+  },
+  "autofill2": {
+    "job_id": "{date}",
+    "autofill_values": {"date": "20150101:20150105"}
+  },
+  "autofill3": {
+    "job_id": "{date}",
+    "autofill_values": {"date": "20150101:20150105"},
+    "depends_on": {
+      "app_name": ["autofill1", "autofill2"],
+      "client_id": "all"
+    }
+  },
+  "autofill_getparents": {
+    "job_id": "{date}_{client_id}_{testID}",
+    "autofill_values": {
+      "date": [20150101], "testID": ["10"], "client_id": [10]},
+    "depends_on": {
+      "app_name": ["autofill1", "autofill2"]
     }
   }
 }

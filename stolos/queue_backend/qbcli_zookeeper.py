@@ -26,7 +26,7 @@ class LockingQueue(BaseLockingQueue):
         self._q = _zkLockingQueue(client=raw_client(), path=path)
 
     def put(self, value, priority=100):
-        self._q.put(value, priority=priority)
+        self._q.put(util.tobytes(value), priority=priority)
 
     def consume(self):
         if not self._q.consume():
@@ -37,7 +37,7 @@ class LockingQueue(BaseLockingQueue):
         """Get an item from the queue or return None."""
         if timeout is None:
             timeout = get_NS().qb_zookeeper_timeout
-        return self._q.get(timeout=timeout)
+        return util.frombytes(self._q.get(timeout=timeout))
 
     def size(self, queued=True, taken=True):
         """
@@ -89,7 +89,7 @@ class LockingQueue(BaseLockingQueue):
         except NoNodeError:
             items = []
 
-        if value in items:
+        if util.tobytes(value) in items:
             return True
         return False
 
@@ -131,11 +131,12 @@ class Lock(BaseLock):
 @util.cached
 def raw_client():
     """Start a connection to ZooKeeper"""
-    qb_zookeeper_hosts = get_NS().qb_zookeeper_hosts
+    ns = get_NS()
     log.debug(
         "Connecting to ZooKeeper",
-        extra=dict(qb_zookeeper_hosts=qb_zookeeper_hosts))
-    zk = KazooClient(qb_zookeeper_hosts)
+        extra=dict(qb_zookeeper_hosts=ns.qb_zookeeper_hosts,
+                   qb_zookeeper_timeout=ns.qb_zookeeper_timeout))
+    zk = KazooClient(ns.qb_zookeeper_hosts, ns.qb_zookeeper_timeout)
     zk.logger.handlers = log.handlers
     zk.logger.setLevel('WARN')
     zk.start()
@@ -145,7 +146,7 @@ def raw_client():
 
 def get(path):
     try:
-        return raw_client().get(path)[0]
+        return util.frombytes(raw_client().get(path)[0])
     except NoNodeError as err:
         raise exceptions.NoNodeError("%s: %s" % (path, err))
 
@@ -168,7 +169,7 @@ def delete(path, _recursive=False):
 
 def set(path, value):
     try:
-        return raw_client().set(path, value)
+        return raw_client().set(path, util.tobytes(value))
     except NoNodeError as err:
         raise exceptions.NoNodeError(
             "Must first create node before setting a new value. %s" % err)
@@ -176,9 +177,18 @@ def set(path, value):
 
 def create(path, value):
     try:
-        return raw_client().create(path, value, makepath=True)
+        return raw_client().create(path, util.tobytes(value), makepath=True)
     except NodeExistsError as err:
         raise exceptions.NodeExistsError("%s: %s" % (path, err))
+
+
+def increment(path, value=1):
+    """Increment the counter at given path
+    Return the incremented count as an int
+    """
+    c = raw_client().Counter(path)
+    c += value
+    return c.value
 
 
 build_arg_parser = at.build_arg_parser([

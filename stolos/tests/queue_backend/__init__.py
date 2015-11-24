@@ -8,12 +8,12 @@ def setup_qb(func_name):
         app2=tt.makepath(func_name, 'app2'),
         app3=tt.makepath(func_name, 'app3'),
         app4=tt.makepath(func_name, 'app4'),
-        item1="%s-%s" % (func_name, 'a'),
-        item2="%s-%s" % (func_name, 'b'),
-        item3="%s-%s" % (func_name, 'c'),
-        item4="%s-%s" % (func_name, 'd'),
-        item5="%s-%s" % (func_name, 'e'),
-        item6="%s-%s" % (func_name, 'f'),
+        item1="{}-{}".format(func_name, 'a'),
+        item2="{}-{}".format(func_name, 'b'),
+        item3="{}-{}".format(func_name, 'c'),
+        item4="{}-{}".format(func_name, 'd'),
+        item5="{}-{}".format(func_name, 'e'),
+        item6="{}-{}".format(func_name, 'f'),
     ))
 
 

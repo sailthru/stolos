@@ -54,8 +54,8 @@ def test_get_item(app1, td):
     nt.assert_is_instance(td[app1], JSONMapping)
     nt.assert_is_instance(td[app1], JSONMapping)
     # are returned values of the correct type?
-    nt.assert_items_equal(td[app1].keys(), ['key1', 2, 3])
-
+    nt.assert_equal(len(list(td[app1].keys())), 3)
+    nt.assert_true(all(x in [3, 2, 'key1'] for x in td[app1].keys()))
     nt.assert_is_instance(
         td[app1][3], JSONSequence)
     nt.assert_equal(td[app1]['key1'], 1)
@@ -91,7 +91,10 @@ def test_set_config(app1, cli, td):
     nt.assert_equal(1, td[app1]['key1'])
 
     # verify set_config adds new keys
-    nt.assert_items_equal(td[app1].keys(), ['key1'] + dct.keys())
+    nt.assert_equal(
+        len(list(td[app1].keys())), len(list(dct.keys()) + ['key1']))
+    nt.assert_true(all(
+        x in (list(dct.keys()) + ['key1']) for x in td[app1].keys()))
     nt.assert_equal('1', td[app1]['1'])
     nt.assert_equal(2, td[app1][2])
     nt.assert_equal(1.1, td[app1][1.1])

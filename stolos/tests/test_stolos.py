@@ -10,7 +10,7 @@ from stolos.testing_tools import (
     validate_zero_queued_task, validate_not_exists,
     validate_one_failed_task, validate_one_queued_executing_task,
     validate_one_queued_task, validate_one_completed_task,
-    validate_one_skipped_task
+    validate_one_skipped_task, validate_n_queued_task
 )
 
 
@@ -49,7 +49,7 @@ def run_code(log, tasks_json_tmpfile, app_name, extra_opts='',
              " \nSTDOUT:\n%s \nSTDERR:\n %s"
              % (stdout, stderr))
     if capture:
-        return stdout, stderr
+        return stdout.decode('utf8'), stderr.decode('utf8')
 
 
 @with_setup
@@ -103,9 +103,6 @@ def test_create_child_task_after_one_parent_completed(
     # the child task should run if another parent completes
     # but otherwise should not run until it's manually queued
 
-    qb.set_state(app1, job_id1, completed=True)
-    validate_one_completed_task(app1, job_id1)
-
     injected_app = app3
     dct = {
         injected_app: {
@@ -113,14 +110,20 @@ def test_create_child_task_after_one_parent_completed(
         },
     }
 
+    qb.set_state(
+        app1, job_id1, completed=True)
+    validate_one_completed_task(app1, job_id1)
+    validate_zero_queued_task(injected_app)
+    consume_queue(app2)
+    qb.set_state(app2, job_id1, completed=True)
+
     with inject_into_dag(func_name, dct):
         validate_zero_queued_task(injected_app)
-        # unnecessary side effect: app1 queues app2...
-        consume_queue(app2)
         qb.set_state(app2, job_id1, completed=True)
-
-        validate_one_completed_task(app2, job_id1)
+        validate_zero_queued_task(injected_app)
+        qb.set_state(app1, job_id1, completed=True)
         validate_one_queued_task(injected_app, job_id1)
+
         run_code(log, tasks_json_tmpfile, injected_app, '--bash_cmd echo 123')
         validate_one_completed_task(injected_app, job_id1)
 
@@ -169,9 +172,12 @@ def test_should_not_add_queue_while_consuming_queue(app1, job_id1):
         qb.readd_subtask(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
+    # cleanup
+    q.consume()
+
 
 @with_setup
-def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_push_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     """
     Child tasks should be generated and executed properly
 
@@ -186,7 +192,7 @@ def test_push_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_rerun_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_rerun_pull_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     # queue and complete app 1. it queues a child
     enqueue(app1, job_id1)
     qb.set_state(app1, job_id1, completed=True)
@@ -209,7 +215,7 @@ def test_rerun_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
 
 
 @with_setup
-def test_rerun_manual_task(app1, job_id1):
+def test_rerun_manual_task1(app1, job_id1):
     enqueue(app1, job_id1)
     validate_one_queued_task(app1, job_id1)
 
@@ -292,7 +298,7 @@ def _test_rerun_tasks_when_manually_queuing_child_and_parent(
 
 
 @with_setup
-def test_rerun_push_tasks(app1, app2, job_id1):
+def test_rerun_push_tasks1(app1, app2, job_id1):
     # this tests recursively deleteing parent status on child nodes
 
     # queue and complete app 1. it queues a child
@@ -350,16 +356,20 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
                                     log, tasks_json_tmpfile):
     job_id = depends_on_job_id1
 
-    # mark everything completed
+    # mark everything completed. ensure only last completed parent queues child
     parents = list(api.topological_sort(api.get_parents(depends_on1, job_id)))
-    for parent, pjob_id in parents:
+    for parent, pjob_id in parents[:-1]:
         qb.set_state(parent, pjob_id, completed=True)
-    # --> parents should queue our app
+    validate_zero_queued_task(depends_on1)
+    qb.set_state(parents[-1][0], parents[-1][1], completed=True)
     validate_one_queued_task(depends_on1, job_id)
+    # --> parents should queue our app
+
     consume_queue(depends_on1)
     qb.set_state(depends_on1, job_id, completed=True)
     validate_one_completed_task(depends_on1, job_id)
 
+    # ok great - ran through pipeline once.
     log.warn("OK... Now try complex dependency test with a readd")
     # re-complete the very first parent.
     # we assume that this parent is a root task
@@ -370,7 +380,7 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
     consume_queue(parent)
     qb.set_state(parent, pjob_id, completed=True)
     validate_one_completed_task(parent, pjob_id)
-    # since that parent re-queues children that may be depends_on1's
+    # since the parent that re-queues children that may be depends_on1's
     # parents, complete those too!
     for p2, pjob2 in api.get_children(parent, pjob_id, False):
         if p2 == depends_on1:
@@ -378,14 +388,17 @@ def test_complex_dependencies_readd(depends_on1, depends_on_job_id1,
         consume_queue(p2)
         qb.set_state(p2, pjob2, completed=True)
     # now, that last parent should have queued our application
-    validate_one_queued_task(depends_on1, job_id)
+    validate_n_queued_task(
+        depends_on1, job_id,
+        job_id.replace('testID1', 'testID3'))  # this replace is a hack
+    run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     run_code(log, tasks_json_tmpfile, depends_on1, '--bash_cmd echo 123')
     validate_one_completed_task(depends_on1, job_id)
     # phew!
 
 
 @with_setup
-def test_pull_tasks(app1, app2, job_id1, log, tasks_json_tmpfile):
+def test_pull_tasks1(app1, app2, job_id1, log, tasks_json_tmpfile):
     """
     Parent tasks should be generated and executed before child tasks
     (The Bubble Up and then Bubble Down test)
@@ -492,7 +505,7 @@ def test_retry_failed_task(
 
 
 @with_setup
-def test_valid_if_or(app2, job_id1):
+def test_valid_if_or_1(app2, job_id1):
     """Invalid tasks should be automatically completed.
     This is a valid_if_or test  (aka passes_filter )... bad naming sorry!"""
     job_id = job_id1.replace('profile', 'content')
@@ -535,13 +548,31 @@ def test_valid_if_or_func3(app3, job_id1, job_id2, job_id3):
 
 
 @with_setup
-def test_valid_task(app2, job_id1):
+def test_skipped_parent_and_queued_child(app1, app2, app3, app4, job_id1,
+                                         log, tasks_json_tmpfile):
+    qb.set_state(app1, job_id1, skipped=True)
+    qb.set_state(app3, job_id1, skipped=True)
+    qb.set_state(app2, job_id1, skipped=True)
+    enqueue(app4, job_id1)
+    validate_zero_queued_task(app2)
+    validate_one_queued_task(app4, job_id1)
+    # ensure child unqueues itself and raises warning
+    out, err = run_code(log, tasks_json_tmpfile, app4, capture=True)
+    nose.tools.assert_in(
+        "parent_job_id is marked as 'skipped', so should be impossible for me,"
+        " the child, to exist", err)
+    validate_zero_queued_task(app4)
+    validate_zero_queued_task(app2)
+
+
+@with_setup
+def test_valid_task1(app2, job_id1):
     """Valid tasks should be automatically completed"""
     enqueue(app2, job_id1, validate_queued=True)
 
 
 @with_setup
-def test_bash(bash1, job_id1, log, tasks_json_tmpfile):
+def test_bash1(bash1, job_id1, log, tasks_json_tmpfile):
     """a bash task should execute properly """
     # queue task
     enqueue(bash1, job_id1)
@@ -595,6 +626,8 @@ def test_child_running_while_parent_pending_but_not_executing(
     # child should promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, True)
     nose.tools.assert_is_instance(parent_lock, qb.BaseLock)
+    # cleanup
+    parent_lock.release()
 
 
 @with_setup
@@ -612,6 +645,8 @@ def test_child_running_while_parent_pending_and_executing(
     # child should not promise to remove itself from queue
     nose.tools.assert_equal(consume_queue, False)
     nose.tools.assert_is_none(parent_lock)
+    # cleanup
+    lock.release()
 
 
 @with_setup
@@ -630,11 +665,14 @@ def test_race_condition_when_parent_queues_child(
     # should not complete child.  should de-queue child
     # should not queue parent.
     # should exit gracefully
+    # stays in the queue (forever) until parent state is completed
     run_code(log, tasks_json_tmpfile, app2)
     validate_zero_queued_task(app1)
     validate_one_queued_task(app2, job_id1)
 
-    qb.set_state(app1, job_id1, completed=True)
+    qb.set_state(
+        app1, job_id1, completed=True,
+        _disable_maybe_queue_children_for_testing_only=True)
     lock.release()
     validate_one_completed_task(app1, job_id1)
     validate_one_queued_task(app2, job_id1)
@@ -656,7 +694,7 @@ def test_run_multiple_given_specific_job_id(
         extra_opts='--job_id %s --timeout 1 --bash_cmd sleep 2' % job_id1,
         async=True)
     # one of them should fail.  both should run asynchronously
-    err = p.communicate()[1] + p2.communicate()[1]
+    err = (p.communicate()[1] + p2.communicate()[1]).decode('utf8')
     statuses = [p.poll(), p2.poll()]
     # one job succeeds.  one job fails
     nose.tools.assert_regexp_matches(err, 'successfully completed job')

@@ -6,7 +6,7 @@ from . import with_setup
 
 
 @with_setup
-def test_create_exists(qbcli, app1, item1):
+def test_create_exists1(qbcli, app1, item1):
     nt.assert_false(qbcli.exists(app1))
 
     qbcli.create(app1, item1)
@@ -26,7 +26,7 @@ def test_create_exists2(qbcli, app1, item1):
 
 
 @with_setup
-def test_create_get(qbcli, app1, app2, item1, item2):
+def test_create_get1(qbcli, app1, app2, item1, item2):
     qbcli.create(app1, item1)
     nt.assert_equal(qbcli.get(app1), item1)
 
@@ -50,7 +50,7 @@ def test_create_get_case_sensitive(qbcli, app1, item1, item2):
 
 
 @with_setup
-def test_set(qbcli, app1, item1, item2):
+def test_set1(qbcli, app1, item1, item2):
     qbcli.create(app1, item1)
     nt.assert_equal(qbcli.get(app1), item1)
 
@@ -65,7 +65,7 @@ def test_set(qbcli, app1, item1, item2):
 
 
 @with_setup
-def test_exists(qbcli, app1, app2, app3, item1):
+def test_exists1(qbcli, app1, app2, app3, item1):
     nt.assert_false(qbcli.exists(app1))
 
     qbcli.create(app2, item1)
@@ -76,7 +76,7 @@ def test_exists(qbcli, app1, app2, app3, item1):
 
 
 @with_setup
-def test_delete(qbcli, app1, app2):
+def test_delete1(qbcli, app1, app2):
     # del non-existent node
     nt.assert_false(qbcli.exists(app1))
     nt.assert_false(qbcli.delete(app1))
@@ -101,7 +101,7 @@ def test_delete_recursive(qbcli, app1, app2, item1):
 
 
 @with_setup
-def test_Lock(qbcli, app1):
+def test_Lock1(qbcli, app1):
     lock = qbcli.Lock(app1)
     nt.assert_false(qbcli.exists(app1))
 
@@ -134,6 +134,8 @@ def test_Lock_is_locked(qbcli, app1, app2):
     l2 = qbcli.Lock(app1)
     nt.assert_true(l2.is_locked())
     nt.assert_false(l2.acquire())
+    # cleanup
+    l.release()
 
 
 @with_setup
@@ -143,6 +145,9 @@ def test_Lock_paths(qbcli, app1, app2):
     lock2 = qbcli.Lock(app2)
     nt.assert_true(lock1.acquire())
     nt.assert_true(lock2.acquire())
+    # cleanup
+    lock1.release()
+    lock2.release()
 
 
 @with_setup
@@ -155,6 +160,9 @@ def test_LockingQueue_put_paths(qbcli, app1, app2, item1, item2):
     queue2.put(item2)
     nt.assert_equal(queue2.get(), item2)
     nt.assert_equal(queue.get(), item1)
+    # cleanup
+    queue.consume()
+    queue2.consume()
 
 
 @with_setup
@@ -187,6 +195,10 @@ def test_LockingQueue_put_get(qbcli, app1, item1, item2):
     nt.assert_equal(queue2.get(), item2)
     nt.assert_equal(queue.get(), item1)  # ensure not somehow mutable or linked
 
+    # cleanup
+    queue.consume()
+    queue2.consume()
+
 
 @with_setup
 def test_LockingQueue_put_priority(
@@ -215,6 +227,7 @@ def test_LockingQueue_put_priority(
     nt.assert_equal(queue3.get(), item5)
     queue3.consume()
     nt.assert_equal(queue2.get(), item6)
+    queue2.consume()
 
 
 @with_setup
@@ -281,6 +294,8 @@ def test_LockingQueue_size(qbcli, app1, item1, item2):
     nt.assert_equal(queue.size(queued=False), 1)
     nt.assert_equal(queue.size(taken=False, queued=True), 2)
     nt.assert_equal(queue.size(taken=False), 2)
+    # cleanup
+    queue.consume()
 
 
 @with_setup

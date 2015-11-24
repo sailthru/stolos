@@ -76,7 +76,8 @@ def _load_backend(known_backends, backend_type):
         except Exception as err:
             log.error(
                 "Could not load %s backend. err: %s" % (backend_type, err),
-                extra={'%s_backend' % backend_type: _backend})
+                extra={'%s_backend' % backend_type: _backend,
+                       'err_kls': type(err)})
             raise
         return backend
     return _load_backend_decorator

@@ -13,7 +13,7 @@ def main(ns):
             else:
                 rv = api.maybe_add_subtask(app_name, job_id)
                 if not rv:
-                    log.warn("Did not add subtask")
+                    log.warn("Did not add subtask: %s %s" % (app_name, job_id))
 
 
 build_arg_parser = at.build_arg_parser([

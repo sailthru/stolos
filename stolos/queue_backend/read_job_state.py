@@ -1,3 +1,4 @@
+import six
 from stolos import exceptions
 
 from . import shared
@@ -49,7 +50,7 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
                   ignore the (pending, completed, xor failed) choice
     """
     qbcli = shared.get_qbclient()
-    if isinstance(job_id, (str, unicode)):
+    if isinstance(job_id, six.string_types):
         job_ids = [job_id]
         rvaslist = False
     else:

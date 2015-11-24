@@ -50,6 +50,7 @@ from .node import (
     create_job_id,
     parse_job_id,
     passes_filter,
+    get_autofill_values,
     get_job_id_template,
     get_job_type,
     get_task_names,
@@ -62,5 +63,6 @@ from .traversal import (
 )
 build_dag, visualize_dag
 create_job_id, parse_job_id, passes_filter, get_job_id_template, get_job_type,
-get_task_names
+get_autofill_values,
+get_task_names,
 get_parents, get_children, topological_sort

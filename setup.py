@@ -8,7 +8,7 @@ except ImportError:
 
 setup(
     name='stolos',
-    version='1.1.1.dev0',
+    version='2.0.2.dev0',
     description=(
         'A DAG-based job queueing system and executor for performing work'
         ' with complex dependency requirements between applications'),
@@ -36,11 +36,12 @@ setup(
         'kazoo>=1.3.1',
         'networkx>=1.8.1',
         'simplejson>=3.4.1',
+        'six>=1.10.0'
     ],
 
     extras_require={
         'pyspark': ['pyspark'],
-        'redis': ['redis', 'hiredis', 'majorityredis'],
+        'redis': ['redis', 'hiredis'],
         'testing': ['nose>=1.3.3', 'pep8>=1.5.6', 'pyflakes>=0.8.1'],
         'ui': ['pygraphviz>=1.2'],
     },

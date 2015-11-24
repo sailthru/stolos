@@ -7,11 +7,16 @@ from stolos import testing_tools as tt
 from stolos import queue_backend as qb
 from stolos.exceptions import JobAlreadyQueued, InvalidJobId, NoNodeError
 from stolos.configuration_backend import TasksConfigBaseMapping
-nt.assert_equal.im_class.maxDiff = None
+# nt.assert_equal.im_class.maxDiff = None
+
+try:
+    nt.assert_count_equal = nt.assert_items_equal
+except:
+    pass  # python 3 vs 2 compatibility
 
 
 @tt.with_setup
-def test_check_state(app1, job_id1, job_id2):
+def test_check_state1(app1, job_id1, job_id2):
 
     nt.assert_false(api.check_state(app1, 'doesnotexist', pending=True))
     with nt.assert_raises(NoNodeError):
@@ -20,7 +25,7 @@ def test_check_state(app1, job_id1, job_id2):
     qb.set_state(app1, job_id1, pending=True)
     # also: create an invalid state (one that stolos does not recognize)
     api.get_qbclient().create(
-        qb.get_job_path(app1, job_id2), None)
+        qb.get_job_path(app1, job_id2), '')
 
     with nt.assert_raises(UserWarning):
         api.check_state(app1, job_id1)
@@ -64,8 +69,8 @@ def test_get_qsize(app1, job_id1, job_id2):
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=False, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=False))
-    q.consume()
     q.put(itm)
+    q.consume()
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(0, api.get_qsize(app1, queued=False, taken=True))
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=False))
@@ -126,7 +131,7 @@ def test_get_qbclient(app1):
 def test_get_tasks_config():
     tc = api.get_tasks_config()
     nt.assert_is_instance(tc, TasksConfigBaseMapping)
-    nt.assert_items_equal(
+    nt.assert_count_equal(
         tc,
         ['test_stolos/test_get_tasks_config/depends_on2',
          'test_stolos/test_get_tasks_config/custom_job_id1',
@@ -138,7 +143,23 @@ def test_get_tasks_config():
          'test_stolos/test_get_tasks_config/app3',
          'test_stolos/test_get_tasks_config/app1',
          'test_stolos/test_get_tasks_config/bash1',
-         'test_stolos/test_get_tasks_config/app4'])
+         'test_stolos/test_get_tasks_config/app4',
+         'test_stolos/test_get_tasks_config/valid1',
+         'test_stolos/test_get_tasks_config/valid2',
+         'test_stolos/test_get_tasks_config/valid3',
+         'test_stolos/test_get_tasks_config/valid3b',
+         'test_stolos/test_get_tasks_config/valid4',
+         'test_stolos/test_get_tasks_config/all_test1',
+         'test_stolos/test_get_tasks_config/all_test2',
+         'test_stolos/test_get_tasks_config/all_test3',
+         'test_stolos/test_get_tasks_config/all_test4',
+         'test_stolos/test_get_tasks_config/all_test4b',
+         'test_stolos/test_get_tasks_config/all_test5',
+         'test_stolos/test_get_tasks_config/autofill1',
+         'test_stolos/test_get_tasks_config/autofill2',
+         'test_stolos/test_get_tasks_config/autofill3',
+         'test_stolos/test_get_tasks_config/autofill_getparents',
+         ])
 
 
 @tt.with_setup
@@ -146,7 +167,7 @@ def test_build_dag():
     dag = api.build_dag()
     nt.assert_is_instance(dag, MultiDiGraph)
     tc = api.get_tasks_config()
-    nt.assert_items_equal(tc.keys(), dag.node.keys())
+    nt.assert_count_equal(tc.keys(), dag.node.keys())
 
 
 @tt.with_setup

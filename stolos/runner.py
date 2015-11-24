@@ -92,7 +92,7 @@ def parents_completed(app_name, job_id, q, lock):
     if parents_completed is False:
         if consume_queue:
             q.consume()
-            parent_lock.release()
+            parent_lock is not None and parent_lock.release()
         else:
             _send_to_back_of_queue(
                 q=q, app_name=app_name, job_id=job_id)

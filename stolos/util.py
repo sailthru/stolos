@@ -141,12 +141,11 @@ def pre_condition(validation_func):
     def __decorator(func):
         @functools.wraps(func)
         def _decorator(*args, **kwargs):
-            kws2 = dict(zip(func.func_code.co_varnames, args))
+            kws2 = dict(zip(inspect.getargspec(func).args, args))
             kws2.update(kwargs)
-            nargs = validation_func.func_code.co_argcount
+            vf = inspect.getargspec(validation_func)
             validation_args = (
-                kws2[k] for k in validation_func.func_code.co_varnames[:nargs]
-                if k in kws2)
+                kws2[k] for k in vf.args if k in kws2)
             assert validation_func(*validation_args), (
                 "validation_func %s did not return True"
                 % validation_func.__name__)
@@ -206,7 +205,6 @@ def lazy_set_default(dct, key, lazy_val_func, *args, **kwargs):
     return val
 
 
-@cached
 def load_obj_from_path(import_path, ld=dict()):
     """
     import a python object from an import path like:
@@ -243,3 +241,20 @@ def load_obj_from_path(import_path, ld=dict()):
             extra=dict(import_path=import_path, obj_name=obj_name, **ld),
             exception_kls=ImportWarning)
     return obj
+
+
+def tobytes(value):
+    """implicitly try to convert values to byte strings
+    mainly for python 2 and 3 compatibility"""
+    if not isinstance(value, bytes):
+        value = value.encode('utf8')
+    return value
+
+
+def frombytes(value):
+    """implicitly try to convert bytes to utf8
+    mainly for python 2 and 3 compatibility
+    """
+    if value is None:
+        return value
+    return value.decode('utf8')

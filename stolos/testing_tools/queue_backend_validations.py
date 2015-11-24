@@ -64,7 +64,7 @@ def validate_one_failed_task(app_name, job_id):
     nt.assert_false(status['is_add_locked'])
     nt.assert_false(status['in_queue'])
     # nt.assert_equal(status['app_qsize'], 1)
-    nt.assert_equal(status['state'], 'failed')
+    nt.assert_equal(status['state'], qb.shared.FAILED)
 
 
 def validate_one_queued_executing_task(app_name, job_id):
@@ -73,7 +73,7 @@ def validate_one_queued_executing_task(app_name, job_id):
     nt.assert_false(status['is_add_locked'])
     nt.assert_true(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 1)
-    nt.assert_equal(status['state'], 'pending')
+    nt.assert_equal(status['state'], qb.shared.PENDING)
 
 
 def validate_one_queued_task(app_name, job_id):
@@ -86,7 +86,7 @@ def validate_one_completed_task(app_name, job_id):
     nt.assert_false(status['is_add_locked'])
     nt.assert_false(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 0)
-    nt.assert_equal(status['state'], 'completed')
+    nt.assert_equal(status['state'], qb.shared.COMPLETED)
 
 
 def validate_one_skipped_task(app_name, job_id):
@@ -95,7 +95,7 @@ def validate_one_skipped_task(app_name, job_id):
     nt.assert_false(status['is_add_locked'])
     nt.assert_false(status['in_queue'])
     nt.assert_equal(status['app_qsize'], 0)
-    nt.assert_equal(status['state'], 'skipped')
+    nt.assert_equal(status['state'], qb.shared.SKIPPED)
 
 
 def validate_n_queued_task(app_name, *job_ids):
@@ -105,4 +105,4 @@ def validate_n_queued_task(app_name, *job_ids):
         nt.assert_false(status['is_add_locked'], job_id)
         nt.assert_true(status['in_queue'], job_id)
         nt.assert_equal(status['app_qsize'], len(job_ids), job_id)
-        nt.assert_equal(status['state'], 'pending', job_id)
+        nt.assert_equal(status['state'], qb.shared.PENDING, job_id)
