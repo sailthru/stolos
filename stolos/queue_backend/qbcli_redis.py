@@ -181,6 +181,7 @@ return 1
 local h_k = redis.call("ZRANGE", KEYS[1], 0, 0)[1]
 if nil == h_k then return {err="queue empty"} end
 if false == redis.call("SET", h_k, ARGV[1], "NX") then
+redis.call("ZINCRBY", KEYS[1], 5, h_k)
 return {err="already locked"} end
 if 1 ~= redis.call("EXPIREAT", h_k, ARGV[2]) then
 return {err="invalid expireat"} end
