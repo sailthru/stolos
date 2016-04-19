@@ -65,6 +65,7 @@ class BaseStolosRedis(object):
 
         self._lock_timeout = get_NS().qb_redis_lock_timeout
         self._max_network_delay = get_NS().qb_redis_max_network_delay
+        self._key_ttl = get_NS().qb_redis_key_ttl
 
         if not BaseStolosRedis._BASE_INITIALIZED:
             BaseStolosRedis._BASE_INITIALIZED = True
@@ -205,11 +206,9 @@ else return {err="lock stolen"} end
 
         # returns 1 if removed, 0 if key was already removed.
         lq_consume=dict(
-            keys=('h_k', 'Q', 'Qi'), args=('client_id', ), script="""
+            keys=('h_k', 'Q', 'Qi'), args=('client_id', 'expireat'), script="""
 local rv = redis.pcall("GET", KEYS[1])
 if ARGV[1] == rv or "completed" == rv then
-redis.call("SET", KEYS[1], "completed")
-redis.call("PERSIST", KEYS[1])  -- or EXPIRE far into the future...
 redis.call("DEL", KEYS[1])
 redis.call("ZREM", KEYS[2], KEYS[1])
 if "completed" ~= rv then redis.call("INCR", KEYS[3]) end
@@ -290,7 +289,8 @@ else return {false, false ~= redis.call("ZSCORE", KEYS[1], KEYS[2]), false} end
         rv = raw_client().evalsha(
             self._SHAS['lq_consume'],
             len(self.SCRIPTS['lq_consume']['keys']),
-            self._h_k, self._path, self._q_lookup, self._client_id)
+            self._h_k, self._path, self._q_lookup, self._client_id,
+            self._key_ttl)
         assert rv == 1
 
         self._h_k = None
@@ -508,7 +508,8 @@ def set(path, value):
     """
     if value == '':
         value = '--STOLOSEMPTYSTRING--'
-    rv = raw_client().set(path, value, xx=True)
+    NS = get_NS()
+    rv = raw_client().set(path, value, xx=True, ex=NS.qb_redis_key_ttl)
     if not rv:
         raise stolos.exceptions.NoNodeError("Could not set path: %s" % path)
 
@@ -519,7 +520,8 @@ def create(path, value):
     """
     if value == '':
         value = '--STOLOSEMPTYSTRING--'
-    rv = raw_client().set(path, value, nx=True)
+    NS = get_NS()
+    rv = raw_client().set(path, value, nx=True, ex=NS.qb_redis_key_ttl)
     if not rv:
         raise stolos.exceptions.NodeExistsError(
             "Could not create path: %s" % path)
@@ -530,7 +532,10 @@ def increment(path, value=1):
     Return the incremented count as an int
     """
     rc = raw_client()
-    return rc.incrby(path, value)
+    rv = rc.incrby(path, value)
+    NS = get_NS()
+    rc.expire(path, NS.qb_redis_key_ttl)
+    return rv
 
 
 build_arg_parser = at.build_arg_parser([
@@ -541,6 +546,10 @@ build_arg_parser = at.build_arg_parser([
     at.add_argument('--qb_redis_db', default=0, type=int),
     at.add_argument('--qb_redis_lock_timeout', default=60, type=int),
     at.add_argument('--qb_redis_max_network_delay', default=30, type=int),
+    at.add_argument(
+        '--qb_redis_key_ttl', default=345600, type=int, help=(
+            "number of seconds for keys set in redis to live"
+            "default is 4 days")),
     at.add_argument(
         '--qb_redis_socket_timeout', default='15', type=float, help=(
             "number of seconds that the redis client will spend waiting for a"
