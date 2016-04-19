@@ -183,17 +183,15 @@ def test_LockingQueue_put_get(qbcli, app1, item1, item2):
     nt.assert_equal(queue.size(), 0)
     queue.put(item1)
     queue.put(item2)
-    queue.put(item1)
-    nt.assert_equal(queue.size(), 3)
+    nt.assert_equal(queue.size(), 2)
 
     nt.assert_equal(queue.get(0), item1)
     nt.assert_equal(queue.get(), item1)
 
     # Multiple LockingQueue instances can address the same path
     queue2 = qbcli.LockingQueue(app1)
-    nt.assert_equal(queue2.size(), 3)
+    nt.assert_equal(queue2.size(), 2)
     nt.assert_equal(queue2.get(), item2)
-    nt.assert_equal(queue.get(), item1)  # ensure not somehow mutable or linked
 
     # cleanup
     queue.consume()
@@ -284,16 +282,15 @@ def test_LockingQueue_size(qbcli, app1, item1, item2):
     queue.put(item1)
     nt.assert_equal(queue.size(), 1)
     queue.put(item2)
-    queue.put(item1)
-    nt.assert_equal(queue.size(), 3)
-    nt.assert_equal(queue.size(taken=True, queued=True), 3)
+    nt.assert_equal(queue.size(), 2)
+    nt.assert_equal(queue.size(taken=True, queued=True), 2)
 
     # test various parameters of queue.size
     nt.assert_equal(queue.get(), item1)
     nt.assert_equal(queue.size(taken=True, queued=False), 1)
     nt.assert_equal(queue.size(queued=False), 1)
-    nt.assert_equal(queue.size(taken=False, queued=True), 2)
-    nt.assert_equal(queue.size(taken=False), 2)
+    nt.assert_equal(queue.size(taken=False, queued=True), 1)
+    nt.assert_equal(queue.size(taken=False), 1)
     # cleanup
     queue.consume()
 

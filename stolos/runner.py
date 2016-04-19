@@ -183,8 +183,8 @@ def _send_to_back_of_queue(q, app_name, job_id):
     # this exists so un-runnable tasks don't hog the front of the queue
     # and soak up resources
     try:
-        qb.readd_subtask(app_name, job_id, _force=True)
         q.consume()
+        qb.readd_subtask(app_name, job_id, _force=True)
         log.info(
             "Job sent to back of queue",
             extra=dict(app_name=app_name, job_id=job_id))

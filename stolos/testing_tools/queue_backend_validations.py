@@ -20,8 +20,8 @@ def cycle_queue(app_name):
     """Get item from queue, put at back of queue and return item"""
     q = api.get_qbclient().LockingQueue(app_name)
     item = q.get()
-    q.put(item)
     q.consume()
+    q.put(item)
     return item
 
 

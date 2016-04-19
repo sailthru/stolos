@@ -160,7 +160,7 @@ class LockingQueue(BaseStolosRedis, BaseLockingQueue):
     _EXTEND_LOCK_SCRIPT_NAME = 'lq_extend_lock'
     # Lua scripts that are sent to redis
     # keys:
-    # h_k = ordered hash of key in form:  priority:insert_time_since_epoch:key
+    # h_k = ordered hash of key in form: queue_name:key
     # Q = sorted set of queued keys, h_k
     # Qi = sorted mapping (h_k -> key) for all known queued or completed items
     #
@@ -171,8 +171,8 @@ class LockingQueue(BaseStolosRedis, BaseLockingQueue):
     SCRIPTS = dict(
 
         # returns 1
-        lq_put=dict(keys=('Q', 'h_k'), args=(), script="""
-redis.call("ZINCRBY", KEYS[1], 0, KEYS[2])
+        lq_put=dict(keys=('Q', 'h_k'), args=('score'), script="""
+redis.call("ZINCRBY", KEYS[1], ARGV[1], KEYS[2])
 return 1
 """),
 
@@ -187,36 +187,6 @@ if 1 ~= redis.call("EXPIREAT", h_k, ARGV[2]) then
 return {err="invalid expireat"} end
 redis.call("ZINCRBY", KEYS[1], 1, h_k)
 return h_k
-"""),
-
-        # returns 1 if got lock. Returns an error otherwise
-        lq_lock=dict(
-            keys=('h_k', 'Q'), args=('expireat', 'randint', 'client_id'),
-            script="""
-if false == redis.call("SET", KEYS[1], ARGV[3], "NX") then  -- did not get lock
-local rv = redis.call("GET", KEYS[1])
-if rv == "completed" then
-    redis.call("ZREM", KEYS[2], KEYS[1])
-    return {err="already completed"}
-elseif rv == ARGV[3] then
-    if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
-    return {err="invalid expireat"} end
-    return 1
-else
-    local score = tonumber(redis.call("ZSCORE", KEYS[2], KEYS[1]))
-    math.randomseed(tonumber(ARGV[2]))
-    local num = math.random(math.floor(score) + 1)
-    if num ~= 1 then
-    redis.call("ZINCRBY", KEYS[2], (num-1)/score, KEYS[1])
-    end
-    return {err="already locked"}
-end
-else
-if 1 ~= redis.call("EXPIREAT", KEYS[1], ARGV[1]) then
-    return {err="invalid expireat"} end
-redis.call("ZINCRBY", KEYS[2], 1, KEYS[1])
-return 1
-end
 """),
 
         # return 1 if extended lock.  Returns an error otherwise.
@@ -240,28 +210,10 @@ local rv = redis.pcall("GET", KEYS[1])
 if ARGV[1] == rv or "completed" == rv then
 redis.call("SET", KEYS[1], "completed")
 redis.call("PERSIST", KEYS[1])  -- or EXPIRE far into the future...
+redis.call("DEL", KEYS[1])
 redis.call("ZREM", KEYS[2], KEYS[1])
 if "completed" ~= rv then redis.call("INCR", KEYS[3]) end
 return 1
-else return 0 end
-"""),
-
-        # returns nil.  markes job completed
-        lq_completed=dict(
-            keys=('h_k', 'Q', 'Qi'), args=(), script="""
-if "completed" ~= redis.call("GET", KEYS[1]) then
-redis.call("INCR", KEYS[3])
-redis.call("SET", KEYS[1], "completed")
-redis.call("PERSIST", KEYS[1])  -- or EXPIRE far into the future...
-redis.call("ZREM", KEYS[2], KEYS[1])
-end
-"""),
-
-        # returns 1 if removed, 0 otherwise
-        lq_unlock=dict(
-            keys=('h_k', ), args=('client_id', ), script="""
-if ARGV[1] == redis.call("GET", KEYS[1]) then
-    return redis.call("DEL", KEYS[1])
 else return 0 end
 """),
 
@@ -299,23 +251,6 @@ elseif taken then return {true, false, false}
 else return {false, false ~= redis.call("ZSCORE", KEYS[1], KEYS[2]), false} end
 """),
 
-        # returns whether an item is in queue or currently being processed.
-        # raises an error if already completed.
-        # O(N * strlen(item)) -- eek!
-        lq_is_queued_item=dict(
-            keys=('Q', 'item'), args=(), script="""
-for _,k in ipairs(redis.call("ZRANGE", KEYS[1], 0, -1)) do
-if string.sub(k, -string.len(KEYS[2])) == KEYS[2] then
-    local taken = redis.call("GET", k)
-    if taken then
-    if "completed" == taken then return {false, false, true} end
-    return {true, false, false}
-    else
-    return {false, true, false} end
-end
-end
-return {false, false, false}
-"""),
     )
 
     def __init__(self, path):
@@ -335,12 +270,12 @@ return {false, false, false}
         Rank items by priority.  Get low priority items before high priority
         """
         # format into hashed key
-        h_k = "%d:%f:%s" % (priority, time.time(), value)
-
+        h_k = "prefix_%s:%s" % (self._path, value)
+        score = priority + (time.time() / 100000000)
         rv = raw_client().evalsha(
             self._SHAS['lq_put'],
             len(self.SCRIPTS['lq_put']['keys']),
-            self._path, h_k)
+            self._path, h_k, score)
         assert rv == 1
 
     def consume(self):
@@ -379,7 +314,7 @@ return {false, false, false}
                     raise err
 
         if self._h_k:
-            priority, insert_time, item = self._h_k.decode().split(':', 2)
+            _, item = self._h_k.decode().split(':', 1)
             self._item = item
             self.LOCKS[self._h_k] = self._client_id
             return self._item
@@ -424,17 +359,13 @@ return {false, false, false}
 
         Redis will not like this operation.  Use sparingly with large queues.
         """
-        if value == self._item:
-            taken, queued, completed = raw_client().evalsha(
-                self._SHAS['lq_is_queued_h_k'],
-                len(self.SCRIPTS['lq_is_queued_h_k']['keys']),
-                self._path, self._h_k)
-        else:
-            taken, queued, completed = raw_client().evalsha(
-                self._SHAS['lq_is_queued_item'],
-                len(self.SCRIPTS['lq_is_queued_item']['keys']),
-                self._path, value)
-        return taken or queued
+        h_k = "prefix_%s:%s" % (self._path, value)
+        taken, queued, completed = raw_client().evalsha(
+            self._SHAS['lq_is_queued_h_k'],
+            len(self.SCRIPTS['lq_is_queued_h_k']['keys']),
+            self._path, h_k)
+        log.warn("Taken is %s, Queued is %s" % (taken, queued))
+        return bool(taken) or bool(queued)
 
 
 def _raise_err(x, y):

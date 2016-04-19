@@ -69,11 +69,10 @@ def test_get_qsize(app1, job_id1, job_id2):
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=False, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=False))
-    q.put(itm)
     q.consume()
-    nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
+    nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(0, api.get_qsize(app1, queued=False, taken=True))
-    nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=False))
+    nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=False))
 
 
 @tt.with_setup
