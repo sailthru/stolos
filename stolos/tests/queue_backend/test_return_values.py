@@ -199,36 +199,6 @@ def test_LockingQueue_put_get(qbcli, app1, item1, item2):
 
 
 @with_setup
-def test_LockingQueue_put_priority(
-        qbcli, app1, item1, item2, item3, item4, item5, item6):
-    nt.assert_false(qbcli.exists(app1))
-    queue = qbcli.LockingQueue(app1)
-    queue2 = qbcli.LockingQueue(app1)
-
-    queue.put(item2, 50)
-    queue.put(item3, 60)
-    queue.put(item5, 70)
-    queue.put(item4, 40)
-    queue2.put(item1, 20)
-    queue2.put(item6, 80)
-
-    # get in prioritized order, from different LockingQueue objects
-    queue3 = qbcli.LockingQueue(app1)
-    nt.assert_equal(queue.get(), item1)
-    nt.assert_equal(queue2.get(), item4)
-    queue.consume()
-    nt.assert_equal(queue.get(), item2)
-    queue.consume()
-    nt.assert_equal(queue.get(), item3)
-    queue.consume()
-    queue2.consume()
-    nt.assert_equal(queue3.get(), item5)
-    queue3.consume()
-    nt.assert_equal(queue2.get(), item6)
-    queue2.consume()
-
-
-@with_setup
 def test_LockingQueue_put_insertion_order(
         qbcli, app1, item1, item2, item3):
     # insertion order matters, too

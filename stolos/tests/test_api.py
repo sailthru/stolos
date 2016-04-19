@@ -65,7 +65,7 @@ def test_get_qsize(app1, job_id1, job_id2):
     tt.enqueue(app1, job_id1, )
     tt.enqueue(app1, job_id2, validate_queued=False)
     q = api.get_qbclient().LockingQueue(app1)
-    itm = q.get()
+    q.get()
     nt.assert_equal(2, api.get_qsize(app1, queued=True, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=False, taken=True))
     nt.assert_equal(1, api.get_qsize(app1, queued=True, taken=False))
