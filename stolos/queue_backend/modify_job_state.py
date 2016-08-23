@@ -51,14 +51,7 @@ def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     qbcli = shared.get_qbclient()
     if qbcli.exists(shared.get_job_path(app_name, job_id)):
         return False
-    # get a lock so we guarantee this task isn't being added twice concurrently
-    lock = obtain_add_lock(app_name, job_id, blocking=False, safe=False)
-    if not lock:
-        return False
-    try:
-        _queue(app_name, job_id, queue=queue, priority=priority)
-    finally:
-        lock.release()
+    _queue(app_name, job_id, queue=queue, priority=priority)
     return True
 
 
