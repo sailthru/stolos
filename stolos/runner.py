@@ -2,7 +2,7 @@
 This code fetches jobs from the queue, decides whether to run jobs, and then
 runs them or manipulates its own and parent/child queues
 """
-import importlib
+import importlib, time
 
 from stolos import argparse_shared as at
 from stolos import log
@@ -69,6 +69,7 @@ def main(ns):
 
     log.info(
         "Job starting!", extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+    start_time = time.time()
     try:
         ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
@@ -83,7 +84,9 @@ def main(ns):
                 app_name=ns.app_name, job_id=ns.job_id, failed=True))
         return
     _handle_success(ns, q, lock)
-
+    elapsed_time = time.time()-start_time
+    log.info(("Job ran successfully and took %s seconds") % elapsed_time,
+              extra=dict(app_name=app_name, job_id=job_id))
 
 def parents_completed(app_name, job_id, q, lock):
     """Ensure parents are completed and if they aren't, return False"""
