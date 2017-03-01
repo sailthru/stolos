@@ -86,7 +86,7 @@ def main(ns):
     _handle_success(ns, q, lock)
     elapsed_time = time.time()-start_time
     log.info(("Job ran successfully and took %s seconds") % elapsed_time,
-              extra=dict(app_name=app_name, job_id=job_id))
+              extra=dict(app_name=ns.app_name, job_id=ns.job_id))
 
 def parents_completed(app_name, job_id, q, lock):
     """Ensure parents are completed and if they aren't, return False"""
