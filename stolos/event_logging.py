@@ -101,10 +101,10 @@ class EventLogger(object):
         self._update_status("SUCCEEDED")
 
     def _update_status(self, status):
-        self.conn = self.engine.connect()
         date = DT.datetime.utcnow()
         date_str = date.isoformat()
         try:
+            self.conn = self.engine.connect()
             stmt = (runs.update().
                     where(runs.c.id == self.job_run_id).
                     values(end_time=date_str, status=status))
