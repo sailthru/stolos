@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import (Table, Column, Integer, String, MetaData, ForeignKey,
                         DateTime, UniqueConstraint, Index)
 from sqlalchemy.sql import select, and_
+from sqlalchemy.pool import NullPool
 
 from stolos import dag_tools as dt
 from sqlalchemy.exc import DBAPIError
@@ -46,10 +47,12 @@ class EventLogger(object):
         self.job_id = job_id
         self.attempt = attempt
         try:
-            self.engine = create_engine(db_connect_str, echo=True)
+            self.engine = create_engine(db_connect_str, echo=False,
+                                        poolclass=NullPool)
             self.conn = self.engine.connect()
             metadata.create_all(self.engine)
             self._insert_job_def()
+            self.conn.close()
         except DBAPIError as e:
             log.warn("Database error occured: %s", e)
 
@@ -98,6 +101,7 @@ class EventLogger(object):
         self._update_status("SUCCEEDED")
 
     def _update_status(self, status):
+        self.conn = self.engine.connect()
         date = DT.datetime.utcnow()
         date_str = date.isoformat()
         try:
