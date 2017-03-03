@@ -2,7 +2,8 @@
 This code fetches jobs from the queue, decides whether to run jobs, and then
 runs them or manipulates its own and parent/child queues
 """
-import importlib, time
+import importlib
+import time
 
 from stolos import argparse_shared as at
 from stolos import log
@@ -10,6 +11,7 @@ from stolos import dag_tools as dt, exceptions
 from stolos import queue_backend as qb
 from stolos import configuration_backend as cb
 from stolos.initializer import initialize
+from stolos.event_logging import EventLogger
 
 
 def main(ns):
@@ -66,7 +68,10 @@ def main(ns):
 
     if not parents_completed(ns.app_name, ns.job_id, q=q, lock=lock):
         return
-
+    retry_attempt = qb.get_retry_count(ns.app_name, ns.job_id)
+    if ns.db_connect_str:
+        event_logger = EventLogger(ns.db_connect_str, ns.app_name, ns.job_id,
+                                   retry_attempt)
     log.info(
         "Job starting!", extra=dict(app_name=ns.app_name, job_id=ns.job_id))
     start_time = time.time()
@@ -74,6 +79,8 @@ def main(ns):
         ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
         _handle_failure(ns, q, lock)
+        if ns.db_connect_str:
+            event_logger.job_failed()
         return
     except Exception as err:
         log.exception(
@@ -84,9 +91,12 @@ def main(ns):
                 app_name=ns.app_name, job_id=ns.job_id, failed=True))
         return
     _handle_success(ns, q, lock)
-    elapsed_time = time.time()-start_time
+    elapsed_time = time.time() - start_time
     log.info(("Job ran successfully and took %s seconds") % elapsed_time,
-              extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+             extra=dict(app_name=ns.app_name, job_id=ns.job_id))
+    if ns.db_connect_str:
+        event_logger.job_succeeded()
+
 
 def parents_completed(app_name, job_id, q, lock):
     """Ensure parents are completed and if they aren't, return False"""
@@ -248,6 +258,10 @@ def build_arg_parser_and_parse_args():
             '--job_id', help=(
                 'run a specific job_id. If a job is already queued,'
                 ' it will run twice')),
+        at.add_argument(
+            '--db_connect_str', type=str, default=None,
+            help=('SQL alchemy connection string for database where job status'
+                  'will be saved'))
     )], description=(
         "This script intelligently executes your application's jobs."
         " Specifically, an instance of this script fetches exactly 1 job"

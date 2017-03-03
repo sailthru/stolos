@@ -15,8 +15,8 @@ from .modify_job_state import (
 maybe_add_subtask, readd_subtask, set_state, inc_retry_count,
 ensure_parents_completed, _set_state_unsafe
 
-from .read_job_state import (check_state)
-check_state
+from .read_job_state import (check_state, get_retry_count)
+check_state, get_retry_count
 
 from .locking import (obtain_execute_lock, is_execute_locked)
 obtain_execute_lock, is_execute_locked

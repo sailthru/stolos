@@ -1,4 +1,5 @@
 import six
+from os.path import join
 from stolos import exceptions
 
 from . import shared
@@ -80,3 +81,18 @@ def check_state(app_name, job_id, raise_if_not_exists=False,
         return rv
     else:
         return rv[0]
+
+
+def get_retry_count(app_name, job_id):
+    """Increment the retry count for the given task.  If the retry count is
+    greater than the max allowed number of retries, set the tasks's state
+    to failed.
+    Returns False if task exceeded retry limit and True if the increment was
+    fine
+    """
+    qbcli = shared.get_qbclient()
+    path = join(shared.get_job_path(app_name, job_id), 'retry_count')
+    if not qbcli.exists(path):
+        return 0
+    else:
+        return int(qbcli.get(path))

@@ -36,12 +36,14 @@ setup(
         'kazoo>=1.3.1',
         'networkx>=1.8.1',
         'simplejson>=3.4.1',
+        'sqlalchemy>=1.0.17',
         'six>=1.10.0'
     ],
 
     extras_require={
         'pyspark': ['pyspark'],
         'redis': ['redis', 'hiredis'],
+        'psycopg2': ['psycopg2'],
         'testing': ['nose>=1.3.3', 'pep8>=1.5.6', 'pyflakes>=0.8.1'],
         'ui': ['pygraphviz>=1.2'],
     },
