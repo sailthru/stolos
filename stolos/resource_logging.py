@@ -1,22 +1,18 @@
 from sqlalchemy import create_engine
-from sqlalchemy import (Table, Column, String, Float, MetaData, ForeignKey, DateTime, UniqueConstraint, Index)
-from sqlalchemy.sql import select, and_
+from sqlalchemy import (Table, Column, String, Float, MetaData, DateTime)
 from sqlalchemy.pool import NullPool
-from stolos import dag_tools as dt
-from sqlalchemy.exc import DBAPIError
-from stolos import log
 import os
-import time
 import logging
 import datetime
+import argparse
 import pandas as pd
-
 logger = logging.getLogger('stolos/resources')
 
 def extract_mem_and_cpus(info):
     """
     extract memory and cpus from the string
     mem=DIGITS cpus=DIGITS
+    TO DO: regex to extract mem and cpus
     """
     try:
         info1, info2 = info.split()
@@ -33,7 +29,7 @@ def build_arg_parser():
     parser.add_argument('--db_connect_str', type=str,
                         default='postgresql+psycopg2://stolos:mypassword@postgresql-stolos.cv2la3grv21c.us-east-1.rds.amazonaws.com:5432/postgres',
                         help=('SQL alchemy connection string for database where job status will be saved'))
-    parser.add_argument('--date', default=datetime.now().strftime('%Y%m%d'),
+    parser.add_argument('--date', default=datetime.datetime.now().strftime('%Y%m%d'),
                         help="save in sql server with this date")
     return parser
 
@@ -61,7 +57,9 @@ if __name__ == '__main__':
             memory, cpus = extract_mem_and_cpus(info)
             if memory and cpus:
                 clean.loc[len(clean)+1] = [main_app, main_app +'/' + raw.index[i], memory, cpus]
-    clean['date']=date
+    clean['date'] = date
+    clean['insertTime'] =  datetime.datetime.utcnow().isoformat()
+    logger.info('generated resource table')
     print(clean)
 
     ## save the local table to postgresql
@@ -74,7 +72,8 @@ if __name__ == '__main__':
                      Column('app_name', String),
                      Column('cpus', Float),
                      Column('memory', Float),
-                     Column('date', String))
+                     Column('date', String),
+                     Column('insertTime', DateTime))
 
     ## if resource table doesn't exists, create it:
     if not engine.dialect.has_table(engine, 'config'):
@@ -83,12 +82,16 @@ if __name__ == '__main__':
     ## update the resource table
     for i in range(1, len(clean)+1):
         try:
-            clause = config.insert().values(main_app=clean.main_app[i], app_name=clean.app_name[i],
-                          cpus=clean.cpus[i], memory=clean.memory[i], date=clean.date[i])
+            clause = config.insert().values(main_app=clean.main_app[i],
+                                            app_name=clean.app_name[i],
+                                            cpus=clean.cpus[i],
+                                            memory=clean.memory[i],
+                                            date=clean.date[i],
+                                            insertTime=clean.insertTime[i])
             result = conn.execute(clause)
         except Exception as e:
             error_msg = "failed to update the resource table: %s" % (str(e))
             print(error_msg)
-           # logger.error(error_msg)
+            logger.error(error_msg)
 
     conn.close()
