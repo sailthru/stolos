@@ -11,14 +11,14 @@ from . import shared
 from . import log
 
 
-def _queue(app_name, job_id, queue=True, priority=None):
+def _queue(app_name, job_id, queue=True, priority=None, bypass_job_id_filter=False):
     """ Calling code should obtain a lock first!
     If queue=False, do everything except queue (ie set state)"""
     qbcli = shared.get_qbclient()
     log.info(
         'Creating and queueing new subtask',
         extra=dict(app_name=app_name, job_id=job_id, priority=priority))
-    if dt.passes_filter(app_name, job_id):
+    if bypass_job_id_filter or dt.passes_filter(app_name, job_id):
         # hack: zookeeper doesn't like unicode
         if isinstance(job_id, six.string_types):
             job_id = str(job_id)
@@ -40,7 +40,7 @@ def _queue(app_name, job_id, queue=True, priority=None):
 
 
 @util.pre_condition(dt.parse_job_id)
-def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
+def maybe_add_subtask(app_name, job_id, queue=True, priority=None, bypass_job_id_filter=False):
     """Add a subtask to the queue if it hasn't been added yet.
 
     `queue` (bool, optional) - if False, don't add the subtask to queue
@@ -51,7 +51,7 @@ def maybe_add_subtask(app_name, job_id, queue=True, priority=None):
     qbcli = shared.get_qbclient()
     if qbcli.exists(shared.get_job_path(app_name, job_id)):
         return False
-    _queue(app_name, job_id, queue=queue, priority=priority)
+    _queue(app_name, job_id, queue=queue, priority=priority, bypass_job_id_filter=bypass_job_id_filter)
     return True
 
 
@@ -81,7 +81,7 @@ def _recursively_reset_child_task_state(parent_app_name, job_id, so_far=None):
 
 @util.pre_condition(dt.parse_job_id)
 def readd_subtask(app_name, job_id, _force=False,
-                  _reset_descendants=True, _ignore_if_queued=False):
+                  _reset_descendants=True, _ignore_if_queued=False, bypass_job_id_filter=False):
     """
     Queue a new task if it isn't already in the queue.
 
@@ -119,7 +119,7 @@ def readd_subtask(app_name, job_id, _force=False,
                 app_name, job_id, blocking=False, raise_on_error=True)
     except exceptions.CouldNotObtainLock:
         # call maybe_add_subtask(...) and return
-        added = maybe_add_subtask(app_name, job_id)
+        added = maybe_add_subtask(app_name, job_id, bypass_job_id_filter=bypass_job_id_filter)
         if not added:
             raise exceptions.CodeError(
                 "wtf?  If I can't obtain a lock on a job_id, then I should"
@@ -156,7 +156,7 @@ def readd_subtask(app_name, job_id, _force=False,
             _recursively_reset_child_task_state(app_name, job_id)
 
         if not queued:
-            _queue(app_name, job_id)
+            _queue(app_name, job_id, bypass_job_id_filter=bypass_job_id_filter)
     finally:
         lock.release()
     return True

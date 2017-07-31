@@ -192,12 +192,12 @@ def get_lock_if_job_is_runnable(app_name, job_id):
     return l
 
 
-def _send_to_back_of_queue(q, app_name, job_id):
+def _send_to_back_of_queue(q, app_name, job_id, bypass_job_id_filter=False):
     # this exists so un-runnable tasks don't hog the front of the queue
     # and soak up resources
     try:
         q.consume()
-        qb.readd_subtask(app_name, job_id, _force=True)
+        qb.readd_subtask(app_name, job_id, _force=True, bypass_job_id_filter=bypass_job_id_filter)
         log.info(
             "Job sent to back of queue",
             extra=dict(app_name=app_name, job_id=job_id))
@@ -216,7 +216,7 @@ def _handle_failure(ns, q, lock):
         q.consume()
     else:
         _send_to_back_of_queue(
-            q=q, app_name=ns.app_name, job_id=ns.job_id)
+            q=q, app_name=ns.app_name, job_id=ns.job_id, bypass_job_id_filter=True)
     if lock:
         lock.release()
     log.warn("Job failed", extra=dict(
