@@ -78,9 +78,12 @@ def main(ns):
     try:
         ns.job_type_func(ns=ns)
     except exceptions.CodeError:  # assume error is previously logged
-        _handle_failure(ns, q, lock)
+        exceeded_retry_limit = _handle_failure(ns, q, lock)
         if ns.db_connect_str:
-            event_logger.job_failed()
+            if exceeded_retry_limit:
+                event_logger.job_failed_exceeded_retry_limit()
+            else:
+                event_logger.job_failed()
         return
     except Exception as err:
         log.exception(
@@ -221,6 +224,7 @@ def _handle_failure(ns, q, lock):
         lock.release()
     log.warn("Job failed", extra=dict(
         job_id=ns.job_id, app_name=ns.app_name, failed=True))
+    return exceeded_retry_limit
 
 
 def _handle_success(ns, q, lock):

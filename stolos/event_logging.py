@@ -97,6 +97,9 @@ class EventLogger(object):
     def job_failed(self):
         self._update_status("FAILED")
 
+    def job_failed_exceeded_retry_limit(self):
+        self._update_status("FAILED_ALL")
+
     def job_succeeded(self):
         self._update_status("SUCCEEDED")
 
